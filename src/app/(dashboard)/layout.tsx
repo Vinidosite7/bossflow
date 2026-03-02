@@ -3,36 +3,81 @@
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
 
-  useEffect(() => {
-    async function checkOnboarding() {
+  const checkAuth = useCallback(async () => {
+    try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
 
+      // Tenta refresh da sessão antes de verificar
+      const { error: refreshError } = await supabase.auth.refreshSession()
+      
+      const { data: { user } } = await supabase.auth.getUser()
+
+      // Sem usuário válido → manda pro login
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+
+      // Verifica onboarding
       const { data: profile } = await supabase
         .from('profiles')
         .select('onboarding_done')
         .eq('id', user.id)
         .single()
 
-      // Mostra se não completou ou se ainda não tem registro
       if (!profile || !profile.onboarding_done) {
         setShowOnboarding(true)
       }
+
+      setAuthChecked(true)
+    } catch (err) {
+      console.error('Auth check failed:', err)
+      router.replace('/login')
     }
-    checkOnboarding()
-  }, [])
+  }, [router])
+
+  useEffect(() => {
+    checkAuth()
+
+    // Escuta mudanças de sessão em tempo real
+    const supabase = createClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
+        router.replace('/login')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [checkAuth])
 
   function handleOnboardingComplete() {
     setShowOnboarding(false)
+  }
+
+  // Enquanto não confirmou auth, não renderiza nada (evita flash de conteúdo)
+  if (!authChecked) {
+    return (
+      <div
+        className="flex h-screen items-center justify-center"
+        style={{ background: '#0a0a0f' }}
+      >
+        <div
+          className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: '#7c6ef7', borderTopColor: 'transparent' }}
+        />
+      </div>
+    )
   }
 
   return (

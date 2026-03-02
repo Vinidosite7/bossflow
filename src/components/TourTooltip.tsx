@@ -23,30 +23,58 @@ interface Pos {
 }
 
 export function TourTooltip({ active, step, current, total, onNext, onPrev, onFinish }: Props) {
-  const tooltipRef  = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<Pos | null>(null)
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
+
+  const isLast  = current === total - 1
+  const isFirst = current === 0
 
   useEffect(() => {
     if (!active || !step) return
 
-    function calculate() {
-      const el = document.querySelector(step.target) as HTMLElement | null
-      if (!el) { setPos(null); setTargetRect(null); return }
+    let attempts = 0
+    let cancelled = false
+    let rafId: ReturnType<typeof setTimeout>
 
-      // Scroll elemento pra view
+    async function calculate() {
+      if (cancelled) return
+
+      const el = document.querySelector(step.target) as HTMLElement | null
+
+      if (!el) {
+        if (attempts < 10) {
+          attempts++
+          rafId = setTimeout(calculate, 100)
+        } else {
+          setTargetRect(null)
+          const vw = window.innerWidth
+          const vh = window.innerHeight
+          setPos({
+            top: vh / 2 - 100,
+            left: Math.max(16, vw / 2 - 150),
+            placement: 'bottom',
+            arrowLeft: 150,
+          })
+        }
+        return
+      }
+
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
 
-      const rect     = el.getBoundingClientRect()
-      const vw       = window.innerWidth
-      const vh       = window.innerHeight
-      const TIP_W    = Math.min(300, vw - 32)
-      const TIP_H    = 160
-      const GAP      = 12
+      // Aguarda o scroll terminar antes de medir a posição
+      await new Promise(resolve => setTimeout(resolve, 350))
+      if (cancelled) return
+
+      const rect  = el.getBoundingClientRect()
+      const vw    = window.innerWidth
+      const vh    = window.innerHeight
+      const TIP_W = Math.min(300, vw - 32)
+      const TIP_H = 160
+      const GAP   = 12
 
       setTargetRect(rect)
 
-      // Preferência de posição
       const spaceBelow = vh - rect.bottom
       const spaceAbove = rect.top
       const placement  = spaceBelow >= TIP_H + GAP ? 'bottom'
@@ -57,11 +85,9 @@ export function TourTooltip({ active, step, current, total, onNext, onPrev, onFi
         ? rect.bottom + GAP
         : rect.top - TIP_H - GAP
 
-      // Centraliza horizontalmente no elemento, mas mantém dentro da tela
       let left = rect.left + rect.width / 2 - TIP_W / 2
       left = Math.max(16, Math.min(left, vw - TIP_W - 16))
 
-      // Posição da setinha relativa ao tooltip
       const arrowLeft = Math.max(16, Math.min(
         rect.left + rect.width / 2 - left,
         TIP_W - 24
@@ -72,11 +98,12 @@ export function TourTooltip({ active, step, current, total, onNext, onPrev, onFi
 
     calculate()
     window.addEventListener('resize', calculate)
-    return () => window.removeEventListener('resize', calculate)
+    return () => {
+      cancelled = true
+      window.removeEventListener('resize', calculate)
+      clearTimeout(rafId)
+    }
   }, [active, step, current])
-
-  const isLast  = current === total - 1
-  const isFirst = current === 0
 
   return (
     <AnimatePresence>
@@ -139,43 +166,58 @@ export function TourTooltip({ active, step, current, total, onNext, onPrev, onFi
               }}
               onClick={e => e.stopPropagation()}
             >
-              {/* Setinha */}
+              {/* Setinha cima */}
               {pos.placement === 'bottom' && (
                 <div className="absolute -top-2 w-4 h-2 overflow-hidden" style={{ left: pos.arrowLeft - 8 }}>
-                  <div className="w-3 h-3 rotate-45 mx-auto"
-                    style={{ background: '#1a1a2e', border: '1px solid rgba(124,110,247,0.3)', marginTop: 4 }} />
+                  <div
+                    className="w-3 h-3 rotate-45 mx-auto"
+                    style={{ background: '#1a1a2e', border: '1px solid rgba(124,110,247,0.3)', marginTop: 4 }}
+                  />
                 </div>
               )}
 
-              <div className="rounded-2xl p-4 shadow-2xl"
-                style={{ background: '#111118', border: '1px solid rgba(124,110,247,0.25)', boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,110,247,0.1)' }}>
-
+              <div
+                className="rounded-2xl p-4 shadow-2xl"
+                style={{
+                  background: '#111118',
+                  border: '1px solid rgba(124,110,247,0.25)',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,110,247,0.1)',
+                }}
+              >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex items-center gap-2">
-                    {/* Dots de progresso */}
                     <div className="flex gap-1">
                       {Array.from({ length: total }).map((_, i) => (
-                        <div key={i} className="rounded-full transition-all duration-300"
+                        <div
+                          key={i}
+                          className="rounded-full transition-all duration-300"
                           style={{
-                            width: i === current ? 16 : 5, height: 5,
+                            width: i === current ? 16 : 5,
+                            height: 5,
                             background: i <= current ? '#7c6ef7' : 'rgba(255,255,255,0.1)',
-                          }} />
+                          }}
+                        />
                       ))}
                     </div>
                     <span className="text-xs" style={{ color: '#4a4a6a' }}>{current + 1}/{total}</span>
                   </div>
-                  <button onClick={onFinish}
+                  <button
+                    onClick={onFinish}
                     className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-all"
                     style={{ background: 'rgba(255,255,255,0.05)', color: '#4a4a6a' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(248,113,113,0.1)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,0.1)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                  >
                     <X size={12} />
                   </button>
                 </div>
 
                 {/* Conteúdo */}
-                <h3 className="font-bold text-sm mb-1" style={{ fontFamily: 'Syne, sans-serif', color: '#e8eaf0' }}>
+                <h3
+                  className="font-bold text-sm mb-1"
+                  style={{ fontFamily: 'Syne, sans-serif', color: '#e8eaf0' }}
+                >
                   {step.title}
                 </h3>
                 <p className="text-xs leading-relaxed mb-4" style={{ color: '#5a5d75' }}>
@@ -184,33 +226,49 @@ export function TourTooltip({ active, step, current, total, onNext, onPrev, onFi
 
                 {/* Botões */}
                 <div className="flex items-center gap-2">
-                  <button onClick={onFinish}
+                  <button
+                    onClick={onFinish}
                     className="text-xs px-3 py-1.5 rounded-lg transition-all"
-                    style={{ color: '#4a4a6a', background: 'transparent' }}>
+                    style={{ color: '#4a4a6a', background: 'transparent' }}
+                  >
                     Pular tudo
                   </button>
                   <div className="flex gap-2 ml-auto">
                     {!isFirst && (
-                      <button onClick={onPrev}
+                      <button
+                        onClick={onPrev}
                         className="w-7 h-7 rounded-xl flex items-center justify-center transition-all"
-                        style={{ background: 'rgba(255,255,255,0.05)', color: '#6b6b8a', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        style={{
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#6b6b8a',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                        }}
+                      >
                         <ChevronLeft size={14} />
                       </button>
                     )}
-                    <button onClick={onNext}
+                    <button
+                      onClick={onNext}
                       className="flex items-center gap-1.5 px-3 h-7 rounded-xl text-xs font-bold transition-all"
-                      style={{ background: 'linear-gradient(135deg, #7c6ef7, #9d6ef7)', color: 'white', boxShadow: '0 0 16px rgba(124,110,247,0.3)' }}>
+                      style={{
+                        background: 'linear-gradient(135deg, #7c6ef7, #9d6ef7)',
+                        color: 'white',
+                        boxShadow: '0 0 16px rgba(124,110,247,0.3)',
+                      }}
+                    >
                       {isLast ? <><Check size={12} /> Entendi</> : <>Próximo <ChevronRight size={12} /></>}
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Setinha embaixo */}
+              {/* Setinha baixo */}
               {pos.placement === 'top' && (
                 <div className="absolute -bottom-2 w-4 h-2 overflow-hidden" style={{ left: pos.arrowLeft - 8 }}>
-                  <div className="w-3 h-3 rotate-45 mx-auto"
-                    style={{ background: '#1a1a2e', border: '1px solid rgba(124,110,247,0.3)', marginTop: -6 }} />
+                  <div
+                    className="w-3 h-3 rotate-45 mx-auto"
+                    style={{ background: '#1a1a2e', border: '1px solid rgba(124,110,247,0.3)', marginTop: -6 }}
+                  />
                 </div>
               )}
             </motion.div>

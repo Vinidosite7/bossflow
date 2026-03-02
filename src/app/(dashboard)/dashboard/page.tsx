@@ -167,7 +167,10 @@ export default function DashboardPage() {
   async function load() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
+if (!user) {
+  router.replace('/login')
+  return
+}
 
       const savedBizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') || '' : ''
       const { data: bizList } = await supabase.from('businesses').select('*').eq('owner_id', user.id)
@@ -294,27 +297,31 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* ── Alertas ─────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {hasAlerts && (
-          <motion.div {...fadeUp(0.05)} data-tour="alerts" className="flex flex-col sm:flex-row gap-2">
-            {stats.pendingTasks > 0 && (
-              <AlertBadge icon={CheckSquare} color="#f87171"
-                label={`${stats.pendingTasks} tarefa${stats.pendingTasks > 1 ? 's' : ''} atrasada${stats.pendingTasks > 1 ? 's' : ''}`}
-                onClick={() => router.push('/tarefas')} />
-            )}
-            {stats.pendingTxs > 0 && (
-              <AlertBadge icon={Activity} color="#fbbf24"
-                label={`${stats.pendingTxs} pagamento${stats.pendingTxs > 1 ? 's' : ''} pendente${stats.pendingTxs > 1 ? 's' : ''}`}
-                onClick={() => router.push('/financeiro')} />
-            )}
-            {stats.todayEvents > 0 && (
-              <AlertBadge icon={Calendar} color="#22d3ee"
-                label={`${stats.todayEvents} evento${stats.todayEvents > 1 ? 's' : ''} hoje`}
-                onClick={() => router.push('/agenda')} />
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+<motion.div {...fadeUp(0.05)} data-tour="alerts" className="flex flex-col sm:flex-row gap-2">
+  <AnimatePresence>
+    {stats.pendingTasks > 0 && (
+      <AlertBadge icon={CheckSquare} color="#f87171"
+        label={`${stats.pendingTasks} tarefa${stats.pendingTasks > 1 ? 's' : ''} atrasada${stats.pendingTasks > 1 ? 's' : ''}`}
+        onClick={() => router.push('/tarefas')} />
+    )}
+    {stats.pendingTxs > 0 && (
+      <AlertBadge icon={Activity} color="#fbbf24"
+        label={`${stats.pendingTxs} pagamento${stats.pendingTxs > 1 ? 's' : ''} pendente${stats.pendingTxs > 1 ? 's' : ''}`}
+        onClick={() => router.push('/financeiro')} />
+    )}
+    {stats.todayEvents > 0 && (
+      <AlertBadge icon={Calendar} color="#22d3ee"
+        label={`${stats.todayEvents} evento${stats.todayEvents > 1 ? 's' : ''} hoje`}
+        onClick={() => router.push('/agenda')} />
+    )}
+    {!hasAlerts && (
+      <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-xs"
+        style={{ background: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.1)', color: '#4a4a6a' }}>
+        ✅ Tudo em dia — sem alertas no momento
+      </div>
+    )}
+  </AnimatePresence>
+</motion.div>
 
       {/* ── KPI Cards ───────────────────────────────────────────────────────── */}
       <div data-tour="kpis" className="grid grid-cols-1 sm:grid-cols-3 gap-3">

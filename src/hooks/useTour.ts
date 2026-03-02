@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 
 export interface TourStep {
-  target: string        // seletor CSS do elemento alvo
+  target: string
   title: string
   description: string
-  position?: 'top' | 'bottom' | 'left' | 'right' // preferência, auto-ajusta no mobile
+  position?: 'top' | 'bottom' | 'left' | 'right'
 }
 
 export function useTour(tourId: string, steps: TourStep[]) {
@@ -13,37 +13,37 @@ export function useTour(tourId: string, steps: TourStep[]) {
   const [current, setCurrent] = useState(0)
 
   useEffect(() => {
-    // Mostra automaticamente se nunca viu esse tour
     const seen = localStorage.getItem(storageKey)
     if (!seen) {
-      // Pequeno delay pra página terminar de montar
       const t = setTimeout(() => setActive(true), 600)
       return () => clearTimeout(t)
     }
   }, [storageKey])
 
+  // ✅ finish agora é useCallback estável
+  const finish = useCallback(() => {
+    localStorage.setItem(storageKey, 'done')
+    setActive(false)
+    setCurrent(0)
+  }, [storageKey])
+
+  // ✅ finish agora está nas deps de next
   const next = useCallback(() => {
     if (current < steps.length - 1) {
       setCurrent(c => c + 1)
     } else {
       finish()
     }
-  }, [current, steps.length])
+  }, [current, steps.length, finish])
 
   const prev = useCallback(() => {
     setCurrent(c => Math.max(0, c - 1))
   }, [])
 
-  function finish() {
-    localStorage.setItem(storageKey, 'done')
-    setActive(false)
-    setCurrent(0)
-  }
-
-  function restart() {
+  const restart = useCallback(() => {
     setCurrent(0)
     setActive(true)
-  }
+  }, [])
 
   return {
     active,
