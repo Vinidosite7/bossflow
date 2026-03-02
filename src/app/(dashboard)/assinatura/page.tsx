@@ -93,7 +93,7 @@ export default function AssinaturaPage() {
       subtitle: 'Para quem já tem uma operação rodando.',
       priceMonthly: 39.90,
       icon: <Star size={15} />,
-      href: 'https://pay.cakto.com.br/37bke9w_790601',
+      href: 'https://pay.cakto.com.br/ewnmtb7_790932',
       features: [
         { text: 'Até 3 empresas', available: true },
         { text: '5 contas/caixas', available: true },
@@ -114,7 +114,7 @@ export default function AssinaturaPage() {
       icon: <Rocket size={15} />,
       highlight: true,
       tag: 'Mais vendido',
-      href: 'https://pay.cakto.com.br/ia9dcfj',
+      href: 'https://pay.cakto.com.br/roe67up_790935',
       features: [
         { text: 'Empresas ilimitadas', available: true },
         { text: 'Contas ilimitadas', available: true },
