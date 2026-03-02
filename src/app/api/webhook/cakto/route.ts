@@ -8,8 +8,8 @@ const supabase = createClient(
 )
 
 const PLAN_MAP: Record<string, string> = {
-  '37bke9w_790601': 'starter',
-  'ia9dcfj': 'pro',
+  'ewnmtb7_790932': 'starter',
+  'roe67up_790935': 'pro',
 }
 
 export async function POST(req: NextRequest) {
