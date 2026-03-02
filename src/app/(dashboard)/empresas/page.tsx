@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Building2, Plus, Loader2, X, Pencil, Trash2, Upload, Check } from 'lucide-react'
+import { Building2, Plus, Loader2, X, Pencil, Trash2, Upload, Check, Users, Mail, Crown, Shield, Eye, UserMinus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const fadeUp = (delay = 0) => ({
@@ -10,6 +10,13 @@ const fadeUp = (delay = 0) => ({
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.35, delay, ease: [0.25, 0.46, 0.45, 0.94] as const }
 })
+
+const ROLE_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
+  owner:  { label: 'Dono',            color: '#fbbf24', icon: Crown  },
+  admin:  { label: 'Admin',           color: '#7c6ef7', icon: Shield },
+  member: { label: 'Membro',          color: '#34d399', icon: Users  },
+  viewer: { label: 'Visualizador',    color: '#6b6b8a', icon: Eye    },
+}
 
 export default function EmpresasPage() {
   const supabase = createClient()
@@ -24,6 +31,16 @@ export default function EmpresasPage() {
   const [showConfirm, setShowConfirm] = useState<string | null>(null)
   const [activeBizId, setActiveBizId] = useState<string>('')
 
+  // Membros
+  const [membersModal, setMembersModal] = useState<any | null>(null) // empresa selecionada
+  const [members, setMembers] = useState<any[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState('member')
+  const [sendingInvite, setSendingInvite] = useState(false)
+  const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string>('')
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setActiveBizId(localStorage.getItem('activeBizId') || '')
@@ -34,6 +51,7 @@ export default function EmpresasPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
+      setCurrentUserId(user.id)
       const { data } = await supabase
         .from('businesses').select('*').eq('owner_id', user.id)
         .order('created_at', { ascending: false })
@@ -49,20 +67,63 @@ export default function EmpresasPage() {
 
   useEffect(() => { load() }, [])
 
+  async function loadMembers(biz: any) {
+    setLoadingMembers(true)
+    setMembersModal(biz)
+    setInviteEmail('')
+    setInviteRole('member')
+    setInviteSuccess(false)
+    try {
+      const { data } = await supabase
+        .from('business_members')
+        .select('*')
+        .eq('business_id', biz.id)
+        .order('created_at', { ascending: true })
+      setMembers(data || [])
+    } catch (err) { console.error(err) }
+    finally { setLoadingMembers(false) }
+  }
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault()
+    if (!membersModal) return
+    setSendingInvite(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const res = await fetch('/api/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteEmail,
+          role: inviteRole,
+          businessId: membersModal.id,
+          businessName: membersModal.name,
+          inviterName: user?.email?.split('@')[0] ?? 'Alguém',
+        }),
+      })
+      if (!res.ok) throw new Error('Erro ao enviar convite')
+      setInviteSuccess(true)
+      setInviteEmail('')
+      loadMembers(membersModal)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSendingInvite(false)
+    }
+  }
+
+  async function handleRemoveMember(memberId: string) {
+    if (!confirm('Remover este membro?')) return
+    await supabase.from('business_members').update({ status: 'removed' }).eq('id', memberId)
+    loadMembers(membersModal)
+  }
+
   function openCreate() {
-    setEditBiz(null)
-    setName('')
-    setLogoFile(null)
-    setLogoPreview('')
-    setShowForm(true)
+    setEditBiz(null); setName(''); setLogoFile(null); setLogoPreview(''); setShowForm(true)
   }
 
   function openEdit(biz: any) {
-    setEditBiz(biz)
-    setName(biz.name)
-    setLogoFile(null)
-    setLogoPreview(biz.logo_url || '')
-    setShowForm(true)
+    setEditBiz(biz); setName(biz.name); setLogoFile(null); setLogoPreview(biz.logo_url || ''); setShowForm(true)
   }
 
   function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -101,20 +162,13 @@ export default function EmpresasPage() {
       }
     }
 
-    setShowForm(false)
-    setEditBiz(null)
-    setSaving(false)
-    load()
+    setShowForm(false); setEditBiz(null); setSaving(false); load()
   }
 
   async function handleDelete(id: string) {
     await supabase.from('businesses').delete().eq('id', id)
-    if (activeBizId === id) {
-      localStorage.removeItem('activeBizId')
-      setActiveBizId('')
-    }
-    setShowConfirm(null)
-    load()
+    if (activeBizId === id) { localStorage.removeItem('activeBizId'); setActiveBizId('') }
+    setShowConfirm(null); load()
   }
 
   function activateBiz(id: string) {
@@ -144,7 +198,7 @@ export default function EmpresasPage() {
         </motion.button>
       </motion.div>
 
-      {/* Modal form */}
+      {/* ── Modal form empresa ── */}
       <AnimatePresence>
         {showForm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -195,7 +249,144 @@ export default function EmpresasPage() {
         )}
       </AnimatePresence>
 
-      {/* Modal confirm */}
+      {/* ── Modal membros ── */}
+      <AnimatePresence>
+        {membersModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+            style={{ background: 'rgba(0,0,0,0.85)' }}
+            onClick={e => { if (e.target === e.currentTarget) setMembersModal(null) }}>
+            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
+              className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl border flex flex-col"
+              style={{ background: '#111118', borderColor: '#1e1e2e', maxHeight: '90vh' }}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: '#1a1a2a' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden"
+                    style={{ background: '#0d0d14', border: '1px solid #1e1e2e' }}>
+                    {membersModal.logo_url
+                      ? <img src={membersModal.logo_url} alt="" className="w-full h-full object-cover" />
+                      : <Building2 size={16} style={{ color: '#3a3a5c' }} />}
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-base leading-none" style={{ fontFamily: 'Syne, sans-serif' }}>
+                      {membersModal.name}
+                    </h2>
+                    <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>{members.filter(m => m.status === 'active').length} membros ativos</p>
+                  </div>
+                </div>
+                <button onClick={() => setMembersModal(null)} style={{ color: '#4a4a6a' }}><X size={18} /></button>
+              </div>
+
+              <div className="overflow-y-auto flex-1 p-5 flex flex-col gap-5">
+
+                {/* Convidar */}
+                <div className="rounded-2xl p-4" style={{ background: '#0d0d14', border: '1px solid #1a1a2a' }}>
+                  <h3 className="text-sm font-bold mb-3" style={{ color: '#e8eaf0' }}>Convidar membro</h3>
+                  <form onSubmit={handleInvite} className="flex flex-col gap-3">
+                    <input
+                      type="email" placeholder="email@exemplo.com" value={inviteEmail} required
+                      onChange={e => { setInviteEmail(e.target.value); setInviteSuccess(false) }}
+                      className="px-3 py-2.5 rounded-xl border text-sm outline-none w-full"
+                      style={{ background: '#111118', borderColor: '#1e1e2e', color: '#e8e8f0' }}
+                    />
+                    <div className="flex gap-2">
+                      {/* Role selector */}
+                      <div className="flex gap-1.5 flex-1 flex-wrap">
+                        {(['admin', 'member', 'viewer'] as const).map(r => {
+                          const cfg = ROLE_CONFIG[r]
+                          const Icon = cfg.icon
+                          return (
+                            <button key={r} type="button" onClick={() => setInviteRole(r)}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                              style={{
+                                background: inviteRole === r ? `${cfg.color}18` : 'transparent',
+                                color: inviteRole === r ? cfg.color : '#4a4a6a',
+                                border: `1px solid ${inviteRole === r ? `${cfg.color}40` : '#1e1e2e'}`,
+                              }}>
+                              <Icon size={11} /> {cfg.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <button type="submit" disabled={sendingInvite}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold shrink-0"
+                        style={{ background: '#7c6ef7', color: 'white' }}>
+                        {sendingInvite ? <Loader2 size={12} className="animate-spin" /> : <><Mail size={12} /> Convidar</>}
+                      </button>
+                    </div>
+                    <AnimatePresence>
+                      {inviteSuccess && (
+                        <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          className="text-xs flex items-center gap-1.5" style={{ color: '#34d399' }}>
+                          <Check size={12} /> Convite enviado com sucesso!
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                  </form>
+                </div>
+
+                {/* Lista de membros */}
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>Membros</h3>
+                  {loadingMembers ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 size={20} className="animate-spin" style={{ color: '#7c6ef7' }} />
+                    </div>
+                  ) : members.length === 0 ? (
+                    <p className="text-sm py-4 text-center" style={{ color: '#4a4a6a' }}>Nenhum membro ainda.</p>
+                  ) : members.map((m, i) => {
+                    const cfg = ROLE_CONFIG[m.role] ?? ROLE_CONFIG.member
+                    const Icon = cfg.icon
+                    const isMe = m.user_id === currentUserId
+                    return (
+                      <motion.div key={m.id}
+                        initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                        style={{ background: '#0d0d14', border: '1px solid #1a1a2a' }}>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+                          style={{ background: `${cfg.color}18`, color: cfg.color }}>
+                          {(m.email?.[0] ?? '?').toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: '#d0d0e0' }}>
+                            {m.email} {isMe && <span style={{ color: '#4a4a6a' }}>(você)</span>}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="flex items-center gap-1 text-xs" style={{ color: cfg.color }}>
+                              <Icon size={10} /> {cfg.label}
+                            </span>
+                            <span className="text-xs px-1.5 py-0.5 rounded-md"
+                              style={{
+                                background: m.status === 'active' ? 'rgba(52,211,153,0.08)' : 'rgba(251,191,36,0.08)',
+                                color: m.status === 'active' ? '#34d399' : '#fbbf24',
+                              }}>
+                              {m.status === 'active' ? 'Ativo' : m.status === 'pending' ? 'Pendente' : 'Removido'}
+                            </span>
+                          </div>
+                        </div>
+                        {!isMe && m.role !== 'owner' && m.status !== 'removed' && (
+                          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                            onClick={() => handleRemoveMember(m.id)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                            style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
+                            <UserMinus size={12} />
+                          </motion.button>
+                        )}
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Modal confirm delete ── */}
       <AnimatePresence>
         {showConfirm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -216,6 +407,7 @@ export default function EmpresasPage() {
         )}
       </AnimatePresence>
 
+      {/* ── Lista de empresas ── */}
       {businesses.length === 0 ? (
         <motion.div {...fadeUp(0.1)} className="flex flex-col items-center justify-center py-24 gap-4">
           <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4, delay: 0.15 }}
@@ -262,9 +454,7 @@ export default function EmpresasPage() {
                       <AnimatePresence>
                         {activeBizId === biz.id && (
                           <motion.span
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0, opacity: 0 }}
+                            initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
                             className="text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0"
                             style={{ background: 'rgba(124,110,247,0.15)', color: '#9d8fff', border: '1px solid rgba(124,110,247,0.3)' }}>
                             Ativa
@@ -277,6 +467,7 @@ export default function EmpresasPage() {
                     </p>
                   </div>
                 </div>
+
                 <div className="flex items-center gap-2">
                   {activeBizId !== biz.id ? (
                     <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
@@ -291,6 +482,16 @@ export default function EmpresasPage() {
                       <Check size={12} /> Em uso
                     </div>
                   )}
+
+                  {/* Botão membros */}
+                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                    onClick={() => loadMembers(biz)}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center"
+                    style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}
+                    title="Membros">
+                    <Users size={13} />
+                  </motion.button>
+
                   <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                     onClick={() => openEdit(biz)}
                     className="w-8 h-8 rounded-xl flex items-center justify-center"
