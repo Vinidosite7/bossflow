@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useTour } from '@/hooks/useTour'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { TourOverlay } from '@/components/TourOverlay'
+import { PlanGate } from '@/components/PlanGate'
 import { TrendingUp, TrendingDown, DollarSign, Plus, X, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -19,8 +23,38 @@ const scaleIn = (delay = 0) => ({
   transition: { duration: 0.35, delay, ease: [0.25, 0.46, 0.45, 0.94] as const }
 })
 
+const TOUR_STEPS = [
+  {
+    target: '[data-tour="fin-header"]',
+    title: 'Painel financeiro',
+    description: 'Registre entradas e saídas do seu negócio. Clique em "Novo lançamento" para começar.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="fin-tabs"]',
+    title: 'Visões do financeiro',
+    description: 'Alterne entre Visão geral, Categorias e Bancos para diferentes perspectivas das suas finanças.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="fin-kpis"]',
+    title: 'Resumo do período',
+    description: 'Receitas, despesas e lucro do período selecionado. Use os filtros de 7, 30 ou 90 dias.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="fin-grafico"]',
+    title: 'Gráfico de fluxo',
+    description: 'Visualize entradas (verde) e saídas (vermelho) dia a dia. Passe o mouse para ver os valores.',
+    position: 'top' as const,
+  },
+]
+
 export default function FinanceiroPage() {
   const supabase = createClient()
+  const { plan } = usePlanLimits()
+  const tour = useTour('financeiro', TOUR_STEPS)
+
   const [tab, setTab] = useState<Tab>('visao')
   const [loading, setLoading] = useState(true)
   const [businessId, setBusinessId] = useState('')
@@ -44,25 +78,19 @@ export default function FinanceiroPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
-
       const savedBizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') || '' : ''
       const { data: bizList } = await supabase.from('businesses').select('id').eq('owner_id', user.id)
       if (!bizList?.length) { setLoading(false); return }
-
       const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
       setBusinessId(biz.id)
-
       const daysNum = parseInt(period)
       const from = new Date()
       from.setDate(from.getDate() - daysNum)
       const fromStr = from.toISOString().split('T')[0]
-
       const [{ data: txs }, { data: cats }] = await Promise.all([
-        supabase.from('transactions').select('*, categories(name, color)')
-          .eq('business_id', biz.id).gte('date', fromStr).order('date', { ascending: false }),
+        supabase.from('transactions').select('*, categories(name, color)').eq('business_id', biz.id).gte('date', fromStr).order('date', { ascending: false }),
         supabase.from('categories').select('*').eq('business_id', biz.id).order('name'),
       ])
-
       setTransactions(txs || [])
       setCategories(cats || [])
     } catch (err) { console.error(err) }
@@ -89,9 +117,7 @@ export default function FinanceiroPage() {
       business_id: businessId, created_by: user?.id,
     })
     setTxForm({ title: '', amount: '', date: new Date().toISOString().split('T')[0], type: 'expense', category_id: '', description: '', paid: true })
-    setShowTxForm(false)
-    setSavingTx(false)
-    load()
+    setShowTxForm(false); setSavingTx(false); load()
   }
 
   async function handleSaveCat(e: React.FormEvent) {
@@ -102,11 +128,7 @@ export default function FinanceiroPage() {
     } else {
       await supabase.from('categories').insert({ ...catForm, business_id: businessId })
     }
-    setCatForm({ name: '', type: 'expense', color: '#f87171' })
-    setEditCat(null)
-    setShowCatForm(false)
-    setSavingCat(false)
-    load()
+    setCatForm({ name: '', type: 'expense', color: '#f87171' }); setEditCat(null); setShowCatForm(false); setSavingCat(false); load()
   }
 
   async function handleDeleteCat(id: string) {
@@ -140,8 +162,9 @@ export default function FinanceiroPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <motion.div {...fadeUp(0)} className="flex items-center justify-between">
+      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+
+      <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="fin-header">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Financeiro</h1>
           <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>Gerencie suas finanças</p>
@@ -157,24 +180,19 @@ export default function FinanceiroPage() {
       </motion.div>
 
       {/* Tabs */}
-      <motion.div {...fadeUp(0.06)} className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
+      <motion.div {...fadeUp(0.06)} className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: '#111118', border: '1px solid #1e1e2e' }} data-tour="fin-tabs">
         {([['visao', 'Visão geral'], ['categorias', 'Categorias'], ['bancos', 'Bancos']] as const).map(([key, label]) => (
           <motion.button key={key} whileTap={{ scale: 0.95 }} onClick={() => setTab(key)}
             className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all"
-            style={{
-              background: tab === key ? '#1e1e2e' : 'transparent',
-              color: tab === key ? '#e8e8f0' : '#4a4a6a',
-            }}>
+            style={{ background: tab === key ? '#1e1e2e' : 'transparent', color: tab === key ? '#e8e8f0' : '#4a4a6a' }}>
             {label}
           </motion.button>
         ))}
       </motion.div>
 
       <AnimatePresence mode="wait">
-        {/* Tab: Visão geral */}
         {tab === 'visao' && (
           <motion.div key="visao" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-6">
-            {/* Período */}
             <motion.div {...fadeUp(0.1)} className="flex gap-2">
               {[['7', '7 dias'], ['30', '30 dias'], ['90', '90 dias']].map(([v, l]) => (
                 <motion.button key={v} whileTap={{ scale: 0.95 }} onClick={() => setPeriod(v)}
@@ -189,8 +207,7 @@ export default function FinanceiroPage() {
               ))}
             </motion.div>
 
-            {/* Cards KPI */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3" data-tour="fin-kpis">
               {[
                 { label: 'Receitas', value: fmt(income), color: '#34d399', icon: TrendingUp },
                 { label: 'Despesas', value: fmt(expense), color: '#f87171', icon: TrendingDown },
@@ -200,9 +217,9 @@ export default function FinanceiroPage() {
                   className="rounded-2xl p-3 sm:p-5" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs uppercase tracking-widest font-semibold hidden sm:block" style={{ color: '#4a4a6a' }}>{label}</span>
-                    <motion.div whileHover={{ scale: 1.1 }} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
                       <Icon size={14} style={{ color }} />
-                    </motion.div>
+                    </div>
                   </div>
                   <p className="text-xs font-semibold uppercase tracking-widest mb-1 sm:hidden" style={{ color: '#4a4a6a' }}>{label}</p>
                   <p className="text-base sm:text-2xl font-bold leading-tight" style={{ fontFamily: 'Syne, sans-serif', color }}>{value}</p>
@@ -210,8 +227,7 @@ export default function FinanceiroPage() {
               ))}
             </div>
 
-            {/* Gráfico + Por categoria */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-tour="fin-grafico">
               <motion.div {...scaleIn(0.28)} className="sm:col-span-2 rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
                 <h2 className="font-bold mb-4 text-sm sm:text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Entradas × Saídas</h2>
                 {chartDays.length === 0 ? (
@@ -222,14 +238,12 @@ export default function FinanceiroPage() {
                       <div key={day} className="flex-1 flex flex-col items-center gap-0.5">
                         <div className="w-full flex gap-0.5 items-end" style={{ height: '120px' }}>
                           <motion.div className="flex-1 rounded-t-sm"
-                            initial={{ height: 0 }}
-                            animate={{ height: `${(vals.income / maxVal) * 100}%` }}
-                            transition={{ duration: 0.5, delay: 0.3 + i * 0.03, ease: 'easeOut' }}
+                            initial={{ height: 0 }} animate={{ height: `${(vals.income / maxVal) * 100}%` }}
+                            transition={{ duration: 0.5, delay: 0.3 + i * 0.03 }}
                             style={{ background: '#34d399', opacity: 0.8, minHeight: vals.income > 0 ? '4px' : '0' }} />
                           <motion.div className="flex-1 rounded-t-sm"
-                            initial={{ height: 0 }}
-                            animate={{ height: `${(vals.expense / maxVal) * 100}%` }}
-                            transition={{ duration: 0.5, delay: 0.35 + i * 0.03, ease: 'easeOut' }}
+                            initial={{ height: 0 }} animate={{ height: `${(vals.expense / maxVal) * 100}%` }}
+                            transition={{ duration: 0.5, delay: 0.35 + i * 0.03 }}
                             style={{ background: '#f87171', opacity: 0.8, minHeight: vals.expense > 0 ? '4px' : '0' }} />
                         </div>
                         <span style={{ color: '#3a3a5c', fontSize: '9px' }}>{new Date(day).getDate()}</span>
@@ -254,19 +268,15 @@ export default function FinanceiroPage() {
                 ) : (
                   <div className="flex flex-col gap-3">
                     {catEntries.slice(0, 6).map(([cat, val]: any, i) => (
-                      <motion.div key={cat}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.4 + i * 0.05 }}>
+                      <motion.div key={cat} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.05 }}>
                         <div className="flex items-center justify-between text-xs mb-1">
                           <span className="truncate mr-2" style={{ color: '#6b6b8a' }}>{cat}</span>
                           <span className="shrink-0" style={{ color: '#e8e8f0' }}>{fmt(val)}</span>
                         </div>
                         <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#1e1e2e' }}>
                           <motion.div className="h-full rounded-full"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${(val / expense) * 100}%` }}
-                            transition={{ duration: 0.6, delay: 0.45 + i * 0.05, ease: 'easeOut' }}
+                            initial={{ width: 0 }} animate={{ width: `${(val / expense) * 100}%` }}
+                            transition={{ duration: 0.6, delay: 0.45 + i * 0.05 }}
                             style={{ background: '#7c6ef7' }} />
                         </div>
                       </motion.div>
@@ -276,7 +286,6 @@ export default function FinanceiroPage() {
               </motion.div>
             </div>
 
-            {/* Transações recentes */}
             <motion.div {...fadeUp(0.4)} className="rounded-2xl overflow-hidden" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
               <div className="px-5 py-4 border-b" style={{ borderColor: '#1a1a2a' }}>
                 <h2 className="font-bold text-sm sm:text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Transações recentes</h2>
@@ -284,27 +293,20 @@ export default function FinanceiroPage() {
               {transactions.length === 0 ? (
                 <p className="text-sm px-5 py-6" style={{ color: '#4a4a6a' }}>Nenhuma transação no período.</p>
               ) : transactions.slice(0, 8).map((tx, i) => (
-                <motion.div key={tx.id}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.25, delay: 0.45 + i * 0.04 }}
+                <motion.div key={tx.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25, delay: 0.45 + i * 0.04 }}
                   className="flex items-center gap-3 px-4 py-3.5"
                   style={{ borderBottom: i < Math.min(transactions.length, 8) - 1 ? '1px solid #1a1a2a' : 'none' }}>
-                  <motion.div whileHover={{ scale: 1.1 }}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
                     style={{ background: tx.type === 'income' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)' }}>
-                    {tx.type === 'income'
-                      ? <TrendingUp size={13} style={{ color: '#34d399' }} />
-                      : <TrendingDown size={13} style={{ color: '#f87171' }} />}
-                  </motion.div>
+                    {tx.type === 'income' ? <TrendingUp size={13} style={{ color: '#34d399' }} /> : <TrendingDown size={13} style={{ color: '#f87171' }} />}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: '#d0d0e0' }}>{tx.title}</p>
                     <p className="text-xs mt-0.5 truncate" style={{ color: '#4a4a6a' }}>
                       {tx.categories?.name || 'Sem categoria'} · {new Date(tx.date).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
-                  <span className="text-sm font-semibold shrink-0"
-                    style={{ color: tx.type === 'income' ? '#34d399' : '#f87171' }}>
+                  <span className="text-sm font-semibold shrink-0" style={{ color: tx.type === 'income' ? '#34d399' : '#f87171' }}>
                     {tx.type === 'income' ? '+' : '-'}{fmt(Number(tx.amount))}
                   </span>
                 </motion.div>
@@ -313,7 +315,6 @@ export default function FinanceiroPage() {
           </motion.div>
         )}
 
-        {/* Tab: Categorias */}
         {tab === 'categorias' && (
           <motion.div key="categorias" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-4">
             <div className="flex justify-end">
@@ -325,7 +326,7 @@ export default function FinanceiroPage() {
               </motion.button>
             </div>
             {['income', 'expense'].map((type, ti) => (
-              <motion.div key={type} {...fadeUp(ti * 0.08)}
+              <motion.div key={type} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: ti * 0.08 }}
                 className="rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
                 <h2 className="font-bold mb-4" style={{ fontFamily: 'Syne, sans-serif', color: type === 'income' ? '#34d399' : '#f87171' }}>
                   {type === 'income' ? '↑ Receitas' : '↓ Despesas'}
@@ -334,9 +335,7 @@ export default function FinanceiroPage() {
                   {categories.filter(c => c.type === type).length === 0 ? (
                     <p className="text-sm" style={{ color: '#4a4a6a' }}>Nenhuma categoria ainda.</p>
                   ) : categories.filter(c => c.type === type).map((cat, i) => (
-                    <motion.div key={cat.id}
-                      initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.04 }}
+                    <motion.div key={cat.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
                       className="flex items-center justify-between py-2.5 px-3 rounded-xl"
                       style={{ background: '#0d0d14', border: '1px solid #1a1a2e' }}>
                       <div className="flex items-center gap-3">
@@ -365,27 +364,24 @@ export default function FinanceiroPage() {
           </motion.div>
         )}
 
-        {/* Tab: Bancos */}
         {tab === 'bancos' && (
-          <motion.div key="bancos" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="rounded-2xl p-8 flex flex-col items-center justify-center gap-4"
-            style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-              className="w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
-              <DollarSign size={28} style={{ color: '#7c6ef7' }} />
-            </motion.div>
-            <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>Bancos em breve</h2>
-            <p className="text-sm text-center" style={{ color: '#4a4a6a' }}>
-              Integração com Nubank, Itaú, Bradesco e mais.<br />Disponível na próxima versão.
-            </p>
-            <span className="text-xs px-3 py-1.5 rounded-full font-medium"
-              style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff' }}>
-              Em desenvolvimento
-            </span>
+          <motion.div key="bancos" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <PlanGate currentPlan={plan} requiredPlan="pro" feature="Integração com Bancos"
+              description="Conecte Nubank, Itaú, Bradesco e mais para sincronizar transações automaticamente." mode="hide">
+              <div className="rounded-2xl p-8 flex flex-col items-center justify-center gap-4"
+                style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                  style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
+                  <DollarSign size={28} style={{ color: '#7c6ef7' }} />
+                </div>
+                <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>Bancos em breve</h2>
+                <p className="text-sm text-center" style={{ color: '#4a4a6a' }}>
+                  Integração com Nubank, Itaú, Bradesco e mais.<br />Disponível na próxima versão.
+                </p>
+                <span className="text-xs px-3 py-1.5 rounded-full font-medium"
+                  style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff' }}>Em desenvolvimento</span>
+              </div>
+            </PlanGate>
           </motion.div>
         )}
       </AnimatePresence>
@@ -438,13 +434,10 @@ export default function FinanceiroPage() {
                   className="px-3 py-3 rounded-xl border text-sm outline-none"
                   style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }}>
                   <option value="">Sem categoria</option>
-                  {categories.filter(c => c.type === txForm.type).map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
+                  {categories.filter(c => c.type === txForm.type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={txForm.paid}
-                    onChange={e => setTxForm({ ...txForm, paid: e.target.checked })} />
+                  <input type="checkbox" checked={txForm.paid} onChange={e => setTxForm({ ...txForm, paid: e.target.checked })} />
                   <span className="text-sm" style={{ color: '#6b6b8a' }}>Já foi pago/recebido</span>
                 </label>
                 <button type="submit" disabled={savingTx}
@@ -471,9 +464,7 @@ export default function FinanceiroPage() {
               style={{ background: '#111118', borderColor: '#1e1e2e' }}>
               <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: '#2a2a3e' }} />
               <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>
-                  {editCat ? 'Editar categoria' : 'Nova categoria'}
-                </h2>
+                <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>{editCat ? 'Editar categoria' : 'Nova categoria'}</h2>
                 <button onClick={() => { setShowCatForm(false); setEditCat(null) }} style={{ color: '#4a4a6a' }}><X size={18} /></button>
               </div>
               <form onSubmit={handleSaveCat} className="flex flex-col gap-4">
@@ -502,11 +493,7 @@ export default function FinanceiroPage() {
                         onClick={() => setCatForm({ ...catForm, color: c })}
                         className="w-7 h-7 rounded-full transition-all"
                         animate={{ scale: catForm.color === c ? 1.2 : 1 }}
-                        style={{
-                          background: c,
-                          outline: catForm.color === c ? `2px solid ${c}` : 'none',
-                          outlineOffset: '2px',
-                        }} />
+                        style={{ background: c, outline: catForm.color === c ? `2px solid ${c}` : 'none', outlineOffset: '2px' }} />
                     ))}
                   </div>
                 </div>

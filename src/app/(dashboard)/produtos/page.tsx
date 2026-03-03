@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
-import { Package, Plus, Loader2, X, Pencil, Trash2, Search } from 'lucide-react'
+import { useTour } from '@/hooks/useTour'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { TourOverlay } from '@/components/TourOverlay'
+import { PlanGate } from '@/components/PlanGate'
+import { Package, Plus, Loader2, X, Pencil, Trash2, Search, BarChart2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const fadeUp = (delay = 0) => ({
@@ -14,9 +18,33 @@ const fadeUp = (delay = 0) => ({
 
 const units = ['un', 'kg', 'l', 'm', 'cx', 'hr']
 
+const TOUR_STEPS = [
+  {
+    target: '[data-tour="produtos-header"]',
+    title: 'Catálogo de produtos',
+    description: 'Cadastre seus produtos e serviços aqui. Eles ficarão disponíveis para seleção ao registrar vendas.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="produtos-busca"]',
+    title: 'Busca rápida',
+    description: 'Filtre produtos pelo nome instantaneamente.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="produtos-lista"]',
+    title: 'Lista de produtos',
+    description: 'Produtos com estoque abaixo de 5 unidades mostram o alerta "Baixo" em vermelho.',
+    position: 'top' as const,
+  },
+]
+
 export default function ProdutosPage() {
   const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
+  const { plan } = usePlanLimits()
+  const tour = useTour('produtos', TOUR_STEPS)
+
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -62,20 +90,17 @@ export default function ProdutosPage() {
     } else {
       await supabase.from('products').insert({ ...payload, business_id: businessId, active: true })
     }
-    setShowForm(false)
-    setEditProduct(null)
-    setSaving(false)
-    load()
+    setShowForm(false); setEditProduct(null); setSaving(false); load()
   }
 
   async function handleDelete(id: string) {
     await supabase.from('products').delete().eq('id', id)
-    setShowConfirm(null)
-    load()
+    setShowConfirm(null); load()
   }
 
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+  const lowStock = products.filter(p => p.stock != null && p.stock < 5).length
 
   if (loading || bizLoading) return (
     <div className="flex items-center justify-center h-64">
@@ -85,10 +110,15 @@ export default function ProdutosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <motion.div {...fadeUp(0)} className="flex items-center justify-between">
+      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+
+      <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="produtos-header">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Produtos</h1>
-          <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>{products.length} produtos cadastrados</p>
+          <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>
+            {products.length} produtos cadastrados
+            {lowStock > 0 && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>⚠ {lowStock} estoque baixo</span>}
+          </p>
         </div>
         <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
           onClick={openCreate}
@@ -98,7 +128,24 @@ export default function ProdutosPage() {
         </motion.button>
       </motion.div>
 
-      <motion.div {...fadeUp(0.06)}
+      {/* Relatórios - bloqueado no free */}
+      <PlanGate currentPlan={plan} requiredPlan="starter" feature="Relatórios de produtos"
+        description="Veja os produtos mais vendidos, margem de lucro e análise de estoque." mode="hide">
+        <div className="rounded-2xl p-4 flex items-center gap-3"
+          style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: 'rgba(124,110,247,0.1)' }}>
+            <BarChart2 size={16} style={{ color: '#9d8fff' }} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold" style={{ color: '#e8e8f0' }}>Análise de produtos</p>
+            <p className="text-xs" style={{ color: '#4a4a6a' }}>Mais vendidos, margem e estoque crítico</p>
+          </div>
+          <span className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>Em breve</span>
+        </div>
+      </PlanGate>
+
+      <motion.div {...fadeUp(0.06)} data-tour="produtos-busca"
         className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
         style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
         <Search size={14} style={{ color: '#4a4a6a' }} />
@@ -121,8 +168,7 @@ export default function ProdutosPage() {
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
             style={{ background: 'rgba(0,0,0,0.8)' }}
             onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditProduct(null) } }}>
-            <motion.div
-              initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
+            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
               className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border p-6"
               style={{ background: '#111118', borderColor: '#1e1e2e' }}>
@@ -178,14 +224,13 @@ export default function ProdutosPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)' }}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.2 }}
               className="w-full max-w-sm rounded-2xl border p-6" style={{ background: '#111118', borderColor: '#1e1e2e' }}>
               <h2 className="font-bold text-lg mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Excluir produto?</h2>
               <p className="text-sm mb-6" style={{ color: '#6b6b8a' }}>Esta ação não pode ser desfeita.</p>
               <div className="flex gap-3">
                 <button onClick={() => setShowConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: '#0d0d14', border: '1px solid #1e1e2e', color: '#6b6b8a' }}>Cancelar</button>
-                <button onClick={() => handleDelete(showConfirm)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                <button onClick={() => handleDelete(showConfirm!)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>Excluir</button>
               </div>
             </motion.div>
@@ -195,11 +240,10 @@ export default function ProdutosPage() {
 
       {filtered.length === 0 ? (
         <motion.div {...fadeUp(0.1)} className="flex flex-col items-center justify-center py-24 gap-4">
-          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4, delay: 0.15 }}
-            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
             <Package size={32} style={{ color: '#7c6ef7' }} />
-          </motion.div>
+          </div>
           <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>
             {search ? 'Nenhum resultado' : 'Nenhum produto ainda'}
           </h2>
@@ -207,7 +251,8 @@ export default function ProdutosPage() {
         </motion.div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-          className="rounded-2xl overflow-hidden" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
+          className="rounded-2xl overflow-hidden" style={{ background: '#111118', border: '1px solid #1e1e2e' }}
+          data-tour="produtos-lista">
           <AnimatePresence initial={false}>
             {filtered.map((product, i) => (
               <motion.div key={product.id}
@@ -231,11 +276,8 @@ export default function ProdutosPage() {
                 <span className="text-sm font-semibold shrink-0" style={{ color: '#34d399' }}>
                   {fmt(product.price)}
                 </span>
-                {/* Indicador estoque baixo */}
                 {product.stock != null && product.stock < 5 && (
-                  <motion.span
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                  <motion.span initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }}
                     className="text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0"
                     style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
                     Baixo

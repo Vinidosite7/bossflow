@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { useTour } from '@/hooks/useTour'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { TourOverlay } from '@/components/TourOverlay'
 import { ShoppingCart, Plus, Loader2, X, Pencil, Trash2, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -18,9 +21,39 @@ const statusConfig = {
   cancelled: { label: 'Cancelado', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
 }
 
+const TOUR_STEPS = [
+  {
+    target: '[data-tour="vendas-header"]',
+    title: 'Registro de vendas',
+    description: 'Aqui você registra e acompanha todas as suas vendas. Clique em "Nova venda" para começar.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="vendas-kpis"]',
+    title: 'Resumo rápido',
+    description: 'Veja o total recebido, vendas pagas e pendentes em tempo real.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="vendas-busca"]',
+    title: 'Busca inteligente',
+    description: 'Filtre suas vendas por nome do cliente ou status rapidamente.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="vendas-lista"]',
+    title: 'Lista de vendas',
+    description: 'Cada venda mostra o cliente, data, status e valor. Clique no lápis para editar ou na lixeira para excluir.',
+    position: 'top' as const,
+  },
+]
+
 export default function VendasPage() {
   const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
+  const { plan } = usePlanLimits()
+  const tour = useTour('vendas', TOUR_STEPS)
+
   const [sales, setSales] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
@@ -117,7 +150,9 @@ export default function VendasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <motion.div {...fadeUp(0)} className="flex items-center justify-between">
+      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+
+      <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="vendas-header">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Vendas</h1>
           <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>{sales.length} vendas registradas</p>
@@ -131,7 +166,7 @@ export default function VendasPage() {
       </motion.div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3" data-tour="vendas-kpis">
         {[
           { label: 'Recebido', value: fmt(totalPaid), color: '#34d399' },
           { label: 'Pagas', value: String(sales.filter(s => s.status === 'paid').length), color: '#34d399' },
@@ -146,7 +181,7 @@ export default function VendasPage() {
       </div>
 
       {/* Search */}
-      <motion.div {...fadeUp(0.22)}
+      <motion.div {...fadeUp(0.22)} data-tour="vendas-busca"
         className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
         style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
         <Search size={14} style={{ color: '#4a4a6a' }} />
@@ -270,7 +305,7 @@ export default function VendasPage() {
               <div className="flex gap-3">
                 <button onClick={() => setShowConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: '#0d0d14', border: '1px solid #1e1e2e', color: '#6b6b8a' }}>Cancelar</button>
-                <button onClick={() => handleDelete(showConfirm)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                <button onClick={() => handleDelete(showConfirm!)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>Excluir</button>
               </div>
             </motion.div>
@@ -280,11 +315,10 @@ export default function VendasPage() {
 
       {filtered.length === 0 ? (
         <motion.div {...fadeUp(0.28)} className="flex flex-col items-center justify-center py-24 gap-4">
-          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4, delay: 0.3 }}
-            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
             <ShoppingCart size={32} style={{ color: '#7c6ef7' }} />
-          </motion.div>
+          </div>
           <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>
             {search ? 'Nenhum resultado' : 'Nenhuma venda ainda'}
           </h2>
@@ -292,7 +326,8 @@ export default function VendasPage() {
         </motion.div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
-          className="rounded-2xl overflow-hidden" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
+          className="rounded-2xl overflow-hidden" style={{ background: '#111118', border: '1px solid #1e1e2e' }}
+          data-tour="vendas-lista">
           <AnimatePresence initial={false}>
             {filtered.map((sale, i) => {
               const s = statusConfig[sale.status as keyof typeof statusConfig]
@@ -303,11 +338,10 @@ export default function VendasPage() {
                   transition={{ duration: 0.25, delay: i * 0.03 }}
                   className="flex items-center gap-3 px-4 py-3.5"
                   style={{ borderBottom: i < filtered.length - 1 ? '1px solid #1a1a2a' : 'none' }}>
-                  <motion.div whileHover={{ scale: 1.1 }}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
                     style={{ background: 'rgba(34,211,238,0.1)' }}>
                     <ShoppingCart size={13} style={{ color: '#22d3ee' }} />
-                  </motion.div>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: '#e8e8f0' }}>
                       {sale.clients?.name || 'Venda avulsa'}
@@ -317,11 +351,8 @@ export default function VendasPage() {
                       {sale.sale_items?.length ? ` · ${sale.sale_items.length} iten${sale.sale_items.length > 1 ? 's' : ''}` : ''}
                     </p>
                   </div>
-                  <motion.span whileHover={{ scale: 1.05 }}
-                    className="text-xs font-medium px-2 py-1 rounded-full shrink-0"
-                    style={{ background: s.bg, color: s.color }}>
-                    {s.label}
-                  </motion.span>
+                  <span className="text-xs font-medium px-2 py-1 rounded-full shrink-0"
+                    style={{ background: s.bg, color: s.color }}>{s.label}</span>
                   <span className="text-sm font-semibold shrink-0" style={{ color: '#34d399' }}>
                     {fmt(Number(sale.total))}
                   </span>

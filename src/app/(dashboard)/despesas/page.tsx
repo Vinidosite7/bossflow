@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { useTour } from '@/hooks/useTour'
+import { TourOverlay } from '@/components/TourOverlay'
 import { TrendingUp, TrendingDown, Plus, Loader2, X, Pencil, Trash2, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -12,9 +14,32 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.35, delay, ease: [0.25, 0.46, 0.45, 0.94] as const }
 })
 
+const TOUR_STEPS = [
+  {
+    target: '[data-tour="lancamentos-header"]',
+    title: 'Lançamentos financeiros',
+    description: 'Registre entradas e saídas de forma rápida. Clique em "Novo lançamento" para começar.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="lancamentos-kpis"]',
+    title: 'Resumo financeiro',
+    description: 'Veja o total de entradas, saídas e o saldo atual em tempo real.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="lancamentos-lista"]',
+    title: 'Histórico de lançamentos',
+    description: 'Lançamentos com status "Pendente" ainda não foram pagos ou recebidos. Edite para marcar como pago.',
+    position: 'top' as const,
+  },
+]
+
 export default function DespesasPage() {
   const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
+  const tour = useTour('lancamentos', TOUR_STEPS)
+
   const [transactions, setTransactions] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -92,7 +117,9 @@ export default function DespesasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <motion.div {...fadeUp(0)} className="flex items-center justify-between">
+      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+
+      <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="lancamentos-header">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Lançamentos</h1>
           <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>{transactions.length} lançamentos</p>
@@ -105,8 +132,7 @@ export default function DespesasPage() {
         </motion.button>
       </motion.div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3" data-tour="lancamentos-kpis">
         {[
           { label: 'Entradas', value: fmt(income), color: '#34d399', icon: TrendingUp },
           { label: 'Saídas', value: fmt(expense), color: '#f87171', icon: TrendingDown },
@@ -124,7 +150,6 @@ export default function DespesasPage() {
         ))}
       </div>
 
-      {/* Search */}
       <motion.div {...fadeUp(0.22)}
         className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
         style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
@@ -142,7 +167,6 @@ export default function DespesasPage() {
         </AnimatePresence>
       </motion.div>
 
-      {/* Modal */}
       <AnimatePresence>
         {showForm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -211,7 +235,7 @@ export default function DespesasPage() {
               <div className="flex gap-3">
                 <button onClick={() => setShowConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: '#0d0d14', border: '1px solid #1e1e2e', color: '#6b6b8a' }}>Cancelar</button>
-                <button onClick={() => handleDelete(showConfirm)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                <button onClick={() => handleDelete(showConfirm!)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>Excluir</button>
               </div>
             </motion.div>
@@ -221,11 +245,10 @@ export default function DespesasPage() {
 
       {filtered.length === 0 ? (
         <motion.div {...fadeUp(0.28)} className="flex flex-col items-center justify-center py-24 gap-4">
-          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4, delay: 0.3 }}
-            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
             <TrendingUp size={32} style={{ color: '#7c6ef7' }} />
-          </motion.div>
+          </div>
           <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>
             {search ? 'Nenhum resultado' : 'Nenhum lançamento ainda'}
           </h2>
@@ -233,7 +256,8 @@ export default function DespesasPage() {
         </motion.div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
-          className="rounded-2xl overflow-hidden" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
+          className="rounded-2xl overflow-hidden" style={{ background: '#111118', border: '1px solid #1e1e2e' }}
+          data-tour="lancamentos-lista">
           <AnimatePresence initial={false}>
             {filtered.map((tx, i) => (
               <motion.div key={tx.id}
@@ -242,13 +266,12 @@ export default function DespesasPage() {
                 transition={{ duration: 0.25, delay: i * 0.025 }}
                 className="flex items-center gap-3 px-4 py-3.5"
                 style={{ borderBottom: i < filtered.length - 1 ? '1px solid #1a1a2a' : 'none' }}>
-                <motion.div whileHover={{ scale: 1.1 }}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
                   style={{ background: tx.type === 'income' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)' }}>
                   {tx.type === 'income'
                     ? <TrendingUp size={13} style={{ color: '#34d399' }} />
                     : <TrendingDown size={13} style={{ color: '#f87171' }} />}
-                </motion.div>
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate" style={{ color: '#e8e8f0' }}>{tx.title}</p>
                   <p className="text-xs mt-0.5 truncate" style={{ color: '#4a4a6a' }}>

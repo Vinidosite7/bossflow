@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { useTour } from '@/hooks/useTour'
+import { TourOverlay } from '@/components/TourOverlay'
 import { Users, Plus, Loader2, X, Pencil, Trash2, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -12,9 +14,32 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.35, delay, ease: [0.25, 0.46, 0.45, 0.94] as const }
 })
 
+const TOUR_STEPS = [
+  {
+    target: '[data-tour="clientes-header"]',
+    title: 'Cadastro de clientes',
+    description: 'Mantenha seu cadastro de clientes atualizado. Eles ficarão disponíveis ao registrar vendas.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="clientes-busca"]',
+    title: 'Busca de clientes',
+    description: 'Pesquise por nome ou email. O resultado aparece instantaneamente.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="clientes-lista"]',
+    title: 'Lista de clientes',
+    description: 'Clique no lápis para editar ou na lixeira para excluir um cliente.',
+    position: 'top' as const,
+  },
+]
+
 export default function ClientesPage() {
   const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
+  const tour = useTour('clientes', TOUR_STEPS)
+
   const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -63,16 +88,12 @@ export default function ClientesPage() {
         business_id: businessId, active: true,
       })
     }
-    setShowForm(false)
-    setEditClient(null)
-    setSaving(false)
-    load()
+    setShowForm(false); setEditClient(null); setSaving(false); load()
   }
 
   async function handleDelete(id: string) {
     await supabase.from('clients').delete().eq('id', id)
-    setShowConfirm(null)
-    load()
+    setShowConfirm(null); load()
   }
 
   const filtered = clients.filter(c =>
@@ -95,15 +116,14 @@ export default function ClientesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <motion.div {...fadeUp(0)} className="flex items-center justify-between">
+      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+
+      <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="clientes-header">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Clientes</h1>
           <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>{clients.length} clientes cadastrados</p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
+        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
           onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
           style={{ background: '#7c6ef7', color: 'white', boxShadow: '0 0 20px rgba(124,110,247,0.3)' }}>
@@ -111,8 +131,7 @@ export default function ClientesPage() {
         </motion.button>
       </motion.div>
 
-      {/* Search */}
-      <motion.div {...fadeUp(0.06)}
+      <motion.div {...fadeUp(0.06)} data-tour="clientes-busca"
         className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
         style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
         <Search size={14} style={{ color: '#4a4a6a' }} />
@@ -121,32 +140,21 @@ export default function ClientesPage() {
           className="flex-1 bg-transparent text-sm outline-none" style={{ color: '#e8e8f0' }} />
         <AnimatePresence>
           {search && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              onClick={() => setSearch('')}
-              style={{ color: '#4a4a6a' }}>
+            <motion.button initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
+              onClick={() => setSearch('')} style={{ color: '#4a4a6a' }}>
               <X size={13} />
             </motion.button>
           )}
         </AnimatePresence>
       </motion.div>
 
-      {/* Modal form */}
       <AnimatePresence>
         {showForm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
             style={{ background: 'rgba(0,0,0,0.8)' }}
             onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditClient(null) } }}>
-            <motion.div
-              initial={{ y: 60, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 60, opacity: 0 }}
+            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
               className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border p-6"
               style={{ background: '#111118', borderColor: '#1e1e2e' }}>
@@ -187,76 +195,49 @@ export default function ClientesPage() {
         )}
       </AnimatePresence>
 
-      {/* Modal confirm */}
       <AnimatePresence>
         {showConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.8)' }}>
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-sm rounded-2xl border p-6"
-              style={{ background: '#111118', borderColor: '#1e1e2e' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm rounded-2xl border p-6" style={{ background: '#111118', borderColor: '#1e1e2e' }}>
               <h2 className="font-bold text-lg mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Excluir cliente?</h2>
               <p className="text-sm mb-6" style={{ color: '#6b6b8a' }}>Esta ação não pode ser desfeita.</p>
               <div className="flex gap-3">
-                <button onClick={() => setShowConfirm(null)}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: '#0d0d14', border: '1px solid #1e1e2e', color: '#6b6b8a' }}>
-                  Cancelar
-                </button>
-                <button onClick={() => handleDelete(showConfirm)}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>
-                  Excluir
-                </button>
+                <button onClick={() => setShowConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: '#0d0d14', border: '1px solid #1e1e2e', color: '#6b6b8a' }}>Cancelar</button>
+                <button onClick={() => handleDelete(showConfirm!)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>Excluir</button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Empty state */}
       {filtered.length === 0 ? (
         <motion.div {...fadeUp(0.12)} className="flex flex-col items-center justify-center py-24 gap-4">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
             <Users size={32} style={{ color: '#7c6ef7' }} />
-          </motion.div>
+          </div>
           <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>
             {search ? 'Nenhum resultado' : 'Nenhum cliente ainda'}
           </h2>
           <p style={{ color: '#4a4a6a' }}>{search ? 'Tente outro termo' : 'Cadastre seu primeiro cliente'}</p>
         </motion.div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="rounded-2xl overflow-hidden"
-          style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: 0.1 }}
+          className="rounded-2xl overflow-hidden" style={{ background: '#111118', border: '1px solid #1e1e2e' }}
+          data-tour="clientes-lista">
           <AnimatePresence initial={false}>
             {filtered.map((client, i) => (
-              <motion.div
-                key={client.id}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
+              <motion.div key={client.id}
+                initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 12, height: 0 }}
                 transition={{ duration: 0.25, delay: i * 0.03 }}
                 className="flex items-center gap-3 px-4 py-3.5"
                 style={{ borderBottom: i < filtered.length - 1 ? '1px solid #1a1a2a' : 'none' }}>
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
+                <motion.div whileHover={{ scale: 1.1 }}
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
                   style={{ background: `${colorFor(client.name)}20`, color: colorFor(client.name) }}>
                   {initials(client.name)}
@@ -269,14 +250,12 @@ export default function ClientesPage() {
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                    onClick={() => openEdit(client)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    onClick={() => openEdit(client)} className="w-7 h-7 rounded-lg flex items-center justify-center"
                     style={{ background: 'rgba(124,110,247,0.1)', color: '#7c6ef7' }}>
                     <Pencil size={12} />
                   </motion.button>
                   <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowConfirm(client.id)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    onClick={() => setShowConfirm(client.id)} className="w-7 h-7 rounded-lg flex items-center justify-center"
                     style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
                     <Trash2 size={12} />
                   </motion.button>

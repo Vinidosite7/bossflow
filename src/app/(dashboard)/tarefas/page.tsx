@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { useTour } from '@/hooks/useTour'
+import { TourOverlay } from '@/components/TourOverlay'
 import { CheckSquare, Plus, Loader2, X, Pencil, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -18,9 +20,32 @@ const statusConfig = {
   done: { label: 'Concluída', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
 }
 
+const TOUR_STEPS = [
+  {
+    target: '[data-tour="tarefas-header"]',
+    title: 'Gerenciador de tarefas',
+    description: 'Organize as atividades do seu negócio. Clique em "Nova tarefa" para adicionar.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="tarefas-filtros"]',
+    title: 'Filtros por status',
+    description: 'Filtre suas tarefas por A fazer, Em andamento ou Concluídas. O número mostra a quantidade em cada status.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="tarefas-lista"]',
+    title: 'Lista de tarefas',
+    description: 'Clique no círculo para avançar o status da tarefa. Tarefas atrasadas aparecem em vermelho.',
+    position: 'top' as const,
+  },
+]
+
 export default function TarefasPage() {
   const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
+  const tour = useTour('tarefas', TOUR_STEPS)
+
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -68,10 +93,7 @@ export default function TarefasPage() {
     } else {
       await supabase.from('tasks').insert({ ...payload, business_id: businessId, assigned_to: user?.id })
     }
-    setShowForm(false)
-    setEditTask(null)
-    setSaving(false)
-    load()
+    setShowForm(false); setEditTask(null); setSaving(false); load()
   }
 
   async function toggleStatus(task: any) {
@@ -82,8 +104,7 @@ export default function TarefasPage() {
 
   async function handleDelete(id: string) {
     await supabase.from('tasks').delete().eq('id', id)
-    setShowConfirm(null)
-    load()
+    setShowConfirm(null); load()
   }
 
   const filtered = tasks.filter(t => filter === 'all' || t.status === filter)
@@ -103,7 +124,9 @@ export default function TarefasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <motion.div {...fadeUp(0)} className="flex items-center justify-between">
+      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+
+      <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="tarefas-header">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Tarefas</h1>
           <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>{tasks.filter(t => t.status !== 'done').length} pendentes</p>
@@ -116,17 +139,14 @@ export default function TarefasPage() {
         </motion.button>
       </motion.div>
 
-      {/* Filtros com contador */}
-      <motion.div {...fadeUp(0.07)} className="flex gap-2 overflow-x-auto pb-1">
+      <motion.div {...fadeUp(0.07)} className="flex gap-2 overflow-x-auto pb-1" data-tour="tarefas-filtros">
         {[
           { key: 'all', label: 'Todas' },
           { key: 'todo', label: 'A fazer' },
           { key: 'in_progress', label: 'Em andamento' },
           { key: 'done', label: 'Concluídas' },
         ].map(({ key, label }) => (
-          <motion.button key={key}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setFilter(key)}
+          <motion.button key={key} whileTap={{ scale: 0.95 }} onClick={() => setFilter(key)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all"
             style={{
               background: filter === key ? '#7c6ef7' : '#111118',
@@ -135,10 +155,7 @@ export default function TarefasPage() {
             }}>
             {label}
             <span className="px-1.5 py-0.5 rounded-full text-xs"
-              style={{
-                background: filter === key ? 'rgba(255,255,255,0.2)' : '#1e1e2e',
-                color: filter === key ? 'white' : '#4a4a6a',
-              }}>
+              style={{ background: filter === key ? 'rgba(255,255,255,0.2)' : '#1e1e2e', color: filter === key ? 'white' : '#4a4a6a' }}>
               {counts[key as keyof typeof counts]}
             </span>
           </motion.button>
@@ -207,14 +224,13 @@ export default function TarefasPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)' }}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.2 }}
               className="w-full max-w-sm rounded-2xl border p-6" style={{ background: '#111118', borderColor: '#1e1e2e' }}>
               <h2 className="font-bold text-lg mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Excluir tarefa?</h2>
               <p className="text-sm mb-6" style={{ color: '#6b6b8a' }}>Esta ação não pode ser desfeita.</p>
               <div className="flex gap-3">
                 <button onClick={() => setShowConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: '#0d0d14', border: '1px solid #1e1e2e', color: '#6b6b8a' }}>Cancelar</button>
-                <button onClick={() => handleDelete(showConfirm)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                <button onClick={() => handleDelete(showConfirm!)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>Excluir</button>
               </div>
             </motion.div>
@@ -222,36 +238,30 @@ export default function TarefasPage() {
         )}
       </AnimatePresence>
 
-      {/* Lista */}
       {filtered.length === 0 ? (
         <motion.div {...fadeUp(0.12)} className="flex flex-col items-center justify-center py-24 gap-4">
-          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4, delay: 0.15 }}
-            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
             <CheckSquare size={32} style={{ color: '#7c6ef7' }} />
-          </motion.div>
+          </div>
           <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Nenhuma tarefa</h2>
           <p style={{ color: '#4a4a6a' }}>Crie sua primeira tarefa</p>
         </motion.div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" data-tour="tarefas-lista">
           <AnimatePresence initial={false}>
             {filtered.map((task, i) => {
               const s = statusConfig[task.status as keyof typeof statusConfig]
               const overdue = task.due_date && task.due_date < today && task.status !== 'done'
               return (
                 <motion.div key={task.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
                   transition={{ duration: 0.25, delay: i * 0.04 }}
                   layout
                   className="rounded-2xl p-4 flex items-start gap-3"
                   style={{ background: '#111118', border: `1px solid ${overdue ? 'rgba(248,113,113,0.3)' : '#1e1e2e'}` }}>
-                  {/* Botão toggle com animação de mola */}
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.85 }}
+                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.85 }}
                     onClick={() => toggleStatus(task)}
                     className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors"
                     style={{
@@ -260,40 +270,26 @@ export default function TarefasPage() {
                     }}>
                     <AnimatePresence>
                       {task.status === 'done' && (
-                        <motion.span
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0, opacity: 0 }}
+                        <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
                           transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                           className="text-white text-xs">✓</motion.span>
                       )}
                       {task.status === 'in_progress' && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          exit={{ scale: 0 }}
-                          className="w-2 h-2 rounded-full"
-                          style={{ background: '#fbbf24' }} />
+                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                          className="w-2 h-2 rounded-full" style={{ background: '#fbbf24' }} />
                       )}
                     </AnimatePresence>
                   </motion.button>
-
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium" style={{
                       color: task.status === 'done' ? '#4a4a6a' : '#e8e8f0',
                       textDecoration: task.status === 'done' ? 'line-through' : 'none',
-                      transition: 'color 0.2s, text-decoration 0.2s',
                     }}>{task.title}</p>
                     {task.description && (
                       <p className="text-xs mt-0.5 truncate" style={{ color: '#4a4a6a' }}>{task.description}</p>
                     )}
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <motion.span
-                        layout
-                        className="text-xs px-2 py-0.5 rounded-full font-medium"
-                        style={{ background: s.bg, color: s.color }}>
-                        {s.label}
-                      </motion.span>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: s.bg, color: s.color }}>{s.label}</span>
                       {task.due_date && (
                         <span className="text-xs" style={{ color: overdue ? '#f87171' : '#4a4a6a' }}>
                           {overdue ? '⚠ ' : ''}{new Date(task.due_date).toLocaleDateString('pt-BR')}
@@ -301,7 +297,6 @@ export default function TarefasPage() {
                       )}
                     </div>
                   </div>
-
                   <div className="flex gap-2 shrink-0">
                     <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                       onClick={() => openEdit(task)} className="w-7 h-7 rounded-lg flex items-center justify-center"
