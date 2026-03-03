@@ -34,8 +34,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // Verifica onboarding — só pra usuários logados fora do /onboarding
-  if (user && !pathname.startsWith('/onboarding')) {
+  // Proteção da rota /admin — precisa estar logado e ser admin
+  if (pathname.startsWith('/admin')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile?.is_admin) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+  }
+
+  // Verifica onboarding — só pra usuários logados fora do /onboarding e /admin
+  if (user && !pathname.startsWith('/onboarding') && !pathname.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('onboarding_done')
