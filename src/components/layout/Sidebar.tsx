@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, TrendingUp, CreditCard, ShoppingCart,
   Users, Package, CheckSquare, Calendar, Building2,
-  Settings, ChevronLeft, ChevronRight, Target,
+  Settings, ChevronLeft, ChevronRight, Target, ShieldCheck,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
@@ -81,8 +81,7 @@ function AnnualGoalWidget({ collapsed }: { collapsed: boolean }) {
               strokeDashoffset={`${2 * Math.PI * 12 * (1 - pct / 100)}`}
               strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
           </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold"
-            style={{ color }}>
+          <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold" style={{ color }}>
             {Math.round(pct)}%
           </span>
         </div>
@@ -98,26 +97,18 @@ function AnnualGoalWidget({ collapsed }: { collapsed: boolean }) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <Target size={11} style={{ color: '#f97316' }} />
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#f97316' }}>
-            Meta Anual
-          </span>
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#f97316' }}>Meta Anual</span>
         </div>
-        <span className="text-xs font-bold" style={{ color }}>
-          {Math.round(pct)}%
-        </span>
+        <span className="text-xs font-bold" style={{ color }}>{Math.round(pct)}%</span>
       </div>
-
-      {/* Barra de progresso */}
       <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: '#1e1e2e' }}>
         <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
+          initial={{ width: 0 }} animate={{ width: `${pct}%` }}
           transition={{ duration: 1, ease: 'easeOut' }}
           className="h-full rounded-full"
           style={{ background: `linear-gradient(90deg, ${color}, ${color}cc)` }}
         />
       </div>
-
       {target > 0 ? (
         <p className="text-xs" style={{ color: '#4a4a6a' }}>
           {fmtShort(revenue)} <span style={{ color: '#3a3a5c' }}>/ {fmtShort(target)}</span>
@@ -132,7 +123,45 @@ function AnnualGoalWidget({ collapsed }: { collapsed: boolean }) {
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const isMobile = !!onClose
+
+  useEffect(() => {
+    async function checkAdmin() {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        const { data } = await supabase
+          .from('profiles').select('is_admin').eq('id', user.id).single()
+        setIsAdmin(!!data?.is_admin)
+      } catch {}
+    }
+    checkAdmin()
+  }, [])
+
+  const renderNavItem = (href: string, icon: any, label: string, color: string) => {
+    const Icon = icon
+    const active = pathname === href
+    return (
+      <Link key={href} href={href} onClick={onClose}
+        className={`flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 ${
+          collapsed && !isMobile ? 'justify-center py-3 px-0' : 'px-3 py-2.5'
+        }`}
+        style={{ background: active ? `${color}18` : 'transparent' }}>
+        <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+          style={{ background: active ? `${color}25` : 'transparent' }}>
+          <Icon size={15} style={{ color: active ? color : '#5a5a7a' }} />
+        </div>
+        {(!collapsed || isMobile) && (
+          <>
+            <span style={{ color: active ? color : '#6b6b8a' }}>{label}</span>
+            {active && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: color }} />}
+          </>
+        )}
+      </Link>
+    )
+  }
 
   return (
     <aside
@@ -142,70 +171,58 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       }`}>
 
       {/* Logo */}
-      <div
-        className={`flex items-center px-4 py-5 border-b ${collapsed && !isMobile ? 'justify-center' : ''}`}
+      <div className={`flex items-center px-4 py-5 border-b ${collapsed && !isMobile ? 'justify-center' : ''}`}
         style={{ borderColor: '#1a1a2e' }}>
         <div className="relative w-full h-10">
-          <Image src="/bossflow.png" alt="BossFlow Logo" fill
-            className="object-contain object-left" priority />
+          <Image src="/bossflow.png" alt="BossFlow Logo" fill className="object-contain object-left" priority />
         </div>
       </div>
 
       {/* Nav */}
       <div className="flex flex-col gap-0.5 p-2 mt-2 flex-1 overflow-y-auto">
         {(!collapsed || isMobile) && (
-          <span className="text-xs px-3 mb-1.5 font-semibold uppercase tracking-widest"
-            style={{ color: '#3a3a5c' }}>Principal</span>
+          <span className="text-xs px-3 mb-1.5 font-semibold uppercase tracking-widest" style={{ color: '#3a3a5c' }}>
+            Principal
+          </span>
         )}
-        {navMain.map(({ label, href, icon: Icon, color }) => {
-          const active = pathname === href
-          return (
-            <Link key={href} href={href} onClick={onClose}
-              className={`flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 ${
-                collapsed && !isMobile ? 'justify-center py-3 px-0' : 'px-3 py-2.5'
-              }`}
-              style={{ background: active ? `${color}18` : 'transparent' }}>
-              <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: active ? `${color}25` : 'transparent' }}>
-                <Icon size={15} style={{ color: active ? color : '#5a5a7a' }} />
-              </div>
-              {(!collapsed || isMobile) && (
-                <>
-                  <span style={{ color: active ? color : '#6b6b8a' }}>{label}</span>
-                  {active && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: color }} />}
-                </>
-              )}
-            </Link>
-          )
-        })}
+        {navMain.map(({ href, icon, label, color }) => renderNavItem(href, icon, label, color))}
 
         <div className="mx-2 my-2" style={{ borderTop: '1px solid #1a1a2e' }} />
 
         {(!collapsed || isMobile) && (
-          <span className="text-xs px-3 mb-1.5 font-semibold uppercase tracking-widest"
-            style={{ color: '#3a3a5c' }}>Operacional</span>
+          <span className="text-xs px-3 mb-1.5 font-semibold uppercase tracking-widest" style={{ color: '#3a3a5c' }}>
+            Operacional
+          </span>
         )}
-        {navOperacional.map(({ label, href, icon: Icon, color }) => {
-          const active = pathname === href
-          return (
-            <Link key={href} href={href} onClick={onClose}
+        {navOperacional.map(({ href, icon, label, color }) => renderNavItem(href, icon, label, color))}
+
+        {/* Admin — só aparece se is_admin */}
+        {isAdmin && (
+          <>
+            <div className="mx-2 my-2" style={{ borderTop: '1px solid #1a1a2e' }} />
+            {(!collapsed || isMobile) && (
+              <span className="text-xs px-3 mb-1.5 font-semibold uppercase tracking-widest" style={{ color: '#3a3a5c' }}>
+                Admin
+              </span>
+            )}
+            <Link href="/admin" onClick={onClose}
               className={`flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 ${
                 collapsed && !isMobile ? 'justify-center py-3 px-0' : 'px-3 py-2.5'
               }`}
-              style={{ background: active ? `${color}18` : 'transparent' }}>
+              style={{ background: pathname === '/admin' ? 'rgba(124,110,247,0.12)' : 'transparent' }}>
               <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: active ? `${color}25` : 'transparent' }}>
-                <Icon size={15} style={{ color: active ? color : '#5a5a7a' }} />
+                style={{ background: pathname === '/admin' ? 'rgba(124,110,247,0.2)' : 'transparent' }}>
+                <ShieldCheck size={15} style={{ color: pathname === '/admin' ? '#9d8fff' : '#5a5a7a' }} />
               </div>
               {(!collapsed || isMobile) && (
                 <>
-                  <span style={{ color: active ? color : '#6b6b8a' }}>{label}</span>
-                  {active && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: color }} />}
+                  <span style={{ color: pathname === '/admin' ? '#9d8fff' : '#6b6b8a' }}>Painel Admin</span>
+                  {pathname === '/admin' && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#9d8fff' }} />}
                 </>
               )}
             </Link>
-          )
-        })}
+          </>
+        )}
       </div>
 
       {/* Meta anual widget */}
@@ -219,8 +236,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
 
       {/* Botão colapsar — só desktop */}
       {!isMobile && (
-        <button
-          onClick={() => setCollapsed(!collapsed)}
+        <button onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-14 w-6 h-6 rounded-full flex items-center justify-center border z-10"
           style={{ background: '#0d0d14', borderColor: '#2a2a3e', color: '#5a5a7a' }}>
           {collapsed ? <ChevronRight size={11} /> : <ChevronLeft size={11} />}
