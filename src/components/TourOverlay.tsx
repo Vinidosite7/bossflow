@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import { TourStep } from '@/hooks/useTour'
@@ -15,60 +15,109 @@ interface TourOverlayProps {
   onFinish: () => void
 }
 
-export function TourOverlay({ active, step, current, total, onNext, onPrev, onFinish }: TourOverlayProps) {
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 0, height: 0 })
-  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 })
-  const tooltipRef = useRef<HTMLDivElement>(null)
+const TOOLTIP_W = 300
+const PADDING = 8
 
-  useEffect(() => {
+export function TourOverlay({ active, step, current, total, onNext, onPrev, onFinish }: TourOverlayProps) {
+  const [highlight, setHighlight] = useState({ top: 0, left: 0, width: 0, height: 0 })
+  const [tooltip, setTooltip] = useState({ top: 0, left: 0 })
+  const [ready, setReady] = useState(false)
+  const rafRef = useRef<number>()
+
+  const calcPositions = useCallback(() => {
     if (!active || !step) return
 
     const el = document.querySelector(step.target) as HTMLElement
     if (!el) return
 
     const rect = el.getBoundingClientRect()
-    const scrollY = window.scrollY
-    const scrollX = window.scrollX
+    const vw = window.innerWidth
+    const vh = window.innerHeight
 
-    const padding = 6
-    setPos({
-      top: rect.top + scrollY - padding,
-      left: rect.left + scrollX - padding,
-      width: rect.width + padding * 2,
-      height: rect.height + padding * 2,
+    // Highlight — coordenadas do viewport (fixed)
+    setHighlight({
+      top: rect.top - PADDING,
+      left: rect.left - PADDING,
+      width: rect.width + PADDING * 2,
+      height: rect.height + PADDING * 2,
     })
 
-    // Posição do tooltip
-    const tW = 300
-    const tH = 160
+    // Tooltip
     const position = step.position ?? 'bottom'
-    let tTop = 0, tLeft = 0
+    const tH = 190
+    let tTop = 0
+    let tLeft = rect.left + rect.width / 2 - TOOLTIP_W / 2
 
     if (position === 'bottom') {
-      tTop = rect.bottom + scrollY + 16
-      tLeft = rect.left + scrollX + rect.width / 2 - tW / 2
+      tTop = rect.bottom + 16
+      if (tTop + tH > vh - 16) tTop = rect.top - tH - 16
     } else if (position === 'top') {
-      tTop = rect.top + scrollY - tH - 16
-      tLeft = rect.left + scrollX + rect.width / 2 - tW / 2
+      tTop = rect.top - tH - 16
+      if (tTop < 16) tTop = rect.bottom + 16
     } else if (position === 'right') {
-      tTop = rect.top + scrollY + rect.height / 2 - tH / 2
-      tLeft = rect.right + scrollX + 16
+      tTop = rect.top + rect.height / 2 - tH / 2
+      tLeft = rect.right + 16
     } else if (position === 'left') {
-      tTop = rect.top + scrollY + rect.height / 2 - tH / 2
-      tLeft = rect.left + scrollX - tW - 16
+      tTop = rect.top + rect.height / 2 - tH / 2
+      tLeft = rect.left - TOOLTIP_W - 16
     }
 
-    // Garante que não saia da tela
-    tLeft = Math.max(16, Math.min(tLeft, window.innerWidth - tW - 16))
-    tTop = Math.max(16, tTop)
+    tLeft = Math.max(16, Math.min(tLeft, vw - TOOLTIP_W - 16))
+    tTop = Math.max(16, Math.min(tTop, vh - tH - 16))
 
-    setTooltipPos({ top: tTop, left: tLeft })
+    setTooltip({ top: tTop, left: tLeft })
+    setReady(true)
+  }, [active, step])
 
-    // Scroll suave pro elemento
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [active, step, current])
+  useEffect(() => {
+    if (!active || !step) { setReady(false); return }
 
-  // Keyboard navigation
+    setReady(false)
+
+    const el = document.querySelector(step.target) as HTMLElement
+    if (!el) return
+
+    // Scroll pro elemento
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    // Aguarda scroll estabilizar antes de calcular posição
+    let lastY = window.scrollY
+    let stableCount = 0
+    let settled = false
+
+    const checkScrollEnd = () => {
+      const currentY = window.scrollY
+      if (Math.abs(currentY - lastY) < 1) {
+        stableCount++
+        if (stableCount >= 4) {
+          settled = true
+          calcPositions()
+          return
+        }
+      } else {
+        stableCount = 0
+      }
+      lastY = currentY
+      if (!settled) rafRef.current = requestAnimationFrame(checkScrollEnd)
+    }
+
+    const t = setTimeout(() => {
+      rafRef.current = requestAnimationFrame(checkScrollEnd)
+    }, 60)
+
+    return () => {
+      clearTimeout(t)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [active, step, current, calcPositions])
+
+  useEffect(() => {
+    if (!active) return
+    const handler = () => calcPositions()
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [active, calcPositions])
+
   useEffect(() => {
     if (!active) return
     const handler = (e: KeyboardEvent) => {
@@ -84,48 +133,53 @@ export function TourOverlay({ active, step, current, total, onNext, onPrev, onFi
     <AnimatePresence>
       {active && step && (
         <>
-          {/* Overlay escuro com buraco no elemento */}
+          {/* Overlay */}
           <motion.div
-            className="fixed inset-0 z-[9998] pointer-events-none"
+            className="fixed inset-0 z-[9997] pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            style={{ background: 'rgba(0,0,0,0.75)' }}
+          />
+
+          {/* Highlight com spring suave */}
+          <motion.div
+            className="fixed z-[9998] pointer-events-none"
+            animate={{
+              top: highlight.top,
+              left: highlight.left,
+              width: highlight.width,
+              height: highlight.height,
+              opacity: ready ? 1 : 0,
+            }}
+            transition={{ type: 'spring', stiffness: 280, damping: 28 }}
             style={{
-              background: `radial-gradient(ellipse ${pos.width}px ${pos.height}px at ${pos.left + pos.width / 2}px ${pos.top + pos.height / 2}px, transparent 99%, rgba(0,0,0,0.75) 100%)`,
-              boxShadow: `0 0 0 9999px rgba(0,0,0,0.7)`,
+              borderRadius: 14,
+              boxShadow: '0 0 0 9999px rgba(0,0,0,0.75)',
+              border: '2px solid rgba(124,110,247,0.9)',
+              outline: '4px solid rgba(124,110,247,0.12)',
             }}
           />
 
-          {/* Highlight border */}
+          {/* Tooltip com spring suave */}
           <motion.div
-            className="fixed z-[9999] pointer-events-none rounded-xl"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            style={{
-              top: pos.top,
-              left: pos.left,
-              width: pos.width,
-              height: pos.height,
-              border: '2px solid rgba(124,110,247,0.8)',
-              boxShadow: '0 0 20px rgba(124,110,247,0.4)',
+            className="fixed z-[10000]"
+            style={{ width: TOOLTIP_W }}
+            animate={{
+              top: tooltip.top,
+              left: tooltip.left,
+              opacity: ready ? 1 : 0,
             }}
-          />
-
-          {/* Tooltip */}
-          <motion.div
-            ref={tooltipRef}
-            className="fixed z-[10000] w-[300px]"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2, delay: 0.05 }}
-            style={{ top: tooltipPos.top, left: tooltipPos.left }}
+            transition={{ type: 'spring', stiffness: 280, damping: 28 }}
           >
             <div className="rounded-2xl p-5"
-              style={{ background: '#0d0d14', border: '1px solid rgba(124,110,247,0.3)', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}>
-              {/* Header */}
+              style={{
+                background: '#0d0d14',
+                border: '1px solid rgba(124,110,247,0.35)',
+                boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
+              }}>
+
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg flex items-center justify-center"
@@ -137,39 +191,43 @@ export function TourOverlay({ active, step, current, total, onNext, onPrev, onFi
                   </span>
                 </div>
                 <button onClick={onFinish}
-                  className="w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:bg-white/10"
+                  className="w-6 h-6 rounded-lg flex items-center justify-center"
                   style={{ color: '#4a4a6a' }}>
                   <X size={12} />
                 </button>
               </div>
 
-              {/* Progress bar */}
+              {/* Progress */}
               <div className="h-0.5 rounded-full mb-4" style={{ background: '#1e1e2e' }}>
                 <motion.div
                   className="h-full rounded-full"
                   style={{ background: 'linear-gradient(90deg, #7c6ef7, #9d8fff)' }}
-                  initial={{ width: 0 }}
                   animate={{ width: `${((current + 1) / total) * 100}%` }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.35 }}
                 />
               </div>
 
-              {/* Content */}
-              <p className="font-bold mb-1.5 text-sm" style={{ color: '#e8e8f0' }}>{step.title}</p>
-              <p className="text-xs leading-relaxed mb-4" style={{ color: '#6b6b8a' }}>{step.description}</p>
+              {/* Conteúdo animado por step */}
+              <AnimatePresence mode="wait">
+                <motion.div key={current}
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.18 }}>
+                  <p className="font-bold mb-1.5 text-sm" style={{ color: '#e8e8f0' }}>{step.title}</p>
+                  <p className="text-xs leading-relaxed mb-4" style={{ color: '#6b6b8a' }}>{step.description}</p>
+                </motion.div>
+              </AnimatePresence>
 
-              {/* Actions */}
+              {/* Botões */}
               <div className="flex items-center justify-between">
                 <button onClick={onPrev} disabled={current === 0}
-                  className="flex items-center gap-1 text-xs transition-all disabled:opacity-30"
-                  style={{ color: '#4a4a6a' }}
-                  onMouseEnter={e => { if (current > 0) e.currentTarget.style.color = '#9d8fff' }}
-                  onMouseLeave={e => e.currentTarget.style.color = '#4a4a6a'}>
+                  className="flex items-center gap-1 text-xs disabled:opacity-30"
+                  style={{ color: '#6b6b8a' }}>
                   <ChevronLeft size={14} /> Anterior
                 </button>
-
                 <button onClick={onNext}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
                   style={{ background: 'linear-gradient(135deg, #7c6ef7, #9d8fff)', color: 'white' }}>
                   {current === total - 1 ? 'Concluir ✓' : <>Próximo <ChevronRight size={12} /></>}
                 </button>
@@ -177,8 +235,8 @@ export function TourOverlay({ active, step, current, total, onNext, onPrev, onFi
             </div>
           </motion.div>
 
-          {/* Click fora = fecha */}
-          <div className="fixed inset-0 z-[9997] cursor-pointer" onClick={onFinish} />
+          {/* Click fora fecha */}
+          <div className="fixed inset-0 z-[9996]" onClick={onFinish} style={{ cursor: 'pointer' }} />
         </>
       )}
     </AnimatePresence>
