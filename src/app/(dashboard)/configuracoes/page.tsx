@@ -35,7 +35,7 @@ const TOUR_STEPS = [
   {
     target: '[data-tour="config-notificacoes"]',
     title: 'Notificações push',
-    description: 'Ative para receber alertas mesmo com o app fechado — tarefas, pagamentos e muito mais.',
+    description: 'Ative para receber alertas mesmo com o app fechado.',
     position: 'bottom' as const,
   },
   {
@@ -289,13 +289,13 @@ export default function ConfiguracoesPage() {
       {/* ── Perfil ── */}
       <motion.div {...fadeUp(0.08)} className="rounded-2xl border p-6"
         style={{ background: '#111118', borderColor: '#1e1e2e' }}
-        data-tour="config-perfil">
+        >
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.3)' }}>
             <User size={16} style={{ color: '#9d8fff' }} />
           </div>
-          <h2 className="font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Perfil</h2>
+          <h2 className="font-bold" data-tour="config-perfil" style={{ fontFamily: 'Syne, sans-serif' }}>Perfil</h2>
         </div>
 
         <div className="flex flex-col items-center gap-4 mb-6 pb-6 border-b" style={{ borderColor: '#1e1e2e' }}>
@@ -398,13 +398,13 @@ export default function ConfiguracoesPage() {
       {/* ── Notificações ── */}
       <motion.div {...fadeUp(0.16)} className="rounded-2xl border p-6"
         style={{ background: '#111118', borderColor: '#1e1e2e' }}
-        data-tour="config-notificacoes">
+        >
         <div className="flex items-center gap-3 mb-5">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.3)' }}>
             <Bell size={16} style={{ color: '#9d8fff' }} />
           </div>
-          <h2 className="font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Notificações</h2>
+          <h2 className="font-bold" data-tour="config-notificacoes" style={{ fontFamily: 'Syne, sans-serif' }}>Notificações</h2>
         </div>
 
         <div className="rounded-xl p-3 mb-5 flex items-center gap-3"
@@ -461,13 +461,13 @@ export default function ConfiguracoesPage() {
       {/* ── Segurança ── */}
       <motion.div {...fadeUp(0.24)} className="rounded-2xl border p-6"
         style={{ background: '#111118', borderColor: '#1e1e2e' }}
-        data-tour="config-seguranca">
+        >
         <div className="flex items-center gap-3 mb-5">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.3)' }}>
             <Shield size={16} style={{ color: '#9d8fff' }} />
           </div>
-          <h2 className="font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Segurança</h2>
+          <h2 className="font-bold" data-tour="config-seguranca" style={{ fontFamily: 'Syne, sans-serif' }}>Segurança</h2>
         </div>
 
         <div className="flex flex-col divide-y" style={{ ['--tw-divide-opacity' as any]: 1 }}>
