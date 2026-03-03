@@ -1,13 +1,17 @@
-const CACHE_NAME = 'bossflow-v1'
-const urlsToCache = [
-  '/',
-  '/dashboard',
-  '/login',
-]
+cat > public/sw.js << 'EOF'
+const CACHE_NAME = 'bossflow-v2'
+const urlsToCache = ['/', '/dashboard', '/login']
 
 self.addEventListener('install', event => {
+  self.skipWaiting()
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)))
+})
+
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   )
 })
 
@@ -20,10 +24,31 @@ self.addEventListener('fetch', event => {
   )
 })
 
-self.addEventListener('activate', event => {
+self.addEventListener('push', event => {
+  let data = { title: 'BossFlow', body: 'Você tem uma nova notificação', icon: '/icon-192.png', url: '/dashboard' }
+  try { if (event.data) data = { ...data, ...event.data.json() } } catch (e) {}
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    self.registration.showNotification(data.title, {
+      body: data.body, icon: data.icon || '/icon-192.png',
+      badge: '/icon-192.png', data: { url: data.url },
+      vibrate: [200, 100, 200],
+    })
   )
 })
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close()
+  const url = event.notification.data?.url || '/dashboard'
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url)
+          return client.focus()
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url)
+    })
+  )
+})
+EOF

@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useTour } from '@/hooks/useTour'
+import { usePushNotification } from '@/hooks/usePushNotification'
+import { TourOverlay } from '@/components/TourOverlay'
 import { Settings, User, Bell, Shield, Loader2, Camera, Upload, Check, X, BellOff, BellRing, Key, LogOut, Trash2, ChevronRight, Smartphone } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -20,6 +23,27 @@ const NOTIF_OPTIONS: { key: NotifKey; label: string; desc: string }[] = [
   { key: 'payments', label: 'Contas a pagar',            desc: 'Lembrete de transações pendentes' },
   { key: 'events',   label: 'Eventos do dia',            desc: 'Aviso 30 min antes do evento' },
   { key: 'weekly',   label: 'Relatório semanal',         desc: 'Resumo financeiro toda segunda-feira' },
+]
+
+const TOUR_STEPS = [
+  {
+    target: '[data-tour="config-perfil"]',
+    title: 'Seu perfil',
+    description: 'Atualize seu nome e foto de perfil aqui.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="config-notificacoes"]',
+    title: 'Notificações push',
+    description: 'Ative para receber alertas mesmo com o app fechado — tarefas, pagamentos e muito mais.',
+    position: 'bottom' as const,
+  },
+  {
+    target: '[data-tour="config-seguranca"]',
+    title: 'Segurança',
+    description: 'Altere sua senha ou encerre sua sessão por aqui.',
+    position: 'top' as const,
+  },
 ]
 
 /* ─── Toggle ── */
@@ -113,6 +137,9 @@ function PasswordModal({ onClose }: { onClose: () => void }) {
 /* ─── Page ── */
 export default function ConfiguracoesPage() {
   const supabase = createClient()
+  const tour = useTour('configuracoes', TOUR_STEPS)
+  const { permission: pushPermissionHook, loading: pushLoadingHook, requestPermission: subscribePush } = usePushNotification()
+
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -125,7 +152,6 @@ export default function ConfiguracoesPage() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  // Notificações
   const [pushPermission, setPushPermission] = useState<NotificationPermission>('default')
   const [requestingPush, setRequestingPush] = useState(false)
   const [notifs, setNotifs] = useState<Record<NotifKey, boolean>>({
@@ -135,11 +161,9 @@ export default function ConfiguracoesPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    // Carrega preferências de notif do localStorage
-    const saved = localStorage.getItem('bf_notif_prefs')
-    if (saved) setNotifs(JSON.parse(saved))
+    const savedNotifs = localStorage.getItem('bf_notif_prefs')
+    if (savedNotifs) setNotifs(JSON.parse(savedNotifs))
 
-    // Verifica permissão atual
     if ('Notification' in window) setPushPermission(Notification.permission)
 
     async function load() {
@@ -162,6 +186,11 @@ export default function ConfiguracoesPage() {
     load()
   }, [])
 
+  // Sincroniza permissão com o hook
+  useEffect(() => {
+    if (pushPermissionHook) setPushPermission(pushPermissionHook)
+  }, [pushPermissionHook])
+
   function saveNotifPrefs(next: Record<NotifKey, boolean>) {
     setNotifs(next)
     localStorage.setItem('bf_notif_prefs', JSON.stringify(next))
@@ -171,14 +200,8 @@ export default function ConfiguracoesPage() {
     if (!('Notification' in window)) return
     setRequestingPush(true)
     try {
-      const permission = await Notification.requestPermission()
-      setPushPermission(permission)
-      if (permission === 'granted') {
-        new Notification('BossFlow', {
-          body: 'Notificações ativadas! Você receberá alertas importantes aqui.',
-          icon: '/icon.png',
-        })
-      }
+      await subscribePush() // pede permissão + salva subscription no Supabase
+      if ('Notification' in window) setPushPermission(Notification.permission)
     } catch (err) { console.error(err) }
     finally { setRequestingPush(false) }
   }
@@ -219,7 +242,6 @@ export default function ConfiguracoesPage() {
     e.preventDefault()
     setSaving(true)
     await supabase.auth.updateUser({ data: { full_name: name } })
-    // Atualiza profiles também
     if (user) {
       await supabase.from('profiles').update({ full_name: name, email: user.email }).eq('id', user.id)
     }
@@ -237,7 +259,6 @@ export default function ConfiguracoesPage() {
   const initials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
   const isEmoji = avatarUrl && avatarUrl.length <= 4
   const isPhoto = avatarUrl && avatarUrl.length > 4
-
   const pushBlocked = pushPermission === 'denied'
   const pushGranted = pushPermission === 'granted'
 
@@ -250,13 +271,25 @@ export default function ConfiguracoesPage() {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
 
+      <TourOverlay
+        active={tour.active}
+        step={tour.step}
+        current={tour.current}
+        total={tour.total}
+        onNext={tour.next}
+        onPrev={tour.prev}
+        onFinish={tour.finish}
+      />
+
       <motion.div {...fadeUp(0)}>
         <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Configurações</h1>
         <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>Gerencie sua conta e preferências</p>
       </motion.div>
 
       {/* ── Perfil ── */}
-      <motion.div {...fadeUp(0.08)} className="rounded-2xl border p-6" style={{ background: '#111118', borderColor: '#1e1e2e' }}>
+      <motion.div {...fadeUp(0.08)} className="rounded-2xl border p-6"
+        style={{ background: '#111118', borderColor: '#1e1e2e' }}
+        data-tour="config-perfil">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.3)' }}>
@@ -265,7 +298,6 @@ export default function ConfiguracoesPage() {
           <h2 className="font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Perfil</h2>
         </div>
 
-        {/* Avatar */}
         <div className="flex flex-col items-center gap-4 mb-6 pb-6 border-b" style={{ borderColor: '#1e1e2e' }}>
           <div className="relative group">
             <motion.div whileHover={{ scale: 1.05 }}
@@ -364,7 +396,9 @@ export default function ConfiguracoesPage() {
       </motion.div>
 
       {/* ── Notificações ── */}
-      <motion.div {...fadeUp(0.16)} className="rounded-2xl border p-6" style={{ background: '#111118', borderColor: '#1e1e2e' }}>
+      <motion.div {...fadeUp(0.16)} className="rounded-2xl border p-6"
+        style={{ background: '#111118', borderColor: '#1e1e2e' }}
+        data-tour="config-notificacoes">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.3)' }}>
@@ -373,7 +407,6 @@ export default function ConfiguracoesPage() {
           <h2 className="font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Notificações</h2>
         </div>
 
-        {/* Status da permissão */}
         <div className="rounded-xl p-3 mb-5 flex items-center gap-3"
           style={{
             background: pushGranted ? 'rgba(52,211,153,0.06)' : pushBlocked ? 'rgba(248,113,113,0.06)' : 'rgba(251,191,36,0.06)',
@@ -400,10 +433,10 @@ export default function ConfiguracoesPage() {
           </div>
           {!pushGranted && !pushBlocked && (
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              onClick={handleRequestPush} disabled={requestingPush}
+              onClick={handleRequestPush} disabled={requestingPush || pushLoadingHook}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0"
               style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>
-              {requestingPush ? <Loader2 size={11} className="animate-spin" /> : 'Ativar'}
+              {requestingPush || pushLoadingHook ? <Loader2 size={11} className="animate-spin" /> : 'Ativar'}
             </motion.button>
           )}
         </div>
@@ -426,7 +459,9 @@ export default function ConfiguracoesPage() {
       </motion.div>
 
       {/* ── Segurança ── */}
-      <motion.div {...fadeUp(0.24)} className="rounded-2xl border p-6" style={{ background: '#111118', borderColor: '#1e1e2e' }}>
+      <motion.div {...fadeUp(0.24)} className="rounded-2xl border p-6"
+        style={{ background: '#111118', borderColor: '#1e1e2e' }}
+        data-tour="config-seguranca">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.3)' }}>
@@ -436,7 +471,6 @@ export default function ConfiguracoesPage() {
         </div>
 
         <div className="flex flex-col divide-y" style={{ ['--tw-divide-opacity' as any]: 1 }}>
-          {/* Alterar senha */}
           <motion.button whileHover={{ x: 2 }} onClick={() => setShowPasswordModal(true)}
             className="flex items-center justify-between py-3.5 w-full text-left">
             <div className="flex items-center gap-3">
@@ -452,7 +486,6 @@ export default function ConfiguracoesPage() {
             <ChevronRight size={15} style={{ color: '#4a4a6a' }} />
           </motion.button>
 
-          {/* Sair */}
           <motion.button whileHover={{ x: 2 }} onClick={handleSignOut}
             className="flex items-center justify-between py-3.5 w-full text-left">
             <div className="flex items-center gap-3">
@@ -468,7 +501,6 @@ export default function ConfiguracoesPage() {
             <ChevronRight size={15} style={{ color: '#4a4a6a' }} />
           </motion.button>
 
-          {/* Excluir conta */}
           <div className="pt-3.5">
             <AnimatePresence>
               {!showDeleteConfirm ? (
@@ -489,18 +521,16 @@ export default function ConfiguracoesPage() {
                   className="rounded-xl p-3"
                   style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)' }}>
                   <p className="text-sm font-semibold mb-1" style={{ color: '#f87171' }}>Confirmar exclusão?</p>
-                  <p className="text-xs mb-3" style={{ color: '#4a4a6a' }}>Todos os seus dados serão apagados permanentemente. Esta ação não pode ser desfeita.</p>
+                  <p className="text-xs mb-3" style={{ color: '#4a4a6a' }}>
+                    Todos os seus dados serão apagados permanentemente. Esta ação não pode ser desfeita.
+                  </p>
                   <div className="flex gap-2">
                     <button onClick={() => setShowDeleteConfirm(false)}
                       className="flex-1 py-2 rounded-xl text-xs font-semibold"
                       style={{ background: '#1a1a2a', color: '#6b6b8a' }}>
                       Cancelar
                     </button>
-                    <button
-                      onClick={async () => {
-                        await supabase.auth.signOut()
-                        window.location.href = '/login'
-                      }}
+                    <button onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login' }}
                       className="flex-1 py-2 rounded-xl text-xs font-semibold"
                       style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>
                       Excluir conta
@@ -513,10 +543,10 @@ export default function ConfiguracoesPage() {
         </div>
       </motion.div>
 
-      {/* Modal senha */}
       <AnimatePresence>
         {showPasswordModal && <PasswordModal onClose={() => setShowPasswordModal(false)} />}
       </AnimatePresence>
+
     </div>
   )
 }
