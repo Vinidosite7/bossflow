@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
-import { TourOverlay } from '@/components/TourOverlay'
+import { TourTooltip } from "@/components/TourTooltip"
 import { PlanGate } from '@/components/PlanGate'
 import { TrendingUp, TrendingDown, DollarSign, Plus, X, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -162,7 +162,7 @@ export default function FinanceiroPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+      <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
       <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="fin-header">
         <div>

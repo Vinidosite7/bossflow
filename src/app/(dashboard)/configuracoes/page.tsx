@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useTour } from '@/hooks/useTour'
 import { usePushNotification } from '@/hooks/usePushNotification'
-import { TourOverlay } from '@/components/TourOverlay'
+import { TourTooltip } from "@/components/TourTooltip"
 import { Settings, User, Bell, Shield, Loader2, Camera, Upload, Check, X, BellOff, BellRing, Key, LogOut, Trash2, ChevronRight, Smartphone } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -271,7 +271,7 @@ export default function ConfiguracoesPage() {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
 
-      <TourOverlay
+      <TourTooltip
         active={tour.active}
         step={tour.step}
         current={tour.current}

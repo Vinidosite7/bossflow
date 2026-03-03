@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useGoals } from '@/hooks/useGoals'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
-import { TourOverlay } from '@/components/TourOverlay'
+import { TourTooltip } from "@/components/TourTooltip"
 import { PlanGate } from '@/components/PlanGate'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Target, Zap, Trophy, CheckCircle2, TrendingUp, X, Save } from 'lucide-react'
@@ -110,7 +110,7 @@ export default function MetasPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+      <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
       {/* Header */}
       <div className="flex items-start justify-between">

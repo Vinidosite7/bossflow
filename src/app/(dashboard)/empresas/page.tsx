@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
-import { TourOverlay } from '@/components/TourOverlay'
+import { TourTooltip } from "@/components/TourTooltip"
 import { Building2, Plus, Loader2, X, Pencil, Trash2, Upload, Check, Users, Mail, Crown, Shield, Eye, UserMinus, Lock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -173,7 +173,7 @@ export default function EmpresasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+      <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
       <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="empresas-header">
         <div>

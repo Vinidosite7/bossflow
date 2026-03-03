@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
 import { useTour } from '@/hooks/useTour'
-import { TourOverlay } from '@/components/TourOverlay'
+import { TourTooltip } from "@/components/TourTooltip"
 import { CheckSquare, Plus, Loader2, X, Pencil, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -124,7 +124,7 @@ export default function TarefasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <TourOverlay active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+      <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
       <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="tarefas-header">
         <div>
