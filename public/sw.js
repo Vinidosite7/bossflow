@@ -1,4 +1,3 @@
-cat > public/sw.js << 'EOF'
 const CACHE_NAME = 'bossflow-v2'
 const urlsToCache = ['/', '/dashboard', '/login']
 
@@ -51,4 +50,3 @@ self.addEventListener('notificationclick', event => {
     })
   )
 })
-EOF

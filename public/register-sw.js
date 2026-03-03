@@ -1,4 +1,3 @@
-cat > public/register-sw.js << 'EOF'
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
@@ -19,4 +18,3 @@ if ('serviceWorker' in navigator) {
     }
   })
 }
-EOF
