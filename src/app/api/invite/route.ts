@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error
 
     // Monta link
-    const link = `https://bossflow.vercel.app/convite?token=${token}`
+    const link = `https://app.bossflow.pro/convite?token=${token}`
 
     // Envia email
     await resend.emails.send({
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
                 <!-- Footer -->
                 <tr><td style="padding:20px 32px;border-top:1px solid #1a1a2a;text-align:center;">
                   <p style="margin:0;font-size:11px;color:#3a3a5c;">
-                    BossFlow · bossflow.vercel.app
+                    BossFlow · app.bossflow.pro
                   </p>
                 </td></tr>
 
