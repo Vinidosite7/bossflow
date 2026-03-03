@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bossflow-v2'
+const CACHE_NAME = 'bossflow-v3'
 const urlsToCache = ['/', '/dashboard', '/login']
 
 self.addEventListener('install', event => {
@@ -9,7 +9,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.map(k => caches.delete(k))) // deleta TODOS os caches antigos
     ).then(() => self.clients.claim())
   )
 })
