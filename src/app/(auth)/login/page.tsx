@@ -22,11 +22,7 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError('Email ou senha incorretos.')
-      setLoading(false)
-      return
-    }
+    if (error) { setError('Email ou senha incorretos.'); setLoading(false); return }
     router.push('/dashboard')
   }
 
@@ -38,7 +34,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full max-w-sm mx-auto">
+    <div className="w-full">
       {/* Logo */}
       <div className="mb-10">
         <div className="relative w-40 h-9">
@@ -52,13 +48,12 @@ export default function LoginPage() {
           style={{ fontFamily: 'Syne, sans-serif', color: '#e8e8f0', letterSpacing: '-0.02em' }}>
           Bem-vindo de volta
         </h1>
-        <p className="text-sm" style={{ color: '#4a4a6a' }}>
-          Acesse o painel e acompanhe sua operação.
-        </p>
+        <p className="text-sm" style={{ color: '#4a4a6a' }}>Acesse o painel e acompanhe sua operação.</p>
       </div>
 
       {/* Form */}
       <form onSubmit={handleLogin} className="flex flex-col gap-4">
+        {/* Email */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>E-mail</label>
           <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all"
@@ -76,6 +71,7 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* Senha */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>Senha</label>
@@ -118,6 +114,7 @@ export default function LoginPage() {
             background: loading ? '#1e1e2e' : 'linear-gradient(135deg, #7c6ef7 0%, #9d8fff 100%)',
             color: loading ? '#4a4a6a' : 'white',
             boxShadow: loading ? 'none' : '0 0 32px rgba(124,110,247,0.35)',
+            letterSpacing: '0.02em',
           }}>
           {loading ? <Loader2 size={16} className="animate-spin" /> : <><ArrowRight size={16} /> Entrar na conta</>}
         </button>

@@ -26,11 +26,7 @@ export default function RegisterPage() {
       email, password,
       options: { data: { full_name: name } }
     })
-    if (error) {
-      setError('Erro ao criar conta. Tente novamente.')
-      setLoading(false)
-      return
-    }
+    if (error) { setError('Erro ao criar conta. Tente novamente.'); setLoading(false); return }
     router.push('/dashboard')
   }
 
@@ -49,9 +45,9 @@ export default function RegisterPage() {
   const iconColor = (field: string) => ({ color: focusedField === field ? '#7c6ef7' : '#3a3a5c', flexShrink: 0 as const })
 
   return (
-    <div className="w-full max-w-sm mx-auto">
+    <div className="w-full">
       {/* Logo */}
-      <div className="mb-10">
+      <div className="mb-8">
         <div className="relative w-40 h-9">
           <Image src="/bossflow.png" alt="BossFlow" fill className="object-contain object-left" priority />
         </div>
@@ -63,13 +59,11 @@ export default function RegisterPage() {
           style={{ fontFamily: 'Syne, sans-serif', color: '#e8e8f0', letterSpacing: '-0.02em' }}>
           Criar conta grátis
         </h1>
-        <p className="text-sm" style={{ color: '#4a4a6a' }}>
-          Comece a gerenciar sua empresa hoje mesmo.
-        </p>
+        <p className="text-sm" style={{ color: '#4a4a6a' }}>Comece a gerenciar sua empresa hoje mesmo.</p>
       </div>
 
-      {/* Form */}
       <form onSubmit={handleRegister} className="flex flex-col gap-3.5">
+        {/* Nome */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>Nome completo</label>
           <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all" style={inputStyle('name')}>
@@ -82,6 +76,7 @@ export default function RegisterPage() {
           </div>
         </div>
 
+        {/* Email */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>E-mail</label>
           <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all" style={inputStyle('email')}>
@@ -94,6 +89,7 @@ export default function RegisterPage() {
           </div>
         </div>
 
+        {/* Senha */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>Senha</label>
           <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all" style={inputStyle('password')}>
@@ -138,6 +134,7 @@ export default function RegisterPage() {
             background: loading ? '#1e1e2e' : 'linear-gradient(135deg, #7c6ef7 0%, #9d8fff 100%)',
             color: loading ? '#4a4a6a' : 'white',
             boxShadow: loading ? 'none' : '0 0 32px rgba(124,110,247,0.35)',
+            letterSpacing: '0.02em',
           }}>
           {loading ? <Loader2 size={16} className="animate-spin" /> : <><ArrowRight size={16} /> Criar minha conta</>}
         </button>
@@ -163,7 +160,8 @@ export default function RegisterPage() {
         </button>
 
         <p className="text-xs text-center mt-1" style={{ color: '#2a2a3e' }}>
-          Ao criar uma conta, você concorda com os <span style={{ color: '#4a4a6a' }}>Termos de Uso</span>
+          Ao criar uma conta, você concorda com os{' '}
+          <span style={{ color: '#4a4a6a' }}>Termos de Uso</span>
         </p>
       </form>
 
