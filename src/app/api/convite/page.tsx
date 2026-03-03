@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { motion } from 'framer-motion'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 
-export default function ConvitePage() {
+function ConviteContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const token = searchParams.get('token')
@@ -21,16 +21,13 @@ export default function ConvitePage() {
   async function accept() {
     const supabase = createClient()
 
-    // Verifica se está logado
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      // Salva token e redireciona pro login
       localStorage.setItem('pending_invite', token!)
       router.push(`/login?redirect=/convite?token=${token}`)
       return
     }
 
-    // Busca o convite
     const { data: invite, error } = await supabase
       .from('business_members')
       .select('*, businesses(name)')
@@ -44,7 +41,6 @@ export default function ConvitePage() {
       return
     }
 
-    // Verifica se expirou (7 dias)
     const invitedAt = new Date(invite.invited_at)
     const diff = (Date.now() - invitedAt.getTime()) / 1000 / 60 / 60 / 24
     if (diff > 7) {
@@ -53,7 +49,6 @@ export default function ConvitePage() {
       return
     }
 
-    // Ativa o membro
     const { error: updateErr } = await supabase
       .from('business_members')
       .update({
@@ -70,7 +65,6 @@ export default function ConvitePage() {
       return
     }
 
-    // Salva empresa ativa e redireciona
     localStorage.setItem('activeBizId', invite.business_id)
     setStatus('ok')
     setMsg(invite.businesses?.name ?? 'sua empresa')
@@ -137,5 +131,17 @@ export default function ConvitePage() {
         )}
       </motion.div>
     </div>
+  )
+}
+
+export default function ConvitePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a12' }}>
+        <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: '#7c6ef7', borderTopColor: 'transparent' }} />
+      </div>
+    }>
+      <ConviteContent />
+    </Suspense>
   )
 }
