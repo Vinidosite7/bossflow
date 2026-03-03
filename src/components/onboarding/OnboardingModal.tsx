@@ -152,7 +152,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
   const pct   = step === 0 ? 0 : (step / TOTAL) * 100
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+   <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
       style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
 
       {/* Glow de fundo */}
@@ -170,8 +170,8 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
           </div>
         )}
 
-        <div className="w-full rounded-t-3xl sm:rounded-2xl border p-6 sm:p-8"
-          style={{ background: '#111118', borderColor: '#1e1e2e' }}>
+        <div className="w-full rounded-t-3xl sm:rounded-2xl border p-5 sm:p-8 overflow-y-auto"
+  style={{ background: '#111118', borderColor: '#1e1e2e', maxHeight: '85dvh' }}>
           {/* Handle bar mobile */}
           <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: '#2a2a3e' }} />
 

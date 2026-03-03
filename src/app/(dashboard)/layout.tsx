@@ -62,8 +62,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [checkAuth])
 
   function handleOnboardingComplete() {
-    setShowOnboarding(false)
-  }
+  setShowOnboarding(false)
+  router.refresh() // remonta a página e o tour dispara de novo
+}
 
   // Enquanto não confirmou auth, não renderiza nada (evita flash de conteúdo)
   if (!authChecked) {
