@@ -1,139 +1,119 @@
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex" style={{ background: '#07070f', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', background: '#080810', fontFamily: 'Inter, sans-serif' }}>
 
-      {/* ── Esquerda — Visual ───────────────────────────────────────────── */}
-      <div className="hidden lg:flex flex-1 relative overflow-hidden flex-col justify-between p-16"
-        style={{ background: 'linear-gradient(135deg, #0c0c1d 0%, #09091a 100%)' }}>
-
-        {/* Grid de fundo */}
-        <div className="absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage: 'linear-gradient(#7c6ef7 1px, transparent 1px), linear-gradient(90deg, #7c6ef7 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }} />
+      {/* LEFT - Visual */}
+      <div style={{
+        display: 'none', width: '52%', position: 'relative', overflow: 'hidden',
+        flexDirection: 'column', padding: '48px 56px', background: '#080810',
+        borderRight: '1px solid rgba(255,255,255,0.05)',
+      }} className="lg:flex">
 
         {/* Glows */}
-        <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(124,110,247,0.18) 0%, transparent 65%)', filter: 'blur(40px)' }} />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 65%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, width: 600, height: 600, pointerEvents: 'none',
+          background: 'radial-gradient(circle at 15% 15%, rgba(124,110,247,0.14) 0%, transparent 60%)', }} />
+        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 400, height: 400, pointerEvents: 'none',
+          background: 'radial-gradient(circle at 85% 85%, rgba(52,211,153,0.08) 0%, transparent 60%)', }} />
+        <div style={{
+          position: 'absolute', inset: 0, opacity: 0.025, pointerEvents: 'none',
+          backgroundImage: 'linear-gradient(rgba(124,110,247,1) 1px, transparent 1px), linear-gradient(90deg, rgba(124,110,247,1) 1px, transparent 1px)',
+          backgroundSize: '56px 56px',
+        }} />
 
         {/* Logo */}
-        <div className="relative z-10 flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #7c6ef7, #9d8fff)' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="white" strokeWidth="1.5" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative', zIndex: 1 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #7c6ef7, #9d8fff)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 20px rgba(124,110,247,0.4)' }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="white" />
             </svg>
           </div>
-          <span className="font-bold text-base tracking-tight" style={{ color: '#e8e8f0', fontFamily: 'Syne, sans-serif' }}>BossFlow</span>
+          <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 17, color: '#e8e8f0' }}>BossFlow</span>
         </div>
 
-        {/* Conteúdo central */}
-        <div className="relative z-10 flex flex-col gap-8">
-          {/* Badge */}
-          <div className="flex items-center gap-2 w-fit px-3 py-1.5 rounded-full"
-            style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#34d399' }} />
-            <span className="text-xs font-semibold" style={{ color: '#34d399' }}>Sistema ativo</span>
-          </div>
+        {/* Center content */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 36, position: 'relative', zIndex: 1 }}>
 
           <div>
-            <h2 className="text-5xl font-bold leading-[1.1] mb-4"
-              style={{ fontFamily: 'Syne, sans-serif', color: '#e8e8f0', letterSpacing: '-0.03em' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999,
+              background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.15)', marginBottom: 20 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', animation: 'pulse 2s infinite' }} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#34d399' }}>Sistema ativo · 100% online</span>
+            </div>
+            <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: 42, fontWeight: 700, letterSpacing: '-0.03em',
+              color: '#e8e8f0', lineHeight: 1.1, marginBottom: 14 }}>
               Controle total<br />
-              <span style={{
-                background: 'linear-gradient(135deg, #7c6ef7, #9d8fff)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}>do seu negócio</span>
+              <span style={{ background: 'linear-gradient(135deg, #7c6ef7 30%, #b8a8ff)',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>do seu negócio</span>
             </h2>
-            <p className="text-base leading-relaxed max-w-xs" style={{ color: '#4a4a6a' }}>
-              Financeiro, clientes, tarefas e agenda — tudo num só lugar.
+            <p style={{ fontSize: 15, color: '#3a3a5c', lineHeight: 1.6, maxWidth: 300 }}>
+              Financeiro, clientes, tarefas — tudo num só lugar com dados em tempo real.
             </p>
           </div>
 
-          {/* Mock dashboard card */}
-          <div className="rounded-2xl overflow-hidden max-w-sm"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}>
-            {/* Topbar do card */}
-            <div className="flex items-center justify-between px-4 py-3"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full" style={{ background: '#f87171' }} />
-                <div className="w-2 h-2 rounded-full" style={{ background: '#fbbf24' }} />
-                <div className="w-2 h-2 rounded-full" style={{ background: '#34d399' }} />
+          {/* Dashboard mock */}
+          <div style={{ maxWidth: 400, borderRadius: 16, overflow: 'hidden',
+            background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {['#f87171','#fbbf24','#34d399'].map(c => (
+                  <div key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c }} />
+                ))}
               </div>
-              <span className="text-xs font-semibold" style={{ color: '#2a2a3e' }}>Dashboard · Março 2026</span>
+              <span style={{ fontSize: 11, color: '#2a2a3e' }}>Dashboard · Março 2026</span>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399' }} />
             </div>
-
-            {/* KPIs */}
-            <div className="grid grid-cols-3 gap-px" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               {[
                 { label: 'Receita', value: 'R$ 12.840', color: '#34d399', trend: '+18%' },
                 { label: 'Despesas', value: 'R$ 4.210', color: '#f87171', trend: '-5%' },
                 { label: 'Lucro', value: 'R$ 8.630', color: '#7c6ef7', trend: '+24%' },
-              ].map(({ label, value, color, trend }) => (
-                <div key={label} className="px-4 py-3" style={{ background: '#0c0c1d' }}>
-                  <p className="text-xs mb-1" style={{ color: '#3a3a5c' }}>{label}</p>
-                  <p className="text-sm font-bold mb-0.5" style={{ color }}>{value}</p>
-                  <p className="text-xs" style={{ color: color + 'aa' }}>{trend}</p>
+              ].map(({ label, value, color, trend }, i) => (
+                <div key={label} style={{ padding: '12px 14px', borderRight: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                  <p style={{ fontSize: 10, color: '#2a2a3e', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>{label}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 2 }}>{value}</p>
+                  <p style={{ fontSize: 10, color: color + '99' }}>{trend}</p>
                 </div>
               ))}
             </div>
-
-            {/* Gráfico de barras */}
-            <div className="px-4 py-4">
-              <div className="flex items-end gap-1 h-14">
-                {[35, 55, 40, 75, 50, 85, 65, 90, 60, 95, 72, 100].map((h, i) => (
-                  <div key={i} className="flex-1 rounded-sm transition-all"
-                    style={{
-                      height: `${h}%`,
-                      background: i === 11
-                        ? 'linear-gradient(180deg, #7c6ef7, #9d8fff)'
-                        : `rgba(124,110,247,${0.12 + i * 0.04})`,
-                    }} />
+            <div style={{ padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 44 }}>
+                {[28,48,35,68,44,78,58,84,52,88,66,100].map((h, i) => (
+                  <div key={i} style={{ flex: 1, borderRadius: '3px 3px 0 0', height: `${h}%`,
+                    background: i === 11 ? 'linear-gradient(180deg, #7c6ef7, #9d8fff)' : `rgba(124,110,247,${0.1 + i*0.04})` }} />
                 ))}
               </div>
-              <p className="text-xs mt-2" style={{ color: '#2a2a3e' }}>Faturamento — últimos 12 meses</p>
+              <p style={{ fontSize: 10, color: '#2a2a3e', marginTop: 8 }}>Faturamento — últimos 12 meses</p>
             </div>
           </div>
 
           {/* Features */}
-          <div className="flex flex-col gap-2.5">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[
-              { icon: '📊', text: 'Dashboard financeiro em tempo real' },
-              { icon: '🎯', text: 'Metas mensais com progresso visual' },
-              { icon: '🏢', text: 'Múltiplas empresas num só login' },
-            ].map(({ icon, text }) => (
-              <div key={text} className="flex items-center gap-3">
-                <span className="text-base">{icon}</span>
-                <span className="text-sm" style={{ color: '#3a3a5c' }}>{text}</span>
+              ['📊', 'Dashboard financeiro em tempo real'],
+              ['🎯', 'Metas mensais com progresso visual'],
+              ['🏢', 'Múltiplas empresas num só login'],
+              ['📱', 'Funciona como app no celular'],
+            ].map(([icon, text]) => (
+              <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{icon}</span>
+                <span style={{ fontSize: 13, color: '#3a3a5c' }}>{text}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Rodapé */}
-        <div className="relative z-10">
-          <p className="text-xs" style={{ color: '#2a2a3e' }}>© 2026 BossFlow · Feito no Brasil 🇧🇷</p>
-        </div>
-
-        {/* Linha separadora direita */}
-        <div className="absolute right-0 top-0 bottom-0 w-px"
-          style={{ background: 'linear-gradient(to bottom, transparent, rgba(124,110,247,0.2) 50%, transparent)' }} />
+        <p style={{ fontSize: 11, color: '#1e1e2e', position: 'relative', zIndex: 1 }}>© 2026 BossFlow · Feito no Brasil 🇧🇷</p>
       </div>
 
-      {/* ── Direita — Form ──────────────────────────────────────────────── */}
-      <div className="w-full lg:w-[480px] flex items-center justify-center relative px-8 sm:px-12 py-12"
-        style={{ background: '#07070f' }}>
-
-        {/* Glow sutil atrás do form */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(124,110,247,0.07) 0%, transparent 70%)', filter: 'blur(40px)' }} />
-
-        <div className="relative w-full max-w-sm">
+      {/* RIGHT - Form */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative', padding: '48px 32px', background: '#07070e' }}>
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(124,110,247,0.06) 0%, transparent 70%)' }} />
+        <div style={{ position: 'relative', width: '100%', maxWidth: 360 }}>
           {children}
         </div>
       </div>
