@@ -22,7 +22,7 @@ export function TourOverlay({ active, step, current, total, onNext, onPrev, onFi
   const [highlight, setHighlight] = useState({ top: 0, left: 0, width: 0, height: 0 })
   const [tooltip, setTooltip] = useState({ top: 0, left: 0 })
   const [ready, setReady] = useState(false)
-  const rafRef = useRef<number>()
+  const rafRef = useRef<number | undefined>(undefined)
 
   const calcPositions = useCallback(() => {
     if (!active || !step) return
