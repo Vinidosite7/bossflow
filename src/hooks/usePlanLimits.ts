@@ -25,7 +25,7 @@ export function usePlanLimits() {
         .select('plan')
         .eq('user_id', user.id)
         .eq('status', 'active')
-        .single()
+        .maybeSingle()
       const currentPlan = sub?.plan ?? 'free'
       setPlan(currentPlan)
 

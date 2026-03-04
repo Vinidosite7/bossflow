@@ -34,20 +34,26 @@ export async function POST(req: NextRequest) {
     const plan = PLAN_MAP[productId] ?? 'starter'
 
     // Acha o usuário pelo email
-    const { data: { users }, error: userErr } = await supabase.auth.admin.listUsers()
-    if (userErr) throw userErr
+    const { data: profile, error: profileErr } = await supabase
+  .from('profiles')
+  .select('id')
+  .eq('email', email)
+  .maybeSingle()
 
-    const user = users.find(u => u.email === email)
-    if (!user) {
-      console.warn('Usuário não encontrado para email:', email)
-      return NextResponse.json({ error: 'user not found' }, { status: 404 })
-    }
+if (profileErr) throw profileErr
+
+if (!profile) {
+  console.warn('Usuário não encontrado para email:', email)
+  return NextResponse.json({ error: 'user not found' }, { status: 404 })
+}
+
+const userId = profile.id
 
     // Upsert na tabela subscriptions
     const { error } = await supabase
       .from('subscriptions')
       .upsert({
-        user_id: user.id,
+  user_id: userId,
         plan,
         status: 'active',
         cakto_order_id: orderId,
