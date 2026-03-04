@@ -93,9 +93,8 @@ export default function EmpresasPage() {
     finally { setLoadingMembers(false) }
   }
 
-  async function handleInvite(e: React.FormEvent) {
-  e.preventDefault()
-  if (!membersModal) return
+  async function handleInvite() {
+  if (!membersModal || !inviteEmail) return
   setSendingInvite(true)
   try {
     const { data: { session } } = await supabase.auth.getSession() // ← adiciona
@@ -288,7 +287,7 @@ export default function EmpresasPage() {
               <div className="overflow-y-auto flex-1 p-5 flex flex-col gap-5">
                 <div className="rounded-2xl p-4" style={{ background: '#0d0d14', border: '1px solid #1a1a2a' }}>
                   <h3 className="text-sm font-bold mb-3" style={{ color: '#e8eaf0' }}>Convidar membro</h3>
-                  <form onSubmit={handleInvite} className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3">
                     <input type="email" placeholder="email@exemplo.com" value={inviteEmail} required
                       onChange={e => { setInviteEmail(e.target.value); setInviteSuccess(false) }}
                       className="px-3 py-2.5 rounded-xl border text-sm outline-none w-full"
@@ -311,11 +310,11 @@ export default function EmpresasPage() {
                           )
                         })}
                       </div>
-                      <button type="submit" disabled={sendingInvite}
-                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold shrink-0"
-                        style={{ background: '#7c6ef7', color: 'white' }}>
-                        {sendingInvite ? <Loader2 size={12} className="animate-spin" /> : <><Mail size={12} /> Convidar</>}
-                      </button>
+                      <button type="button" onClick={handleInvite} disabled={sendingInvite}
+  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold shrink-0"
+  style={{ background: '#7c6ef7', color: 'white' }}>
+  {sendingInvite ? <Loader2 size={12} className="animate-spin" /> : <><Mail size={12} /> Convidar</>}
+</button>
                     </div>
                     <AnimatePresence>
                       {inviteSuccess && (
@@ -325,7 +324,7 @@ export default function EmpresasPage() {
                         </motion.p>
                       )}
                     </AnimatePresence>
-                  </form>
+                  </div>
                 </div>
                 <div className="flex flex-col gap-2">
                   <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>Membros</h3>
