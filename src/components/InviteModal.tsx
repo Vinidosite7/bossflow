@@ -340,7 +340,6 @@ export function InviteModal({ businessId, businessName, onClose }: Props) {
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     background: copied ? 'rgba(52,211,153,0.15)' : 'linear-gradient(135deg, #7c6ef7, #9d6ef7)',
                     color: copied ? '#34d399' : 'white', fontWeight: 700, fontSize: 14,
-                    border: copied ? '1px solid rgba(52,211,153,0.3)' : 'none',
                     transition: 'all 0.3s',
                   }}
                 >
