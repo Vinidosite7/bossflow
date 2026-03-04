@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
         .eq('id', existing.id)
     } else {
       // Cria novo convite
-      await supabase.from('business_members').insert({
+      const { error: insertErr } = await supabase.from('business_members').insert({
         business_id: businessId,
         email,
         role,
@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
         invited_by: user.id,
         invited_at: new Date().toISOString(),
       })
+      if (insertErr) console.error('[invite/create] insert error:', insertErr)
     }
 
     const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bossflow.pro'}/invite/${inviteToken}`
