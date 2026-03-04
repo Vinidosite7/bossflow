@@ -94,20 +94,24 @@ export default function EmpresasPage() {
   }
 
   async function handleInvite(e: React.FormEvent) {
-    e.preventDefault()
-    if (!membersModal) return
-    setSendingInvite(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const res = await fetch('/api/invite', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole, businessId: membersModal.id, businessName: membersModal.name, inviterName: user?.email?.split('@')[0] ?? 'Alguém' }),
-      })
-      if (!res.ok) throw new Error('Erro ao enviar convite')
-      setInviteSuccess(true); setInviteEmail(''); loadMembers(membersModal)
-    } catch (err) { console.error(err) }
-    finally { setSendingInvite(false) }
-  }
+  e.preventDefault()
+  if (!membersModal) return
+  setSendingInvite(true)
+  try {
+    const { data: { session } } = await supabase.auth.getSession() // ← adiciona
+    const res = await fetch('/api/invite/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`, // ← adiciona
+      },
+      body: JSON.stringify({ email: inviteEmail, role: inviteRole, businessId: membersModal.id }),
+    })
+    if (!res.ok) throw new Error('Erro ao enviar convite')
+    setInviteSuccess(true); setInviteEmail(''); loadMembers(membersModal)
+  } catch (err) { console.error(err) }
+  finally { setSendingInvite(false) }
+}
 
   async function handleRemoveMember(memberId: string) {
     if (!confirm('Remover este membro?')) return
