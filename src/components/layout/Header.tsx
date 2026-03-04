@@ -40,13 +40,33 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         if (!user) return
         setUser(user)
         setAvatarUrl(user.user_metadata?.avatar_url || '')
-        const { data: bizList } = await supabase
-          .from('businesses').select('*').eq('owner_id', user.id).order('created_at')
-        setBusinesses(bizList || [])
-        const savedBizId = localStorage.getItem('activeBizId') || ''
-        const active = bizList?.find(b => b.id === savedBizId) || bizList?.[0]
-        setActiveBiz(active || null)
-        setBusinessId(active?.id || null)
+        const { data: owned } = await supabase
+  .from('businesses').select('*').eq('owner_id', user.id).order('created_at')
+
+const { data: memberships } = await supabase
+  .from('business_members').select('business_id, role')
+  .eq('user_id', user.id).in('status', ['accepted', 'active'])
+
+const memberBizIds = (memberships || [])
+  .map((m: any) => m.business_id)
+  .filter((id: string) => !(owned || []).find((o: any) => o.id === id))
+
+let memberBizzes: any[] = []
+if (memberBizIds.length > 0) {
+  const { data: bizData } = await supabase
+    .from('businesses').select('*').in('id', memberBizIds)
+  memberBizzes = (bizData || []).map((b: any) => ({
+    ...b,
+    _memberRole: memberships?.find((m: any) => m.business_id === b.id)?.role,
+  }))
+}
+
+const bizList = [...(owned || []), ...memberBizzes]
+setBusinesses(bizList)
+const savedBizId = localStorage.getItem('activeBizId') || ''
+const active = bizList.find(b => b.id === savedBizId) || bizList[0]
+setActiveBiz(active || null)
+setBusinessId(active?.id || null)
       } catch (err) { console.error(err) }
     }
     load()
