@@ -39,10 +39,15 @@ export async function POST(req: NextRequest) {
       const bizIds = businesses.map(b => b.id)
 
       // ── 2. Deleta tudo ligado às empresas ───────────────────
-      await supabaseAdmin.from('sale_items').delete().in(
-        'sale_id',
-        supabaseAdmin.from('sales').select('id').in('business_id', bizIds) as any
-      )
+      const { data: salesData } = await supabaseAdmin
+  .from('sales')
+  .select('id')
+  .in('business_id', bizIds)
+
+if (salesData && salesData.length > 0) {
+  const saleIds = salesData.map(s => s.id)
+  await supabaseAdmin.from('sale_items').delete().in('sale_id', saleIds)
+}
       await supabaseAdmin.from('sales').delete().in('business_id', bizIds)
       await supabaseAdmin.from('transactions').delete().in('business_id', bizIds)
       await supabaseAdmin.from('goals').delete().in('business_id', bizIds)
