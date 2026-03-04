@@ -157,13 +157,14 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="fixed bottom-0 left-0 right-0 z-50 md:hidden rounded-t-3xl overflow-hidden"
-        style={{
-          background: '#111118',
-          border: '1px solid #1e1e2e',
-          maxHeight: '85vh',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-        }}
+        className="fixed bottom-0 left-0 right-0 z-50 md:hidden rounded-t-3xl"
+style={{
+  background: '#111118',
+  border: '1px solid #1e1e2e',
+  maxHeight: '85dvh',
+  paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)',
+  overflowY: 'auto',
+}}
       >
         {/* Handle bar */}
         <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-1" style={{ background: '#2a2a3e' }} />
@@ -473,7 +474,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                   <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>{user?.email}</p>
                 </div>
               </div>
-              <div className="p-3 flex flex-col gap-1 pb-6">
+              <div className="p-3 flex flex-col gap-1 pb-2">
                 {[
                   { icon: Settings, label: 'Configurações', href: '/configuracoes' },
                   { icon: User, label: 'Perfil', href: '/configuracoes' },
