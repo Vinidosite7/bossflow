@@ -102,32 +102,38 @@ export default function EmpresasPage() {
   }
 
   async function handleInvite() {
-    if (!membersModal || !inviteEmail) return
-    setSendingInvite(true)
-    setInviteSuccess(false)
-    setInviteUrl('')
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/invite/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole, businessId: membersModal.id }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erro ao gerar convite')
-      setInviteUrl(data.inviteUrl)
-      setInviteSuccess(true)
-      setInviteEmail('')
-      loadMembers(membersModal)
-    } catch (err: any) {
-      console.error(err)
-    } finally {
-      setSendingInvite(false)
-    }
+  if (!membersModal || !inviteEmail) return
+  setSendingInvite(true)
+  setInviteSuccess(false)
+  setInviteUrl('')
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/invite/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ email: inviteEmail, role: inviteRole, businessId: membersModal.id }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error ?? 'Erro ao gerar convite')
+    setInviteUrl(data.inviteUrl)
+    setInviteSuccess(true)
+    setInviteEmail('')
+    // Atualiza membros sem resetar o link
+    const { data: membersData } = await supabase
+      .from('business_members')
+      .select('*')
+      .eq('business_id', membersModal.id)
+      .order('created_at', { ascending: true })
+    setMembers(membersData || [])
+  } catch (err: any) {
+    console.error(err)
+  } finally {
+    setSendingInvite(false)
   }
+}
 
   async function handleCopy() {
     if (!inviteUrl) return
