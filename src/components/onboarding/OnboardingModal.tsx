@@ -14,10 +14,10 @@ const segments = [
 ]
 
 const STEPS = [
-  { color: '#7c6ef7', glow: 'rgba(124,110,247,0.2)',  bg: 'rgba(124,110,247,0.1)',  border: 'rgba(124,110,247,0.2)' },
-  { color: '#7c6ef7', glow: 'rgba(124,110,247,0.2)',  bg: 'rgba(124,110,247,0.1)',  border: 'rgba(124,110,247,0.2)' },
-  { color: '#f97316', glow: 'rgba(249,115,22,0.2)',   bg: 'rgba(249,115,22,0.1)',   border: 'rgba(249,115,22,0.2)'  },
-  { color: '#34d399', glow: 'rgba(52,211,153,0.2)',   bg: 'rgba(52,211,153,0.1)',   border: 'rgba(52,211,153,0.2)'  },
+  { color: '#7c6ef7', glow: 'rgba(124,110,247,0.15)', bg: 'rgba(124,110,247,0.08)', border: 'rgba(124,110,247,0.2)' },
+  { color: '#7c6ef7', glow: 'rgba(124,110,247,0.15)', bg: 'rgba(124,110,247,0.08)', border: 'rgba(124,110,247,0.2)' },
+  { color: '#f97316', glow: 'rgba(249,115,22,0.15)',  bg: 'rgba(249,115,22,0.08)',  border: 'rgba(249,115,22,0.2)'  },
+  { color: '#34d399', glow: 'rgba(52,211,153,0.15)',  bg: 'rgba(52,211,153,0.08)',  border: 'rgba(52,211,153,0.2)'  },
 ]
 
 const PREVIEWS = [
@@ -37,21 +37,21 @@ const PREVIEWS = [
     title: 'Múltiplos negócios,\numa só plataforma',
     desc: 'Organize quantas empresas quiser e troque entre elas com um clique.',
     cards: [
-      { label: 'Empresas',   value: 'Ilimitadas',    sub: 'Nos planos Pro',       up: true },
-      { label: 'Membros',    value: 'Multi-usuário', sub: 'Convide sua equipe',   up: true },
-      { label: 'Categorias', value: 'Custom',        sub: 'Você define',          up: true },
-      { label: 'Permissões', value: '4 níveis',      sub: 'Owner a Viewer',       up: true },
+      { label: 'Empresas',   value: 'Ilimitadas',    sub: 'Planos Pro/Scale',   up: true },
+      { label: 'Membros',    value: 'Multi-usuário', sub: 'Convide sua equipe', up: true },
+      { label: 'Categorias', value: 'Custom',        sub: 'Você define',        up: true },
+      { label: 'Permissões', value: '4 níveis',      sub: 'Owner a Viewer',     up: true },
     ],
   },
   {
-    badge: 'Meta',
+    badge: 'Meta mensal',
     title: 'Bata suas metas\ntodo mês',
     desc: 'Defina objetivos, acompanhe em tempo real e celebre cada conquista.',
     cards: [
-      { label: 'Meta mensal',    value: 'R$ 10k',  sub: 'Você define',  up: true },
-      { label: 'Super cota',     value: 'R$ 15k',  sub: 'Bônus extra',  up: true },
-      { label: 'Progresso',      value: '68%',     sub: '+12% hoje',    up: true },
-      { label: 'Dias restantes', value: '12',      sub: 'Deste mês',    up: true },
+      { label: 'Meta mensal',    value: 'R$ 10k', sub: 'Você define', up: true },
+      { label: 'Super cota',     value: 'R$ 15k', sub: 'Bônus extra', up: true },
+      { label: 'Progresso',      value: '68%',    sub: '+12% hoje',   up: true },
+      { label: 'Dias restantes', value: '12',     sub: 'Deste mês',   up: true },
     ],
   },
   {
@@ -179,73 +179,89 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
   const preview = PREVIEWS[pIdx]
   const sm      = STEPS[pIdx]
 
-  const formV = {
-    enter:  (d: number) => ({ opacity: 0, y: d > 0 ? 20 : -20 }),
+  const fV = {
+    enter:  (d: number) => ({ opacity: 0, y: d > 0 ? 18 : -18 }),
     center: { opacity: 1, y: 0 },
-    exit:   (d: number) => ({ opacity: 0, y: d > 0 ? -20 : 20 }),
+    exit:   (d: number) => ({ opacity: 0, y: d > 0 ? -18 : 18 }),
   }
-  const leftV = {
-    enter:  (d: number) => ({ opacity: 0, x: d > 0 ? 24 : -24 }),
+  const lV = {
+    enter:  (d: number) => ({ opacity: 0, x: d > 0 ? 20 : -20 }),
     center: { opacity: 1, x: 0 },
-    exit:   (d: number) => ({ opacity: 0, x: d > 0 ? -24 : 24 }),
+    exit:   (d: number) => ({ opacity: 0, x: d > 0 ? -20 : 20 }),
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex" style={{ background: '#06060c' }}>
+    <div className="fixed inset-0 z-50 flex overflow-hidden" style={{ background: '#06060c' }}>
 
-      {/* ═══ ESQUERDA ══════════════════════════════════════════════════════ */}
-      <div className="hidden lg:flex flex-col flex-1 relative overflow-hidden"
-        style={{ borderRight: '1px solid rgba(255,255,255,0.04)' }}>
-
-        {/* Fundo dinâmico */}
-        <motion.div key={`glow-${pIdx}`}
+      {/* ══════════════════════════════════════════════════════════
+          ESQUERDA — painel visual (só desktop)
+      ══════════════════════════════════════════════════════════ */}
+      <div
+        className="hidden lg:flex flex-col flex-1 overflow-hidden"
+        style={{ borderRight: '1px solid rgba(255,255,255,0.05)' }}
+      >
+        {/* Fundo com glow dinâmico */}
+        <motion.div
+          key={`glow-${pIdx}`}
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 1 }}
           className="absolute inset-0 pointer-events-none"
-          style={{ background: `radial-gradient(ellipse 70% 55% at 25% 35%, ${sm.glow}, transparent)` }}
-        />
-        <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 50% 45% at 85% 85%, rgba(34,211,238,0.05), transparent)' }} />
-
-        {/* Grid sutil */}
-        <div className="absolute inset-0 pointer-events-none opacity-20"
           style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }} />
+            background: `
+              radial-gradient(ellipse 65% 55% at 20% 30%, ${sm.glow}, transparent),
+              radial-gradient(ellipse 40% 40% at 80% 80%, rgba(34,211,238,0.05), transparent)
+            `,
+          }}
+        />
+        {/* Grid pontilhado */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
+            backgroundSize: '32px 32px',
+            opacity: 0.4,
+          }}
+        />
 
         {/* Logo */}
-        <div className="relative z-10 p-10 pb-0">
+        <div className="relative z-10 px-14 pt-12">
           <img src="/bossflow.png" alt="BossFlow" style={{ height: 28, objectFit: 'contain' }} />
         </div>
 
-        {/* Conteúdo */}
-        <div className="relative z-10 flex-1 flex flex-col justify-center px-12">
+        {/* Conteúdo central — FLEX GROW + JUSTIFY CENTER */}
+        <div className="relative z-10 flex-1 flex items-center px-14">
           <AnimatePresence mode="wait" custom={dir}>
-            <motion.div key={`left-${pIdx}`}
-              custom={dir} variants={leftV}
+            <motion.div
+              key={`left-${pIdx}`}
+              custom={dir} variants={lV}
               initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.42, ease: [0.25, 0.46, 0.45, 0.94] }}
+              transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="w-full"
             >
               {/* Badge */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.08 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-7"
+              <div
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold"
                 style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.border}` }}
               >
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: sm.color }} />
+                <motion.span
+                  animate={{ opacity: [1, 0.3, 1] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: sm.color, display: 'block' }}
+                />
                 {preview.badge}
-              </motion.div>
+              </div>
 
-              {/* Título */}
+              {/* Título — margin top generoso */}
               <h2
-                className="font-bold mb-5 leading-tight"
                 style={{
                   fontFamily: 'Syne, sans-serif',
-                  fontSize: 'clamp(30px, 2.8vw, 44px)',
-                  background: `linear-gradient(135deg, #ffffff 50%, ${sm.color})`,
+                  fontSize: 'clamp(32px, 3vw, 48px)',
+                  fontWeight: 800,
+                  lineHeight: 1.15,
+                  marginTop: 20,
+                  marginBottom: 16,
+                  background: `linear-gradient(140deg, #ffffff 45%, ${sm.color})`,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   whiteSpace: 'pre-line',
@@ -254,44 +270,53 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
                 {preview.title}
               </h2>
 
-              <p className="text-sm mb-10" style={{ color: '#4a4a6a', lineHeight: 1.75, maxWidth: 360 }}>
+              {/* Desc — margin bottom generoso */}
+              <p style={{ color: '#4a4a6a', fontSize: 14, lineHeight: 1.75, marginBottom: 40, maxWidth: 380 }}>
                 {preview.desc}
               </p>
 
-              {/* Cards 2x2 — harmônicos */}
-              <div className="grid grid-cols-2 gap-4" style={{ maxWidth: 440 }}>
+              {/* Cards 2×2 — gap amplo */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 460 }}>
                 {preview.cards.map((card, i) => (
                   <motion.div
-                    key={`${pIdx}-${card.label}`}
-                    initial={{ opacity: 0, y: 14, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ delay: 0.12 + i * 0.08, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    className="rounded-2xl p-5 relative overflow-hidden"
+                    key={`${pIdx}-${i}`}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + i * 0.08, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
                     style={{
-                      background: 'rgba(255,255,255,0.028)',
+                      background: 'rgba(255,255,255,0.03)',
                       border: '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: 20,
+                      padding: '20px 20px 18px',
                     }}
                   >
-                    {i === 0 && (
-                      <div className="absolute inset-0 pointer-events-none rounded-2xl"
-                        style={{ background: `radial-gradient(circle at 20% 50%, ${sm.color}12, transparent 65%)` }} />
-                    )}
-                    <p className="text-xs mb-3 relative z-10" style={{ color: '#3a3a5c' }}>{card.label}</p>
-                    <p className="font-bold mb-3 relative z-10 leading-none"
-                      style={{
-                        color: '#e8e8f0',
-                        fontFamily: 'Syne, sans-serif',
-                        fontSize: card.value.length > 8 ? '15px' : '22px',
-                      }}>
+                    {/* Label */}
+                    <p style={{ color: '#3a3a5c', fontSize: 11, marginBottom: 10, letterSpacing: '0.02em' }}>
+                      {card.label}
+                    </p>
+                    {/* Valor */}
+                    <p style={{
+                      color: '#e8e8f0',
+                      fontFamily: 'Syne, sans-serif',
+                      fontWeight: 700,
+                      fontSize: card.value.length > 8 ? 16 : 24,
+                      marginBottom: 12,
+                      lineHeight: 1,
+                    }}>
                       {card.value}
                     </p>
-                    <span
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold relative z-10"
-                      style={{
-                        background: card.up ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
-                        color: card.up ? '#34d399' : '#f87171',
-                      }}
-                    >
+                    {/* Badge sub */}
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 8px',
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      background: card.up ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
+                      color: card.up ? '#34d399' : '#f87171',
+                    }}>
                       {card.up ? '↑' : '↓'} {card.sub}
                     </span>
                   </motion.div>
@@ -301,40 +326,47 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
           </AnimatePresence>
         </div>
 
-        <div className="relative z-10 px-12 pb-8">
-          <p className="text-xs" style={{ color: '#1e1e2e' }}>© 2026 BossFlow · Feito no Brasil 🇧🇷</p>
+        {/* Footer */}
+        <div className="relative z-10 px-14 pb-10">
+          <p style={{ color: '#1e1e2e', fontSize: 12 }}>© 2026 BossFlow · Feito no Brasil 🇧🇷</p>
         </div>
       </div>
 
-      {/* ═══ DIREITA — form ════════════════════════════════════════════════ */}
-      <div className="flex flex-col w-full lg:w-[420px] lg:max-w-[420px] relative"
-        style={{ background: '#07070e' }}>
-
-        {/* Glow dinâmico direita */}
-        <motion.div
-          key={`right-glow-${pIdx}`}
-          animate={{ background: `radial-gradient(circle at 80% 10%, ${sm.glow.replace('0.2','0.07')}, transparent 65%)` }}
-          transition={{ duration: 0.6 }}
-          className="absolute inset-0 pointer-events-none"
+      {/* ══════════════════════════════════════════════════════════
+          DIREITA — formulário
+      ══════════════════════════════════════════════════════════ */}
+      <div
+        className="flex flex-col w-full lg:w-[440px] lg:max-w-[440px]"
+        style={{ background: '#07070e', position: 'relative' }}
+      >
+        {/* Glow direita */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: -60, right: -60,
+            width: 320, height: 320,
+            background: `radial-gradient(circle, ${sm.glow}, transparent 70%)`,
+            transition: 'background 0.6s',
+          }}
         />
 
-        {/* Progress bar */}
-        <div className="absolute top-0 left-0 right-0 h-px" style={{ background: 'rgba(255,255,255,0.04)' }}>
+        {/* Barra de progresso */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'rgba(255,255,255,0.04)' }}>
           <motion.div
             animate={{ width: `${Math.min((step / 4) * 100, 100)}%` }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            style={{ height: '100%', background: `linear-gradient(90deg, ${sm.color}, #22d3ee)` }}
+            style={{ height: '100%', background: `linear-gradient(90deg, ${sm.color}, #22d3ee)`, borderRadius: 1 }}
           />
         </div>
 
-        {/* Logo mobile + dots */}
-        <div className="lg:hidden px-6 pt-8 flex items-center gap-3">
+        {/* Logo mobile */}
+        <div className="lg:hidden" style={{ padding: '32px 32px 0', display: 'flex', alignItems: 'center' }}>
           <img src="/bossflow.png" alt="BossFlow" style={{ height: 24, objectFit: 'contain' }} />
           {step > 0 && step < 4 && (
-            <div className="flex gap-1.5 ml-auto">
+            <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
               {[1,2,3].map(s => (
                 <motion.div key={s}
-                  animate={{ width: step === s ? 16 : 5, background: step >= s ? sm.color : 'rgba(255,255,255,0.1)' }}
+                  animate={{ width: step === s ? 18 : 5, background: step >= s ? sm.color : 'rgba(255,255,255,0.1)' }}
                   transition={{ duration: 0.3 }}
                   style={{ height: 5, borderRadius: 999 }}
                 />
@@ -343,263 +375,453 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
           )}
         </div>
 
-        {/* Form */}
-        <div className="flex-1 flex flex-col justify-center px-7 sm:px-10 overflow-y-auto relative z-10"
-          style={{ paddingTop: 32, paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
-
+        {/* Form — scroll interno, padding lateral e vertical consistente */}
+        <div
+          className="relative z-10 flex-1 overflow-y-auto"
+          style={{
+            padding: '40px 40px',
+            paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
           <AnimatePresence mode="wait" custom={dir}>
 
+            {/* ── STEP 0: WELCOME ─────────────────────────────── */}
             {step === 0 && (
-              <motion.div key="w" custom={dir} variants={formV}
+              <motion.div key="w" custom={dir} variants={fV}
                 initial="enter" animate="center" exit="exit"
                 transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}>
 
+                {/* Ícone */}
                 <motion.div
                   initial={{ scale: 0.5, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: 'spring', stiffness: 280, damping: 18 }}
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center mb-7"
-                  style={{ background: sm.bg, border: `1px solid ${sm.border}`, boxShadow: `0 0 28px ${sm.glow}` }}>
+                  style={{
+                    width: 56, height: 56, borderRadius: 18,
+                    background: sm.bg, border: `1px solid ${sm.border}`,
+                    boxShadow: `0 0 32px ${sm.glow}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 28,
+                  }}
+                >
                   <Zap size={24} style={{ color: sm.color }} />
                 </motion.div>
 
-                <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Syne, sans-serif', color: '#e8e8f0' }}>
+                {/* Título */}
+                <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: 24, fontWeight: 800, color: '#e8e8f0', marginBottom: 10 }}>
                   Bem-vindo ao BossFlow! 🎉
                 </h2>
-                <p className="text-sm mb-8" style={{ color: '#3a3a5c', lineHeight: 1.7 }}>
+
+                {/* Subtítulo */}
+                <p style={{ color: '#3a3a5c', fontSize: 14, lineHeight: 1.7, marginBottom: 32 }}>
                   Configuração rápida em menos de 2 minutos.
                 </p>
 
-                <div className="flex flex-col gap-2.5 mb-8">
+                {/* Features */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 36 }}>
                   {[
                     { icon: '📊', text: 'Dashboard financeiro em tempo real' },
                     { icon: '🎯', text: 'Metas mensais com conquistas' },
                     { icon: '🏢', text: 'Gerencie múltiplas empresas' },
                     { icon: '📱', text: 'Funciona no celular como app' },
                   ].map(({ icon, text }, i) => (
-                    <motion.div key={text}
-                      initial={{ opacity: 0, x: -14 }}
+                    <motion.div
+                      key={text}
+                      initial={{ opacity: 0, x: -12 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.1 + i * 0.07 }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
-                      style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)', color: '#6b6b8a' }}>
-                      <span className="text-lg">{icon}</span>{text}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '12px 16px', borderRadius: 14,
+                        background: 'rgba(255,255,255,0.025)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        color: '#6b6b8a', fontSize: 14,
+                      }}
+                    >
+                      <span style={{ fontSize: 18, lineHeight: 1 }}>{icon}</span>
+                      {text}
                     </motion.div>
                   ))}
                 </div>
 
+                {/* Botão — separado dos cards */}
                 <motion.button
                   whileHover={{ scale: 1.01, boxShadow: '0 8px 40px rgba(124,110,247,0.5)' }}
                   whileTap={{ scale: 0.98 }}
                   onClick={goNext}
-                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-sm"
-                  style={{ background: 'linear-gradient(135deg, #7c6ef7, #9d6ef7)', color: 'white', boxShadow: '0 4px 32px rgba(124,110,247,0.35)' }}>
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '16px 24px', borderRadius: 16, border: 'none', cursor: 'pointer',
+                    background: 'linear-gradient(135deg, #7c6ef7, #9d6ef7)',
+                    color: 'white', fontWeight: 700, fontSize: 14,
+                    boxShadow: '0 4px 32px rgba(124,110,247,0.35)',
+                  }}
+                >
                   Começar configuração <ArrowRight size={16} />
                 </motion.button>
               </motion.div>
             )}
 
+            {/* ── STEP 1: EMPRESA ─────────────────────────────── */}
             {step === 1 && (
-              <motion.div key="e" custom={dir} variants={formV}
+              <motion.div key="e" custom={dir} variants={fV}
                 initial="enter" animate="center" exit="exit"
                 transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}>
 
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
-                  style={{ background: sm.bg, border: `1px solid ${sm.border}`, boxShadow: `0 0 20px ${sm.glow}` }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 16,
+                  background: sm.bg, border: `1px solid ${sm.border}`,
+                  boxShadow: `0 0 24px ${sm.glow}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 24,
+                }}>
                   <Building2 size={22} style={{ color: sm.color }} />
                 </div>
-                <h2 className="text-2xl font-bold mb-1.5" style={{ fontFamily: 'Syne, sans-serif', color: '#e8e8f0' }}>Sua empresa</h2>
-                <p className="text-sm mb-6" style={{ color: '#3a3a5c' }}>Você pode criar várias e trocar com 1 clique depois.</p>
 
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden shrink-0"
-                    style={{ background: '#0d0d14', border: '2px dashed rgba(255,255,255,0.07)' }}>
-                    {logoPreview ? <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
+                <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: 24, fontWeight: 800, color: '#e8e8f0', marginBottom: 8 }}>
+                  Sua empresa
+                </h2>
+                <p style={{ color: '#3a3a5c', fontSize: 14, lineHeight: 1.7, marginBottom: 28 }}>
+                  Você pode criar várias e trocar com 1 clique depois.
+                </p>
+
+                {/* Logo upload */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 14, flexShrink: 0,
+                    background: '#0d0d14', border: '2px dashed rgba(255,255,255,0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                  }}>
+                    {logoPreview
+                      ? <img src={logoPreview} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : <Building2 size={18} style={{ color: '#2a2a3e' }} />}
                   </div>
-                  <label className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer"
-                    style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.border}` }}>
-                    <Upload size={11} />{logoPreview ? 'Trocar logo' : 'Logo (opcional)'}
-                    <input type="file" accept="image/*" className="hidden" onChange={handleLogo} />
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
+                    background: sm.bg, color: sm.color,
+                    border: `1px solid ${sm.border}`, fontSize: 12, fontWeight: 600,
+                  }}>
+                    <Upload size={11} />
+                    {logoPreview ? 'Trocar logo' : 'Logo (opcional)'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogo} />
                   </label>
                 </div>
 
-                <input type="text" placeholder="Ex: Minha Loja, Studio X..."
-                  value={businessName} onChange={e => setBusinessName(e.target.value)}
+                {/* Input nome */}
+                <input
+                  type="text"
+                  placeholder="Nome da empresa..."
+                  value={businessName}
+                  onChange={e => setBusinessName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && businessName.trim() && saveEmpresa()}
                   autoFocus
-                  className="w-full px-4 py-3.5 rounded-xl text-sm outline-none mb-4"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#e8e8f0', transition: 'border-color 0.2s, box-shadow 0.2s' }}
-                  onFocus={e => { e.currentTarget.style.borderColor = sm.color + '60'; e.currentTarget.style.boxShadow = `0 0 0 3px ${sm.glow}` }}
-                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.boxShadow = 'none' }}
+                  style={{
+                    width: '100%', padding: '14px 16px', borderRadius: 14,
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: '#e8e8f0', fontSize: 14, outline: 'none',
+                    boxSizing: 'border-box', marginBottom: 14,
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = sm.color + '70'; e.currentTarget.style.boxShadow = `0 0 0 3px ${sm.glow}` }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.boxShadow = 'none' }}
                 />
 
-                <div className="grid grid-cols-2 gap-2 mb-7">
+                {/* Segmentos — grid 2 cols */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 28 }}>
                   {segments.map(s => (
-                    <button key={s} type="button" onClick={() => setSegment(s)}
-                      className="py-2.5 px-3 rounded-xl text-xs font-medium text-left transition-all"
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSegment(s === segment ? '' : s)}
                       style={{
+                        padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
+                        textAlign: 'left', fontSize: 13, fontWeight: 500,
                         background: segment === s ? sm.bg : 'rgba(255,255,255,0.025)',
                         color: segment === s ? sm.color : '#4a4a6a',
                         border: `1px solid ${segment === s ? sm.border : 'rgba(255,255,255,0.05)'}`,
-                      }}>{s}</button>
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {s}
+                    </button>
                   ))}
                 </div>
 
-                <div className="flex gap-2">
-                  <button onClick={goPrev} className="w-12 h-12 flex items-center justify-center rounded-xl shrink-0"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#4a4a6a' }}>
+                {/* Botões nav */}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={goPrev}
+                    style={{
+                      width: 48, height: 52, flexShrink: 0, borderRadius: 14, cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#4a4a6a', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
                     <ArrowLeft size={16} />
                   </button>
-                  <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                    onClick={saveEmpresa} disabled={!businessName.trim() || saving}
-                    className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all"
+                  <motion.button
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                    onClick={saveEmpresa}
+                    disabled={!businessName.trim() || saving}
                     style={{
+                      flex: 1, height: 52, borderRadius: 14, cursor: businessName.trim() ? 'pointer' : 'not-allowed',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                       background: businessName.trim() ? 'linear-gradient(135deg,#7c6ef7,#9d6ef7)' : 'rgba(255,255,255,0.04)',
                       color: businessName.trim() ? 'white' : '#3a3a5c',
-                      boxShadow: businessName.trim() ? '0 4px 28px rgba(124,110,247,0.35)' : 'none',
-                    }}>
+                      border: 'none', fontWeight: 700, fontSize: 14,
+                      boxShadow: businessName.trim() ? '0 4px 28px rgba(124,110,247,0.3)' : 'none',
+                      transition: 'all 0.2s',
+                    }}
+                  >
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <>Continuar <ArrowRight size={16} /></>}
                   </motion.button>
                 </div>
               </motion.div>
             )}
 
+            {/* ── STEP 2: META ─────────────────────────────────── */}
             {step === 2 && (
-              <motion.div key="m" custom={dir} variants={formV}
+              <motion.div key="m" custom={dir} variants={fV}
                 initial="enter" animate="center" exit="exit"
                 transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}>
 
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
-                  style={{ background: sm.bg, border: `1px solid ${sm.border}`, boxShadow: `0 0 20px ${sm.glow}` }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 16,
+                  background: sm.bg, border: `1px solid ${sm.border}`,
+                  boxShadow: `0 0 24px ${sm.glow}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 24,
+                }}>
                   <Target size={22} style={{ color: sm.color }} />
                 </div>
-                <h2 className="text-2xl font-bold mb-1.5" style={{ fontFamily: 'Syne, sans-serif', color: '#e8e8f0' }}>Meta do mês</h2>
-                <p className="text-sm mb-7" style={{ color: '#3a3a5c' }}>Quanto quer faturar? A super cota é um bônus extra.</p>
 
-                <div className="flex flex-col gap-3 mb-7">
+                <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: 24, fontWeight: 800, color: '#e8e8f0', marginBottom: 8 }}>
+                  Meta do mês
+                </h2>
+                <p style={{ color: '#3a3a5c', fontSize: 14, lineHeight: 1.7, marginBottom: 28 }}>
+                  Quanto quer faturar? A super cota é um bônus extra.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
                   {[
-                    { label: 'META (R$)', sub: null, color: '#f97316', value: target, set: setTarget, ph: 'Ex: 10.000' },
+                    { label: 'META (R$)', sub: '', color: '#f97316', value: target, set: setTarget, ph: 'Ex: 10.000' },
                     { label: 'SUPER COTA (R$)', sub: 'opcional', color: '#a78bfa', value: superTarget, set: setSuperTarget, ph: 'Ex: 15.000' },
                   ].map(f => (
-                    <div key={f.label} className="p-5 rounded-2xl"
-                      style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-xs font-bold uppercase tracking-widest" style={{ color: f.color }}>{f.label}</span>
-                        {f.sub && <span className="text-xs ml-auto" style={{ color: '#2a2a3e' }}>{f.sub}</span>}
+                    <div
+                      key={f.label}
+                      style={{
+                        padding: '20px 20px 16px',
+                        borderRadius: 18,
+                        background: 'rgba(255,255,255,0.025)',
+                        border: '1px solid rgba(255,255,255,0.07)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
+                        <span style={{ color: f.color, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em' }}>{f.label}</span>
+                        {f.sub && <span style={{ color: '#2a2a3e', fontSize: 11, marginLeft: 'auto' }}>{f.sub}</span>}
                       </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm" style={{ color: '#3a3a5c' }}>R$</span>
-                        <input type="number" placeholder={f.ph} value={f.value}
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                        <span style={{ color: '#3a3a5c', fontSize: 14 }}>R$</span>
+                        <input
+                          type="number"
+                          placeholder={f.ph}
+                          value={f.value}
                           onChange={e => f.set(e.target.value)}
-                          className="flex-1 bg-transparent text-2xl font-bold outline-none"
-                          style={{ color: '#e8e8f0', fontFamily: 'Syne, sans-serif' }} />
+                          style={{
+                            flex: 1, background: 'transparent',
+                            border: 'none', outline: 'none',
+                            color: '#e8e8f0', fontFamily: 'Syne, sans-serif',
+                            fontWeight: 700, fontSize: 26,
+                          }}
+                        />
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex gap-2 mb-3">
-                  <button onClick={goPrev} className="w-12 h-12 flex items-center justify-center rounded-xl shrink-0"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#4a4a6a' }}>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                  <button
+                    onClick={goPrev}
+                    style={{
+                      width: 48, height: 52, flexShrink: 0, borderRadius: 14, cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#4a4a6a', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
                     <ArrowLeft size={16} />
                   </button>
-                  <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                  <motion.button
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                     onClick={saveMeta} disabled={saving}
-                    className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm"
-                    style={{ background: 'linear-gradient(135deg,#f97316,#fb923c)', color: 'white', boxShadow: '0 4px 28px rgba(249,115,22,0.3)' }}>
+                    style={{
+                      flex: 1, height: 52, borderRadius: 14, cursor: 'pointer', border: 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      background: 'linear-gradient(135deg,#f97316,#fb923c)',
+                      color: 'white', fontWeight: 700, fontSize: 14,
+                      boxShadow: '0 4px 28px rgba(249,115,22,0.28)',
+                    }}
+                  >
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <>Continuar <ArrowRight size={16} /></>}
                   </motion.button>
                 </div>
-                <button onClick={() => { setDir(1); setStep(3) }}
-                  className="w-full text-center text-xs py-2"
-                  style={{ color: '#2a2a3e' }}
+
+                <button
+                  onClick={() => { setDir(1); setStep(3) }}
+                  style={{
+                    width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                    color: '#2a2a3e', fontSize: 13, padding: '10px 0',
+                    transition: 'color 0.2s',
+                  }}
                   onMouseEnter={e => e.currentTarget.style.color = '#4a4a6a'}
-                  onMouseLeave={e => e.currentTarget.style.color = '#2a2a3e'}>
+                  onMouseLeave={e => e.currentTarget.style.color = '#2a2a3e'}
+                >
                   Pular por agora
                 </button>
               </motion.div>
             )}
 
+            {/* ── STEP 3: LANÇAMENTO ──────────────────────────── */}
             {step === 3 && (
-              <motion.div key="l" custom={dir} variants={formV}
+              <motion.div key="l" custom={dir} variants={fV}
                 initial="enter" animate="center" exit="exit"
                 transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}>
 
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
-                  style={{ background: sm.bg, border: `1px solid ${sm.border}`, boxShadow: `0 0 20px ${sm.glow}` }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 16,
+                  background: sm.bg, border: `1px solid ${sm.border}`,
+                  boxShadow: `0 0 24px ${sm.glow}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 24,
+                }}>
                   <DollarSign size={22} style={{ color: sm.color }} />
                 </div>
-                <h2 className="text-2xl font-bold mb-1.5" style={{ fontFamily: 'Syne, sans-serif', color: '#e8e8f0' }}>Primeiro lançamento</h2>
-                <p className="text-sm mb-7" style={{ color: '#3a3a5c' }}>Registre uma entrada ou saída pra ver o painel em ação.</p>
 
-                <div className="flex flex-col gap-3 mb-7">
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: 'income',  label: 'Entrada', icon: <TrendingUp size={14} />,  color: '#34d399' },
-                      { id: 'expense', label: 'Saída',   icon: <TrendingDown size={14} />, color: '#f87171' },
-                    ].map(t => (
-                      <motion.button key={t.id} whileTap={{ scale: 0.96 }}
-                        onClick={() => setTxType(t.id as 'income' | 'expense')}
-                        className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
-                        style={{
-                          background: txType === t.id ? `${t.color}12` : 'rgba(255,255,255,0.025)',
-                          border: `1px solid ${txType === t.id ? t.color + '40' : 'rgba(255,255,255,0.05)'}`,
-                          color: txType === t.id ? t.color : '#4a4a6a',
-                          boxShadow: txType === t.id ? `0 0 20px ${t.color}18` : 'none',
-                        }}>
-                        {t.icon} {t.label}
-                      </motion.button>
-                    ))}
-                  </div>
+                <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: 24, fontWeight: 800, color: '#e8e8f0', marginBottom: 8 }}>
+                  Primeiro lançamento
+                </h2>
+                <p style={{ color: '#3a3a5c', fontSize: 14, lineHeight: 1.7, marginBottom: 28 }}>
+                  Registre uma entrada ou saída pra ver o painel em ação.
+                </p>
 
-                  <div className="p-5 rounded-2xl"
-                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-sm" style={{ color: '#3a3a5c' }}>R$</span>
-                      <input type="number" placeholder="0,00" value={txAmount}
-                        onChange={e => setTxAmount(e.target.value)}
-                        className="flex-1 bg-transparent text-3xl font-bold outline-none"
-                        style={{ color: txType === 'income' ? '#34d399' : '#f87171', fontFamily: 'Syne, sans-serif', transition: 'color 0.3s' }} />
-                    </div>
-                  </div>
-
-                  <input type="text" placeholder="Descrição (opcional)" value={txDesc}
-                    onChange={e => setTxDesc(e.target.value)}
-                    className="w-full px-4 py-3.5 rounded-xl text-sm outline-none"
-                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', color: '#e8e8f0', transition: 'border-color 0.2s' }}
-                    onFocus={e => e.currentTarget.style.borderColor = 'rgba(52,211,153,0.4)'}
-                    onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'} />
+                {/* Toggle entrada/saída */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                  {[
+                    { id: 'income',  label: 'Entrada', icon: <TrendingUp size={15} />,  color: '#34d399' },
+                    { id: 'expense', label: 'Saída',   icon: <TrendingDown size={15} />, color: '#f87171' },
+                  ].map(t => (
+                    <motion.button
+                      key={t.id}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => setTxType(t.id as 'income' | 'expense')}
+                      style={{
+                        padding: '14px 12px', borderRadius: 14, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        fontSize: 14, fontWeight: 700,
+                        background: txType === t.id ? `${t.color}12` : 'rgba(255,255,255,0.025)',
+                        border: `1px solid ${txType === t.id ? t.color + '45' : 'rgba(255,255,255,0.06)'}`,
+                        color: txType === t.id ? t.color : '#4a4a6a',
+                        boxShadow: txType === t.id ? `0 0 24px ${t.color}18` : 'none',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {t.icon} {t.label}
+                    </motion.button>
+                  ))}
                 </div>
 
-                <div className="flex gap-2 mb-3">
-                  <button onClick={goPrev} className="w-12 h-12 flex items-center justify-center rounded-xl shrink-0"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#4a4a6a' }}>
+                {/* Valor */}
+                <div style={{
+                  padding: '20px', borderRadius: 18, marginBottom: 12,
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <span style={{ color: '#3a3a5c', fontSize: 14 }}>R$</span>
+                    <input
+                      type="number"
+                      placeholder="0,00"
+                      value={txAmount}
+                      onChange={e => setTxAmount(e.target.value)}
+                      style={{
+                        flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                        color: txType === 'income' ? '#34d399' : '#f87171',
+                        fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 32,
+                        transition: 'color 0.3s',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Descrição */}
+                <input
+                  type="text"
+                  placeholder="Descrição (opcional)"
+                  value={txDesc}
+                  onChange={e => setTxDesc(e.target.value)}
+                  style={{
+                    width: '100%', padding: '14px 16px', borderRadius: 14, marginBottom: 24,
+                    background: 'rgba(255,255,255,0.025)',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    color: '#e8e8f0', fontSize: 14, outline: 'none',
+                    boxSizing: 'border-box', transition: 'border-color 0.2s',
+                  }}
+                  onFocus={e => e.currentTarget.style.borderColor = 'rgba(52,211,153,0.4)'}
+                  onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'}
+                />
+
+                <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                  <button
+                    onClick={goPrev}
+                    style={{
+                      width: 48, height: 52, flexShrink: 0, borderRadius: 14, cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#4a4a6a', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
                     <ArrowLeft size={16} />
                   </button>
-                  <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                  <motion.button
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                     onClick={saveLancamento} disabled={saving}
-                    className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm"
-                    style={{ background: 'linear-gradient(135deg,#34d399,#22d3ee)', color: '#050810', boxShadow: '0 4px 28px rgba(52,211,153,0.3)' }}>
+                    style={{
+                      flex: 1, height: 52, borderRadius: 14, cursor: 'pointer', border: 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      background: 'linear-gradient(135deg,#34d399,#22d3ee)',
+                      color: '#050810', fontWeight: 700, fontSize: 14,
+                      boxShadow: '0 4px 28px rgba(52,211,153,0.28)',
+                    }}
+                  >
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <>Finalizar <Check size={16} /></>}
                   </motion.button>
                 </div>
-                <button onClick={async () => {
+
+                <button
+                  onClick={async () => {
                     const { data: { user } } = await supabase.auth.getUser()
                     if (user) await supabase.from('profiles').upsert({ id: user.id, onboarding_done: true })
                     goNext()
                   }}
-                  className="w-full text-center text-xs py-2"
-                  style={{ color: '#2a2a3e' }}
+                  style={{
+                    width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                    color: '#2a2a3e', fontSize: 13, padding: '10px 0',
+                    transition: 'color 0.2s',
+                  }}
                   onMouseEnter={e => e.currentTarget.style.color = '#4a4a6a'}
-                  onMouseLeave={e => e.currentTarget.style.color = '#2a2a3e'}>
+                  onMouseLeave={e => e.currentTarget.style.color = '#2a2a3e'}
+                >
                   Pular por agora
                 </button>
               </motion.div>
             )}
 
+            {/* ── STEP 4: DONE ─────────────────────────────────── */}
             {step === 4 && (
-              <motion.div key="d" custom={dir} variants={formV}
+              <motion.div key="d" custom={dir} variants={fV}
                 initial="enter" animate="center" exit="exit"
                 transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}>
 
@@ -607,35 +829,50 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
                   initial={{ scale: 0, rotate: -15 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-7 text-3xl"
-                  style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)', boxShadow: '0 0 32px rgba(52,211,153,0.2)' }}>
+                  style={{
+                    width: 64, height: 64, borderRadius: 20, fontSize: 28,
+                    background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)',
+                    boxShadow: '0 0 36px rgba(52,211,153,0.2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 28,
+                  }}
+                >
                   🎉
                 </motion.div>
 
-                <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Syne, sans-serif', color: '#e8e8f0' }}>
+                <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: 24, fontWeight: 800, color: '#e8e8f0', marginBottom: 10 }}>
                   Tudo pronto, Boss!
                 </h2>
-                <p className="text-sm mb-8" style={{ color: '#3a3a5c', lineHeight: 1.7 }}>
+                <p style={{ color: '#3a3a5c', fontSize: 14, lineHeight: 1.7, marginBottom: 32 }}>
                   Sua empresa está configurada. Agora é só usar.
                 </p>
 
-                <div className="flex flex-col gap-2.5 mb-8">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32 }}>
                   {[
                     `Empresa "${businessName || 'sua empresa'}" criada`,
                     'Categorias padrão configuradas',
                     target ? `Meta de R$ ${parseFloat(target).toLocaleString('pt-BR')} definida` : 'Pronto para usar!',
                   ].map((text, i) => (
-                    <motion.div key={text}
+                    <motion.div
+                      key={text}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.12, type: 'spring', stiffness: 300, damping: 24 }}
-                      className="flex items-center gap-3 p-3.5 rounded-xl text-sm"
-                      style={{ background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.12)' }}>
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                        style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)' }}>
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '14px 16px', borderRadius: 14,
+                        background: 'rgba(52,211,153,0.04)',
+                        border: '1px solid rgba(52,211,153,0.12)',
+                      }}
+                    >
+                      <div style={{
+                        width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                        background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
                         <Check size={12} style={{ color: '#34d399' }} />
                       </div>
-                      <span style={{ color: '#6b6b8a' }}>{text}</span>
+                      <span style={{ color: '#6b6b8a', fontSize: 14 }}>{text}</span>
                     </motion.div>
                   ))}
                 </div>
@@ -644,8 +881,14 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
                   whileHover={{ scale: 1.01, boxShadow: '0 8px 40px rgba(52,211,153,0.5)' }}
                   whileTap={{ scale: 0.98 }}
                   onClick={finish}
-                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-sm"
-                  style={{ background: 'linear-gradient(135deg,#34d399,#22d3ee)', color: '#050810', boxShadow: '0 4px 32px rgba(52,211,153,0.35)' }}>
+                  style={{
+                    width: '100%', height: 54, borderRadius: 16, border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    background: 'linear-gradient(135deg,#34d399,#22d3ee)',
+                    color: '#050810', fontWeight: 700, fontSize: 14,
+                    boxShadow: '0 4px 32px rgba(52,211,153,0.35)',
+                  }}
+                >
                   Ir para o Dashboard <ArrowRight size={16} />
                 </motion.button>
               </motion.div>
@@ -654,14 +897,21 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
           </AnimatePresence>
         </div>
 
-        {/* Dots desktop */}
+        {/* Dots de progresso — desktop, fora do scroll */}
         {step > 0 && step < 4 && (
-          <div className="hidden lg:flex justify-center gap-1.5 pb-8">
+          <div
+            className="hidden lg:flex"
+            style={{ justifyContent: 'center', gap: 8, paddingBottom: 28 }}
+          >
             {[1,2,3].map(s => (
-              <motion.div key={s}
-                animate={{ width: step === s ? 20 : 6, background: step >= s ? sm.color : 'rgba(255,255,255,0.08)' }}
+              <motion.div
+                key={s}
+                animate={{
+                  width: step === s ? 22 : 6,
+                  background: step >= s ? sm.color : 'rgba(255,255,255,0.08)',
+                }}
                 transition={{ duration: 0.3 }}
-                style={{ height: 5, borderRadius: 999 }}
+                style={{ height: 6, borderRadius: 999 }}
               />
             ))}
           </div>
