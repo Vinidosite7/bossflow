@@ -22,10 +22,21 @@ interface Pos {
   arrowLeft: number
 }
 
+interface HighlightRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+const SPRING = { type: 'spring' as const, stiffness: 320, damping: 28 }
+const EASE   = { duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] as const }
+
 export function TourTooltip({ active, step, current, total, onNext, onPrev, onFinish }: Props) {
-  const tooltipRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<Pos | null>(null)
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
+  const tooltipRef   = useRef<HTMLDivElement>(null)
+  const [pos,        setPos]        = useState<Pos | null>(null)
+  const [highlight,  setHighlight]  = useState<HighlightRect | null>(null)
+  const [ready,      setReady]      = useState(false)
 
   const isLast  = current === total - 1
   const isFirst = current === 0
@@ -33,9 +44,10 @@ export function TourTooltip({ active, step, current, total, onNext, onPrev, onFi
   useEffect(() => {
     if (!active || !step) return
 
-    let attempts = 0
+    setReady(false)
     let cancelled = false
-    let rafId: ReturnType<typeof setTimeout>
+    let attempts  = 0
+    let timer: ReturnType<typeof setTimeout>
 
     async function calculate() {
       if (cancelled) return
@@ -43,65 +55,61 @@ export function TourTooltip({ active, step, current, total, onNext, onPrev, onFi
       const el = document.querySelector(step.target) as HTMLElement | null
 
       if (!el) {
-        if (attempts < 10) {
+        if (attempts < 12) {
           attempts++
-          rafId = setTimeout(calculate, 100)
+          timer = setTimeout(calculate, 100)
         } else {
-          setTargetRect(null)
+          // fallback — centro da tela
           const vw = window.innerWidth
           const vh = window.innerHeight
-          setPos({
-            top: vh / 2 - 100,
-            left: Math.max(16, vw / 2 - 150),
-            placement: 'bottom',
-            arrowLeft: 150,
-          })
+          setHighlight(null)
+          setPos({ top: vh / 2 - 100, left: Math.max(16, vw / 2 - 150), placement: 'bottom', arrowLeft: 150 })
+          setReady(true)
         }
         return
       }
 
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-
-      // Aguarda o scroll terminar antes de medir a posição
-      await new Promise(resolve => setTimeout(resolve, 350))
+      await new Promise(r => setTimeout(r, 380))
       if (cancelled) return
 
       const rect  = el.getBoundingClientRect()
       const vw    = window.innerWidth
       const vh    = window.innerHeight
+      const PAD   = 8
       const TIP_W = Math.min(300, vw - 32)
-      const TIP_H = 160
-      const GAP   = 12
+      const TIP_H = 170
+      const GAP   = 14
 
-      setTargetRect(rect)
+      setHighlight({
+        x:      rect.left   - PAD,
+        y:      rect.top    - PAD,
+        width:  rect.width  + PAD * 2,
+        height: rect.height + PAD * 2,
+      })
 
       const spaceBelow = vh - rect.bottom
       const spaceAbove = rect.top
       const placement  = spaceBelow >= TIP_H + GAP ? 'bottom'
-                        : spaceAbove >= TIP_H + GAP ? 'top'
-                        : 'bottom'
+                       : spaceAbove >= TIP_H + GAP ? 'top'
+                       : 'bottom'
 
-      const top = placement === 'bottom'
-        ? rect.bottom + GAP
-        : rect.top - TIP_H - GAP
+      const top  = placement === 'bottom' ? rect.bottom + GAP : rect.top - TIP_H - GAP
+      let   left = rect.left + rect.width / 2 - TIP_W / 2
+      left       = Math.max(16, Math.min(left, vw - TIP_W - 16))
 
-      let left = rect.left + rect.width / 2 - TIP_W / 2
-      left = Math.max(16, Math.min(left, vw - TIP_W - 16))
-
-      const arrowLeft = Math.max(16, Math.min(
-        rect.left + rect.width / 2 - left,
-        TIP_W - 24
-      ))
+      const arrowLeft = Math.max(16, Math.min(rect.left + rect.width / 2 - left, TIP_W - 24))
 
       setPos({ top, left, placement, arrowLeft })
+      setReady(true)
     }
 
     calculate()
     window.addEventListener('resize', calculate)
     return () => {
       cancelled = true
+      clearTimeout(timer)
       window.removeEventListener('resize', calculate)
-      clearTimeout(rafId)
     }
   }, [active, step, current])
 
@@ -109,170 +117,217 @@ export function TourTooltip({ active, step, current, total, onNext, onPrev, onFi
     <AnimatePresence>
       {active && (
         <>
-          {/* Overlay escuro com buraco no elemento */}
-          <div className="fixed inset-0 z-[9998] pointer-events-none">
-            {targetRect && (
-              <svg className="absolute inset-0 w-full h-full">
-                <defs>
-                  <mask id="tour-mask">
-                    <rect width="100%" height="100%" fill="white" />
-                    <rect
-                      x={targetRect.left - 6}
-                      y={targetRect.top - 6}
-                      width={targetRect.width + 12}
-                      height={targetRect.height + 12}
-                      rx="12"
+          {/* Overlay escuro */}
+          <motion.div
+            className="fixed inset-0 z-[9998] pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={EASE}
+          >
+            <svg className="absolute inset-0 w-full h-full">
+              <defs>
+                <mask id="tour-mask">
+                  <rect width="100%" height="100%" fill="white" />
+                  {highlight && (
+                    <motion.rect
+                      animate={{
+                        x:      highlight.x,
+                        y:      highlight.y,
+                        width:  highlight.width,
+                        height: highlight.height,
+                      }}
+                      transition={SPRING}
+                      rx="10"
                       fill="black"
                     />
-                  </mask>
-                </defs>
-                <rect
-                  width="100%" height="100%"
-                  fill="rgba(0,0,0,0.65)"
-                  mask="url(#tour-mask)"
-                />
-                {/* Borda brilhante no elemento destacado */}
-                <rect
-                  x={targetRect.left - 6}
-                  y={targetRect.top - 6}
-                  width={targetRect.width + 12}
-                  height={targetRect.height + 12}
-                  rx="12"
-                  fill="none"
-                  stroke="rgba(124,110,247,0.7)"
-                  strokeWidth="2"
-                />
-              </svg>
-            )}
-          </div>
+                  )}
+                </mask>
+              </defs>
 
-          {/* Clique no overlay fecha */}
+              <rect width="100%" height="100%" fill="rgba(0,0,0,0.7)" mask="url(#tour-mask)" />
+
+              {/* Borda brilhante animada */}
+              {highlight && (
+                <motion.rect
+                  animate={{
+                    x:      highlight.x,
+                    y:      highlight.y,
+                    width:  highlight.width,
+                    height: highlight.height,
+                  }}
+                  transition={SPRING}
+                  rx="10"
+                  fill="none"
+                  stroke="rgba(124,110,247,0.8)"
+                  strokeWidth="1.5"
+                />
+              )}
+            </svg>
+          </motion.div>
+
+          {/* Click fora fecha */}
           <div className="fixed inset-0 z-[9998]" onClick={onFinish} />
 
           {/* Tooltip */}
-          {pos && (
-            <motion.div
-              ref={tooltipRef}
-              key={`tooltip-${current}`}
-              initial={{ opacity: 0, y: pos.placement === 'bottom' ? -8 : 8, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="fixed z-[9999] pointer-events-auto"
-              style={{
-                top: pos.top,
-                left: pos.left,
-                width: Math.min(300, window.innerWidth - 32),
-              }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Setinha cima */}
-              {pos.placement === 'bottom' && (
-                <div className="absolute -top-2 w-4 h-2 overflow-hidden" style={{ left: pos.arrowLeft - 8 }}>
-                  <div
-                    className="w-3 h-3 rotate-45 mx-auto"
-                    style={{ background: '#1a1a2e', border: '1px solid rgba(124,110,247,0.3)', marginTop: 4 }}
-                  />
-                </div>
-              )}
-
-              <div
-                className="rounded-2xl p-4 shadow-2xl"
+          <AnimatePresence mode="wait">
+            {pos && ready && (
+              <motion.div
+                ref={tooltipRef}
+                key={`tooltip-pos-${current}`}
+                initial={{ opacity: 0, scale: 0.92, y: pos.placement === 'bottom' ? -10 : 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: pos.placement === 'bottom' ? -6 : 6 }}
+                transition={{ ...SPRING, opacity: { duration: 0.18 } }}
+                className="fixed z-[9999] pointer-events-auto"
                 style={{
-                  background: '#111118',
-                  border: '1px solid rgba(124,110,247,0.25)',
-                  boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,110,247,0.1)',
+                  top:   pos.top,
+                  left:  pos.left,
+                  width: Math.min(300, window.innerWidth - 32),
                 }}
+                onClick={e => e.stopPropagation()}
               >
-                {/* Header */}
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1">
-                      {Array.from({ length: total }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="rounded-full transition-all duration-300"
-                          style={{
-                            width: i === current ? 16 : 5,
-                            height: 5,
-                            background: i <= current ? '#7c6ef7' : 'rgba(255,255,255,0.1)',
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-xs" style={{ color: '#4a4a6a' }}>{current + 1}/{total}</span>
+                {/* Setinha cima */}
+                {pos.placement === 'bottom' && (
+                  <div
+                    className="absolute -top-[9px] overflow-hidden"
+                    style={{ left: pos.arrowLeft - 8, width: 18, height: 10 }}
+                  >
+                    <div style={{
+                      width: 12, height: 12, margin: '4px auto 0',
+                      background: '#13131f',
+                      border: '1px solid rgba(124,110,247,0.3)',
+                      transform: 'rotate(45deg)',
+                    }} />
                   </div>
-                  <button
-                    onClick={onFinish}
-                    className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-all"
-                    style={{ background: 'rgba(255,255,255,0.05)', color: '#4a4a6a' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,0.1)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
+                )}
 
-                {/* Conteúdo */}
-                <h3
-                  className="font-bold text-sm mb-1"
-                  style={{ fontFamily: 'Syne, sans-serif', color: '#e8eaf0' }}
-                >
-                  {step.title}
-                </h3>
-                <p className="text-xs leading-relaxed mb-4" style={{ color: '#5a5d75' }}>
-                  {step.description}
-                </p>
-
-                {/* Botões */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={onFinish}
-                    className="text-xs px-3 py-1.5 rounded-lg transition-all"
-                    style={{ color: '#4a4a6a', background: 'transparent' }}
-                  >
-                    Pular tudo
-                  </button>
-                  <div className="flex gap-2 ml-auto">
-                    {!isFirst && (
-                      <button
-                        onClick={onPrev}
-                        className="w-7 h-7 rounded-xl flex items-center justify-center transition-all"
-                        style={{
-                          background: 'rgba(255,255,255,0.05)',
-                          color: '#6b6b8a',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                        }}
-                      >
-                        <ChevronLeft size={14} />
-                      </button>
-                    )}
+                <div style={{
+                  background: '#13131f',
+                  border: '1px solid rgba(124,110,247,0.2)',
+                  borderRadius: 16,
+                  padding: 16,
+                  boxShadow: '0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,110,247,0.08)',
+                }}>
+                  {/* Dots + contador + fechar */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {Array.from({ length: total }).map((_, i) => (
+                          <motion.div
+                            key={i}
+                            animate={{
+                              width:      i === current ? 16 : 5,
+                              background: i <= current ? '#7c6ef7' : 'rgba(255,255,255,0.1)',
+                            }}
+                            transition={{ duration: 0.25 }}
+                            style={{ height: 5, borderRadius: 999 }}
+                          />
+                        ))}
+                      </div>
+                      <span style={{ fontSize: 11, color: '#4a4a6a' }}>{current + 1}/{total}</span>
+                    </div>
                     <button
-                      onClick={onNext}
-                      className="flex items-center gap-1.5 px-3 h-7 rounded-xl text-xs font-bold transition-all"
+                      onClick={onFinish}
                       style={{
-                        background: 'linear-gradient(135deg, #7c6ef7, #9d6ef7)',
-                        color: 'white',
-                        boxShadow: '0 0 16px rgba(124,110,247,0.3)',
+                        width: 24, height: 24, borderRadius: 8, border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(255,255,255,0.05)', color: '#4a4a6a', transition: 'all 0.15s',
                       }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,0.12)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                     >
-                      {isLast ? <><Check size={12} /> Entendi</> : <>Próximo <ChevronRight size={12} /></>}
+                      <X size={12} />
                     </button>
                   </div>
-                </div>
-              </div>
 
-              {/* Setinha baixo */}
-              {pos.placement === 'top' && (
-                <div className="absolute -bottom-2 w-4 h-2 overflow-hidden" style={{ left: pos.arrowLeft - 8 }}>
-                  <div
-                    className="w-3 h-3 rotate-45 mx-auto"
-                    style={{ background: '#1a1a2e', border: '1px solid rgba(124,110,247,0.3)', marginTop: -6 }}
-                  />
+                  {/* Conteúdo animado entre steps */}
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`content-${current}`}
+                      initial={{ opacity: 0, x: 12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -12 }}
+                      transition={EASE}
+                    >
+                      <h3 style={{
+                        fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14,
+                        color: '#e8eaf0', marginBottom: 6,
+                      }}>
+                        {step.title}
+                      </h3>
+                      <p style={{ fontSize: 12, color: '#5a5d75', lineHeight: 1.6, marginBottom: 14 }}>
+                        {step.description}
+                      </p>
+                    </motion.div>
+                  </AnimatePresence>
+
+                  {/* Botões */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      onClick={onFinish}
+                      style={{
+                        fontSize: 12, color: '#4a4a6a', background: 'transparent',
+                        border: 'none', cursor: 'pointer', padding: '6px 8px', borderRadius: 8,
+                        transition: 'color 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#7c6ef7')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#4a4a6a')}
+                    >
+                      Pular tudo
+                    </button>
+                    <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                      {!isFirst && (
+                        <motion.button
+                          whileTap={{ scale: 0.92 }}
+                          onClick={onPrev}
+                          style={{
+                            width: 28, height: 28, borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
+                            background: 'rgba(255,255,255,0.05)', color: '#6b6b8a',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', transition: 'all 0.15s',
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                        >
+                          <ChevronLeft size={14} />
+                        </motion.button>
+                      )}
+                      <motion.button
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={onNext}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '0 14px', height: 28, borderRadius: 10, border: 'none',
+                          background: 'linear-gradient(135deg, #7c6ef7, #9d6ef7)',
+                          color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          boxShadow: '0 0 16px rgba(124,110,247,0.35)',
+                        }}
+                      >
+                        {isLast ? <><Check size={12} /> Entendi</> : <>Próximo <ChevronRight size={12} /></>}
+                      </motion.button>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </motion.div>
-          )}
+
+                {/* Setinha baixo */}
+                {pos.placement === 'top' && (
+                  <div
+                    className="absolute -bottom-[9px] overflow-hidden"
+                    style={{ left: pos.arrowLeft - 8, width: 18, height: 10 }}
+                  >
+                    <div style={{
+                      width: 12, height: 12, margin: '-6px auto 0',
+                      background: '#13131f',
+                      border: '1px solid rgba(124,110,247,0.3)',
+                      transform: 'rotate(45deg)',
+                    }} />
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
     </AnimatePresence>
