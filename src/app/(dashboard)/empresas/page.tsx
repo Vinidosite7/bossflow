@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { TourTooltip } from "@/components/TourTooltip"
-import { Building2, Plus, Loader2, X, Pencil, Trash2, Upload, Check, Users, Mail, Crown, Shield, Eye, UserMinus, Lock, Copy, Link2 } from 'lucide-react'
+import { Building2, Plus, Loader2, X, Pencil, Trash2, Upload, Check, Users, Crown, Shield, Eye, UserMinus, Lock, Copy, Link2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const fadeUp = (delay = 0) => ({
@@ -72,37 +72,50 @@ export default function EmpresasPage() {
   }, [])
 
   async function load() {
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-    setCurrentUserId(user.id)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setLoading(false); return }
+      setCurrentUserId(user.id)
 
-    // Empresas que é dono
-    const { data: owned } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: false })
+      // Empresas que é dono
+      const { data: owned } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false })
 
-    // Empresas que é membro aceito
-    const { data: memberships } = await supabase
-  .from('business_members')
-  .select('business_id, role, businesses(*)')
-  .eq('user_id', user.id)
-  .in('status', ['accepted', 'active'])
+      // Memberships sem join (evita loop RLS)
+      const { data: memberships } = await supabase
+        .from('business_members')
+        .select('business_id, role')
+        .eq('user_id', user.id)
+        .in('status', ['accepted', 'active'])
 
-    const memberBizzes = (memberships || [])
-      .map((m: any) => ({ ...m.businesses, _memberRole: m.role }))
-      .filter((b: any) => b && b.id && !(owned || []).find((o: any) => o.id === b.id))
+      // IDs das empresas membro que não é dono
+      const memberBizIds = (memberships || [])
+        .map((m: any) => m.business_id)
+        .filter((id: string) => !(owned || []).find((o: any) => o.id === id))
 
-    const all = [...(owned || []), ...memberBizzes]
-    setBusinesses(all)
+      let memberBizzes: any[] = []
+      if (memberBizIds.length > 0) {
+        const { data: bizData } = await supabase
+          .from('businesses')
+          .select('*')
+          .in('id', memberBizIds)
+        memberBizzes = (bizData || []).map((b: any) => ({
+          ...b,
+          _memberRole: memberships?.find((m: any) => m.business_id === b.id)?.role,
+        }))
+      }
 
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') : null
-    if (!saved && all[0]) { localStorage.setItem('activeBizId', all[0].id); setActiveBizId(all[0].id) }
-  } catch (err) { console.error(err) }
-  finally { setLoading(false) }
-}
+      const all = [...(owned || []), ...memberBizzes]
+      setBusinesses(all)
+
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') : null
+      if (!saved && all[0]) { localStorage.setItem('activeBizId', all[0].id); setActiveBizId(all[0].id) }
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }
 
   useEffect(() => { load() }, [])
 
@@ -115,45 +128,49 @@ export default function EmpresasPage() {
     setInviteUrl('')
     setCopied(false)
     try {
-      const { data } = await supabase.from('business_members').select('*').eq('business_id', biz.id).order('created_at', { ascending: true })
+      const { data } = await supabase
+        .from('business_members')
+        .select('*')
+        .eq('business_id', biz.id)
+        .order('created_at', { ascending: true })
       setMembers(data || [])
     } catch (err) { console.error(err) }
     finally { setLoadingMembers(false) }
   }
 
   async function handleInvite() {
-  if (!membersModal || !inviteEmail) return
-  setSendingInvite(true)
-  setInviteSuccess(false)
-  setInviteUrl('')
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/invite/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({ email: inviteEmail, role: inviteRole, businessId: membersModal.id }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error ?? 'Erro ao gerar convite')
-    setInviteUrl(data.inviteUrl)
-    setInviteSuccess(true)
-    setInviteEmail('')
-    // Atualiza membros sem resetar o link
-    const { data: membersData } = await supabase
-      .from('business_members')
-      .select('*')
-      .eq('business_id', membersModal.id)
-      .order('created_at', { ascending: true })
-    setMembers(membersData || [])
-  } catch (err: any) {
-    console.error(err)
-  } finally {
-    setSendingInvite(false)
+    if (!membersModal || !inviteEmail) return
+    setSendingInvite(true)
+    setInviteSuccess(false)
+    setInviteUrl('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/invite/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole, businessId: membersModal.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erro ao gerar convite')
+      setInviteUrl(data.inviteUrl)
+      setInviteSuccess(true)
+      setInviteEmail('')
+      // Atualiza membros sem resetar o link
+      const { data: membersData } = await supabase
+        .from('business_members')
+        .select('*')
+        .eq('business_id', membersModal.id)
+        .order('created_at', { ascending: true })
+      setMembers(membersData || [])
+    } catch (err: any) {
+      console.error(err)
+    } finally {
+      setSendingInvite(false)
+    }
   }
-}
 
   async function handleCopy() {
     if (!inviteUrl) return
@@ -215,8 +232,10 @@ export default function EmpresasPage() {
     localStorage.setItem('activeBizId', id); setActiveBizId(id); window.location.reload()
   }
 
+  // Limite conta só empresas que o usuário é dono
+  const ownedCount = businesses.filter((b: any) => !b._memberRole).length
   const planLimit = PLAN_LIMITS[plan] || 1
-  const atLimit = businesses.length >= planLimit
+  const atLimit = ownedCount >= planLimit
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -322,7 +341,6 @@ export default function EmpresasPage() {
               className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl border flex flex-col"
               style={{ background: '#111118', borderColor: '#1e1e2e', maxHeight: '90vh' }}>
 
-              {/* Header modal */}
               <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: '#1a1a2a' }}>
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden"
@@ -334,7 +352,7 @@ export default function EmpresasPage() {
                   <div>
                     <h2 className="font-bold text-base leading-none" style={{ fontFamily: 'Syne, sans-serif' }}>{membersModal.name}</h2>
                     <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>
-                      {members.filter(m => m.status === 'accepted').length} membros ativos
+                      {members.filter(m => m.status === 'accepted' || m.status === 'active').length} membros ativos
                     </p>
                   </div>
                 </div>
@@ -383,7 +401,6 @@ export default function EmpresasPage() {
                       </button>
                     </div>
 
-                    {/* Link gerado */}
                     <AnimatePresence>
                       {inviteSuccess && inviteUrl && (
                         <motion.div
@@ -441,14 +458,14 @@ export default function EmpresasPage() {
                             </span>
                             <span className="text-xs px-1.5 py-0.5 rounded-md"
                               style={{
-                                background: m.status === 'accepted'
+                                background: (m.status === 'accepted' || m.status === 'active')
                                   ? 'rgba(52,211,153,0.08)'
                                   : m.status === 'pending'
                                   ? 'rgba(251,191,36,0.08)'
                                   : 'rgba(248,113,113,0.08)',
-                                color: m.status === 'accepted' ? '#34d399' : m.status === 'pending' ? '#fbbf24' : '#f87171',
+                                color: (m.status === 'accepted' || m.status === 'active') ? '#34d399' : m.status === 'pending' ? '#fbbf24' : '#f87171',
                               }}>
-                              {m.status === 'accepted' ? 'Ativo' : m.status === 'pending' ? 'Pendente' : 'Removido'}
+                              {(m.status === 'accepted' || m.status === 'active') ? 'Ativo' : m.status === 'pending' ? 'Pendente' : 'Removido'}
                             </span>
                           </div>
                         </div>
@@ -547,7 +564,7 @@ export default function EmpresasPage() {
                       : <Building2 size={22} style={{ color: '#3a3a5c' }} />}
                   </motion.div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold truncate" style={{ color: '#e8e8f0' }}>{biz.name}</p>
                       <AnimatePresence>
                         {activeBizId === biz.id && (
@@ -558,6 +575,12 @@ export default function EmpresasPage() {
                           </motion.span>
                         )}
                       </AnimatePresence>
+                      {biz._memberRole && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                          style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
+                          {ROLE_CONFIG[biz._memberRole]?.label ?? biz._memberRole}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>
                       {new Date(biz.created_at).toLocaleDateString('pt-BR')}
@@ -584,18 +607,22 @@ export default function EmpresasPage() {
                     style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>
                     <Users size={13} />
                   </motion.button>
-                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                    onClick={() => openEdit(biz)}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(124,110,247,0.1)', color: '#7c6ef7' }}>
-                    <Pencil size={13} />
-                  </motion.button>
-                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowConfirm(biz.id)}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
-                    <Trash2 size={13} />
-                  </motion.button>
+                  {!biz._memberRole && (
+                    <>
+                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                        onClick={() => openEdit(biz)}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center"
+                        style={{ background: 'rgba(124,110,247,0.1)', color: '#7c6ef7' }}>
+                        <Pencil size={13} />
+                      </motion.button>
+                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                        onClick={() => setShowConfirm(biz.id)}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center"
+                        style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
+                        <Trash2 size={13} />
+                      </motion.button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             ))}
