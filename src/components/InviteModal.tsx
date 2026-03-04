@@ -336,7 +336,7 @@ export function InviteModal({ businessId, businessName, onClose }: Props) {
                   whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                   onClick={handleCopy}
                   style={{
-                    width: '100%', height: 46, borderRadius: 13, border: 'none', cursor: 'pointer',
+                    width: '100%', height: 46, borderRadius: 13,  cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     background: copied ? 'rgba(52,211,153,0.15)' : 'linear-gradient(135deg, #7c6ef7, #9d6ef7)',
                     color: copied ? '#34d399' : 'white', fontWeight: 700, fontSize: 14,
