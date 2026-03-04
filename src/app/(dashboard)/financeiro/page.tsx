@@ -79,9 +79,21 @@ export default function FinanceiroPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
       const savedBizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') || '' : ''
-      const { data: bizList } = await supabase.from('businesses').select('id').eq('owner_id', user.id)
-      if (!bizList?.length) { setLoading(false); return }
-      const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
+      const { data: owned } = await supabase.from('businesses').select('id').eq('owner_id', user.id)
+const { data: memberships } = await supabase
+  .from('business_members').select('business_id')
+  .eq('user_id', user.id).in('status', ['accepted', 'active'])
+const memberBizIds = (memberships || [])
+  .map((m: any) => m.business_id)
+  .filter((id: string) => !(owned || []).find((o: any) => o.id === id))
+let memberBizzes: any[] = []
+if (memberBizIds.length > 0) {
+  const { data: bizData } = await supabase.from('businesses').select('id').in('id', memberBizIds)
+  memberBizzes = bizData || []
+}
+const bizList = [...(owned || []), ...memberBizzes]
+if (!bizList.length) { setLoading(false); return }
+const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
       setBusinessId(biz.id)
       const daysNum = parseInt(period)
       const from = new Date()
