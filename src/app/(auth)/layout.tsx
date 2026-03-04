@@ -58,6 +58,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             backgroundImage: 'linear-gradient(rgba(124,110,247,1) 1px, transparent 1px), linear-gradient(90deg, rgba(124,110,247,1) 1px, transparent 1px)',
             backgroundSize: '52px 52px' }} />
 
+            {/* Logo */}
+<div style={{ position: 'relative', zIndex: 1 }}>
+  <img src="/bossflow.png" alt="BossFlow" style={{ height: 34, objectFit: 'contain' }} />
+</div>
+
           {/* Headline */}
           <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 460 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 12px',

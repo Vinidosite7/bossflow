@@ -64,16 +64,9 @@ export default function LoginPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
 
         {/* Logo mobile */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} className="lg:hidden">
-          <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-            background: 'linear-gradient(135deg, #7c6ef7, #9d8fff)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="white" />
-            </svg>
-          </div>
-          <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, color: '#e8e8f0', fontSize: 16 }}>BossFlow</span>
-        </div>
+<div className="lg:hidden">
+  <img src="/bossflow.png" alt="BossFlow" style={{ height: 32, objectFit: 'contain' }} />
+</div>
 
         {/* Heading */}
         <div>
