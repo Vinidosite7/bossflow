@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { TourTooltip } from "@/components/TourTooltip"
-import { Building2, Plus, Loader2, X, Pencil, Trash2, Upload, Check, Users, Mail, Crown, Shield, Eye, UserMinus, Lock } from 'lucide-react'
+import { Building2, Plus, Loader2, X, Pencil, Trash2, Upload, Check, Users, Mail, Crown, Shield, Eye, UserMinus, Lock, Copy, Link2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const fadeUp = (delay = 0) => ({
@@ -63,6 +63,8 @@ export default function EmpresasPage() {
   const [inviteRole, setInviteRole] = useState('member')
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [inviteUrl, setInviteUrl] = useState('')
+  const [copied, setCopied] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string>('')
 
   useEffect(() => {
@@ -85,7 +87,13 @@ export default function EmpresasPage() {
   useEffect(() => { load() }, [])
 
   async function loadMembers(biz: any) {
-    setLoadingMembers(true); setMembersModal(biz); setInviteEmail(''); setInviteRole('member'); setInviteSuccess(false)
+    setLoadingMembers(true)
+    setMembersModal(biz)
+    setInviteEmail('')
+    setInviteRole('member')
+    setInviteSuccess(false)
+    setInviteUrl('')
+    setCopied(false)
     try {
       const { data } = await supabase.from('business_members').select('*').eq('business_id', biz.id).order('created_at', { ascending: true })
       setMembers(data || [])
@@ -94,23 +102,39 @@ export default function EmpresasPage() {
   }
 
   async function handleInvite() {
-  if (!membersModal || !inviteEmail) return
-  setSendingInvite(true)
-  try {
-    const { data: { session } } = await supabase.auth.getSession() // ← adiciona
-    const res = await fetch('/api/invite/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token}`, // ← adiciona
-      },
-      body: JSON.stringify({ email: inviteEmail, role: inviteRole, businessId: membersModal.id }),
-    })
-    if (!res.ok) throw new Error('Erro ao enviar convite')
-    setInviteSuccess(true); setInviteEmail(''); loadMembers(membersModal)
-  } catch (err) { console.error(err) }
-  finally { setSendingInvite(false) }
-}
+    if (!membersModal || !inviteEmail) return
+    setSendingInvite(true)
+    setInviteSuccess(false)
+    setInviteUrl('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/invite/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole, businessId: membersModal.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erro ao gerar convite')
+      setInviteUrl(data.inviteUrl)
+      setInviteSuccess(true)
+      setInviteEmail('')
+      loadMembers(membersModal)
+    } catch (err: any) {
+      console.error(err)
+    } finally {
+      setSendingInvite(false)
+    }
+  }
+
+  async function handleCopy() {
+    if (!inviteUrl) return
+    await navigator.clipboard.writeText(inviteUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
 
   async function handleRemoveMember(memberId: string) {
     if (!confirm('Remover este membro?')) return
@@ -271,27 +295,37 @@ export default function EmpresasPage() {
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
               className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl border flex flex-col"
               style={{ background: '#111118', borderColor: '#1e1e2e', maxHeight: '90vh' }}>
+
+              {/* Header modal */}
               <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: '#1a1a2a' }}>
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden"
                     style={{ background: '#0d0d14', border: '1px solid #1e1e2e' }}>
-                    {membersModal.logo_url ? <img src={membersModal.logo_url} alt="" className="w-full h-full object-cover" /> : <Building2 size={16} style={{ color: '#3a3a5c' }} />}
+                    {membersModal.logo_url
+                      ? <img src={membersModal.logo_url} alt="" className="w-full h-full object-cover" />
+                      : <Building2 size={16} style={{ color: '#3a3a5c' }} />}
                   </div>
                   <div>
                     <h2 className="font-bold text-base leading-none" style={{ fontFamily: 'Syne, sans-serif' }}>{membersModal.name}</h2>
-                    <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>{members.filter(m => m.status === 'active').length} membros ativos</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>
+                      {members.filter(m => m.status === 'accepted').length} membros ativos
+                    </p>
                   </div>
                 </div>
                 <button onClick={() => setMembersModal(null)} style={{ color: '#4a4a6a' }}><X size={18} /></button>
               </div>
+
               <div className="overflow-y-auto flex-1 p-5 flex flex-col gap-5">
+
+                {/* Convidar */}
                 <div className="rounded-2xl p-4" style={{ background: '#0d0d14', border: '1px solid #1a1a2a' }}>
                   <h3 className="text-sm font-bold mb-3" style={{ color: '#e8eaf0' }}>Convidar membro</h3>
                   <div className="flex flex-col gap-3">
-                    <input type="email" placeholder="email@exemplo.com" value={inviteEmail} required
-                      onChange={e => { setInviteEmail(e.target.value); setInviteSuccess(false) }}
+                    <input type="email" placeholder="email@exemplo.com" value={inviteEmail}
+                      onChange={e => { setInviteEmail(e.target.value); setInviteSuccess(false); setInviteUrl('') }}
                       className="px-3 py-2.5 rounded-xl border text-sm outline-none w-full"
                       style={{ background: '#111118', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
+
                     <div className="flex gap-2">
                       <div className="flex gap-1.5 flex-1 flex-wrap">
                         {(['admin', 'member', 'viewer'] as const).map(r => {
@@ -310,26 +344,51 @@ export default function EmpresasPage() {
                           )
                         })}
                       </div>
-                      <button type="button" onClick={handleInvite} disabled={sendingInvite}
-  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold shrink-0"
-  style={{ background: '#7c6ef7', color: 'white' }}>
-  {sendingInvite ? <Loader2 size={12} className="animate-spin" /> : <><Mail size={12} /> Convidar</>}
-</button>
+                      <button type="button" onClick={handleInvite} disabled={sendingInvite || !inviteEmail}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold shrink-0"
+                        style={{
+                          background: '#7c6ef7', color: 'white',
+                          opacity: !inviteEmail ? 0.5 : 1,
+                          cursor: !inviteEmail ? 'not-allowed' : 'pointer',
+                        }}>
+                        {sendingInvite
+                          ? <Loader2 size={12} className="animate-spin" />
+                          : <><Link2 size={12} /> Gerar link</>}
+                      </button>
                     </div>
+
+                    {/* Link gerado */}
                     <AnimatePresence>
-                      {inviteSuccess && (
-                        <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          className="text-xs flex items-center gap-1.5" style={{ color: '#34d399' }}>
-                          <Check size={12} /> Convite enviado!
-                        </motion.p>
+                      {inviteSuccess && inviteUrl && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          className="flex flex-col gap-2 p-3 rounded-xl"
+                          style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)' }}>
+                          <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: '#34d399' }}>
+                            <Check size={12} /> Link gerado! Válido por 48h
+                          </p>
+                          <p className="text-xs font-mono break-all" style={{ color: '#7c6ef7' }}>{inviteUrl}</p>
+                          <button type="button" onClick={handleCopy}
+                            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg w-fit"
+                            style={{
+                              background: copied ? 'rgba(52,211,153,0.15)' : 'rgba(124,110,247,0.15)',
+                              color: copied ? '#34d399' : '#9d8fff',
+                            }}>
+                            {copied ? <><Check size={11} /> Copiado!</> : <><Copy size={11} /> Copiar link</>}
+                          </button>
+                        </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
                 </div>
+
+                {/* Lista membros */}
                 <div className="flex flex-col gap-2">
                   <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>Membros</h3>
                   {loadingMembers ? (
-                    <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: '#7c6ef7' }} /></div>
+                    <div className="flex justify-center py-8">
+                      <Loader2 size={20} className="animate-spin" style={{ color: '#7c6ef7' }} />
+                    </div>
                   ) : members.length === 0 ? (
                     <p className="text-sm py-4 text-center" style={{ color: '#4a4a6a' }}>Nenhum membro ainda.</p>
                   ) : members.map((m, i) => {
@@ -356,10 +415,14 @@ export default function EmpresasPage() {
                             </span>
                             <span className="text-xs px-1.5 py-0.5 rounded-md"
                               style={{
-                                background: m.status === 'active' ? 'rgba(52,211,153,0.08)' : 'rgba(251,191,36,0.08)',
-                                color: m.status === 'active' ? '#34d399' : '#fbbf24',
+                                background: m.status === 'accepted'
+                                  ? 'rgba(52,211,153,0.08)'
+                                  : m.status === 'pending'
+                                  ? 'rgba(251,191,36,0.08)'
+                                  : 'rgba(248,113,113,0.08)',
+                                color: m.status === 'accepted' ? '#34d399' : m.status === 'pending' ? '#fbbf24' : '#f87171',
                               }}>
-                              {m.status === 'active' ? 'Ativo' : m.status === 'pending' ? 'Pendente' : 'Removido'}
+                              {m.status === 'accepted' ? 'Ativo' : m.status === 'pending' ? 'Pendente' : 'Removido'}
                             </span>
                           </div>
                         </div>
@@ -381,12 +444,15 @@ export default function EmpresasPage() {
         )}
       </AnimatePresence>
 
+      {/* Confirm delete */}
       <AnimatePresence>
         {showConfirm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)' }}>
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.8)' }}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm rounded-2xl border p-6" style={{ background: '#111118', borderColor: '#1e1e2e' }}>
+              className="w-full max-w-sm rounded-2xl border p-6"
+              style={{ background: '#111118', borderColor: '#1e1e2e' }}>
               <h2 className="font-bold text-lg mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Excluir empresa?</h2>
               <p className="text-sm mb-6" style={{ color: '#6b6b8a' }}>Todos os dados serão excluídos permanentemente.</p>
               <div className="flex gap-3">
@@ -436,7 +502,9 @@ export default function EmpresasPage() {
                   <motion.div whileHover={{ scale: 1.08 }}
                     className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
                     style={{ background: '#0d0d14', border: '1px solid #1e1e2e' }}>
-                    {biz.logo_url ? <img src={biz.logo_url} alt={biz.name} className="w-full h-full object-cover" /> : <Building2 size={22} style={{ color: '#3a3a5c' }} />}
+                    {biz.logo_url
+                      ? <img src={biz.logo_url} alt={biz.name} className="w-full h-full object-cover" />
+                      : <Building2 size={22} style={{ color: '#3a3a5c' }} />}
                   </motion.div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
