@@ -149,31 +149,36 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
   }
 
   async function saveLancamento() {
-    setSaving(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      if (bizId && txAmount) {
-        await supabase.from('transactions').insert({
-          business_id: bizId,
-          type: txType,
-          amount: parseFloat(txAmount),
-          description: txDesc || (txType === 'income' ? 'Primeira entrada' : 'Primeira despesa'),
-          date: new Date().toISOString().split('T')[0],
-          paid: true,
-          created_by: user.id,
-        })
-      }
-      await supabase.from('profiles').upsert({ id: user.id, onboarding_done: true, onboarding_step: 'done' })
-      goNext()
-    } finally { setSaving(false) }
-  }
+  setSaving(true)
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    // Pega bizId do localStorage como fallback
+    const activeBizId = bizId || localStorage.getItem('activeBizId')
+
+    if (activeBizId && txAmount) {
+      await supabase.from('transactions').insert({
+        business_id: activeBizId,
+        type: txType,
+        amount: parseFloat(txAmount),
+        description: txDesc || (txType === 'income' ? 'Primeira entrada' : 'Primeira despesa'),
+        date: new Date().toISOString().split('T')[0],
+        paid: true,
+        created_by: user.id,
+      })
+    }
+    await supabase.from('profiles').upsert({ id: user.id, onboarding_done: true, onboarding_step: 'done' })
+    goNext()
+  } finally { setSaving(false) }
+}
 
   async function finish() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) await supabase.from('profiles').upsert({ id: user.id, onboarding_done: true })
-    onComplete()
-  }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) await supabase.from('profiles').upsert({ id: user.id, onboarding_done: true })
+  onComplete()
+  window.location.href = '/dashboard' // ← força reload completo
+}
 
   const pIdx    = Math.min(step, 3)
   const preview = PREVIEWS[pIdx]
