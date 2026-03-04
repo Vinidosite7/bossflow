@@ -69,6 +69,7 @@ export default function InvitePage() {
         body: JSON.stringify({ token }),
       })
       const data = await res.json()
+      console.log('invite response:', res.status, data) // ← adiciona
       if (!res.ok) { setError(data.error); return }
 
       localStorage.setItem('activeBizId', data.businessId)
