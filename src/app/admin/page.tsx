@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, CreditCard, TrendingUp, Activity, Search, X,
   ChevronDown, Check, Loader2, Calendar, Crown, Star,
-  Rocket, Zap, Building2, LogOut
+  Rocket, Zap, Building2, LogOut, Trash2
 } from 'lucide-react'
 
 /* ─── Types ── */
@@ -148,6 +148,27 @@ export default function AdminPage() {
     load()
   }
 
+  async function handleDelete(u: AdminUser) {
+  if (!confirm(`Deletar permanentemente ${u.email}?\n\nEssa ação não pode ser desfeita.`)) return
+
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch('/api/admin/delete-user', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session?.access_token}`,
+    },
+    body: JSON.stringify({ userId: u.id }),
+  })
+
+  if (res.ok) {
+    load()
+  } else {
+    const { error } = await res.json()
+    alert(error ?? 'Erro ao deletar usuário')
+  }
+}
+
   return (
     <div className="min-h-screen p-4 sm:p-8 flex flex-col gap-8" style={{ background: '#0a0a12', color: '#e8eaf0' }}>
 
@@ -165,6 +186,7 @@ export default function AdminPage() {
           <LogOut size={13} /> Dashboard
         </a>
       </div>
+      
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -293,6 +315,14 @@ export default function AdminPage() {
                             style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff', border: '1px solid rgba(124,110,247,0.2)' }}>
                             Setar plano
                           </button>
+                          <button
+  onClick={() => handleDelete(u)}
+  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+  style={{ background: 'rgba(248,113,113,0.08)', color: '#f87171', border: '1px solid rgba(248,113,113,0.15)' }}
+  title="Deletar usuário permanentemente"
+>
+  <Trash2 size={12} />
+</button>
                           {u.plan !== 'free' && (
                             <button onClick={() => handleRevoke(u.id)}
                               className="px-2.5 py-1.5 rounded-lg text-xs font-semibold"
