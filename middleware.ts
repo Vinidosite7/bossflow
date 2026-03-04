@@ -29,12 +29,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Já logado tentando acessar login/register
+  // Já logado tentando acessar login/register → vai pro dashboard
   if (user && (pathname === '/login' || pathname === '/register')) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // Proteção da rota /admin — precisa estar logado e ser admin
+  // Proteção da rota /admin
   if (pathname.startsWith('/admin')) {
     if (!user) {
       return NextResponse.redirect(new URL('/login', request.url))
@@ -51,19 +51,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Verifica onboarding — só pra usuários logados fora do /onboarding e /admin
-  if (user && !pathname.startsWith('/onboarding') && !pathname.startsWith('/admin')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('onboarding_done')
-      .eq('id', user.id)
-      .single()
-
-    // Se onboarding não foi concluído, redireciona
-    if (profile && !profile.onboarding_done) {
-      return NextResponse.redirect(new URL('/onboarding', request.url))
-    }
-  }
+  // Onboarding — o modal roda dentro do /dashboard, não existe página /onboarding
+  // Não precisa redirecionar, o layout.tsx já cuida disso
 
   return supabaseResponse
 }
