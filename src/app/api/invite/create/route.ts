@@ -63,8 +63,10 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (existing?.status === 'accepted') {
-      return NextResponse.json({ error: 'Usuário já é membro desta empresa' }, { status: 409 })
-    }
+  // Permite gerar novo link mesmo pra quem já é membro (ex: mudar role)
+  // Se não quiser isso, mantém o return abaixo
+  return NextResponse.json({ error: 'Usuário já é membro desta empresa' }, { status: 409 })
+}
 
     // Gera token único
     const inviteToken = randomBytes(32).toString('hex')

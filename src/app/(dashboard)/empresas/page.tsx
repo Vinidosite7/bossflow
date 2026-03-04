@@ -72,17 +72,37 @@ export default function EmpresasPage() {
   }, [])
 
   async function load() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      setCurrentUserId(user.id)
-      const { data } = await supabase.from('businesses').select('*').eq('owner_id', user.id).order('created_at', { ascending: false })
-      setBusinesses(data || [])
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') : null
-      if (!saved && data?.[0]) { localStorage.setItem('activeBizId', data[0].id); setActiveBizId(data[0].id) }
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+    setCurrentUserId(user.id)
+
+    // Empresas que é dono
+    const { data: owned } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false })
+
+    // Empresas que é membro aceito
+    const { data: memberships } = await supabase
+  .from('business_members')
+  .select('business_id, role, businesses(*)')
+  .eq('user_id', user.id)
+  .in('status', ['accepted', 'active'])
+
+    const memberBizzes = (memberships || [])
+      .map((m: any) => ({ ...m.businesses, _memberRole: m.role }))
+      .filter((b: any) => b && b.id && !(owned || []).find((o: any) => o.id === b.id))
+
+    const all = [...(owned || []), ...memberBizzes]
+    setBusinesses(all)
+
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') : null
+    if (!saved && all[0]) { localStorage.setItem('activeBizId', all[0].id); setActiveBizId(all[0].id) }
+  } catch (err) { console.error(err) }
+  finally { setLoading(false) }
+}
 
   useEffect(() => { load() }, [])
 
