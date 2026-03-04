@@ -453,12 +453,26 @@ export default function EmpresasPage() {
                           </div>
                         </div>
                         {!isMe && m.role !== 'owner' && m.status !== 'removed' && (
-                          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                            onClick={() => handleRemoveMember(m.id)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                            style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
-                            <UserMinus size={12} />
-                          </motion.button>
+                          <div className="flex gap-1.5 shrink-0">
+                            <select
+                              value={m.role}
+                              onChange={async (e) => {
+                                await supabase.from('business_members').update({ role: e.target.value }).eq('id', m.id)
+                                loadMembers(membersModal)
+                              }}
+                              className="text-xs px-2 py-1 rounded-lg outline-none cursor-pointer"
+                              style={{ background: '#1a1a2a', color: '#9d8fff', border: '1px solid #2a2a3e' }}>
+                              <option value="admin">Admin</option>
+                              <option value="member">Membro</option>
+                              <option value="viewer">Visualizador</option>
+                            </select>
+                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                              onClick={() => handleRemoveMember(m.id)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                              style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
+                              <UserMinus size={12} />
+                            </motion.button>
+                          </div>
                         )}
                       </motion.div>
                     )
