@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bossflow-v3'
+const CACHE_NAME = 'bossflow-v4'
 const urlsToCache = ['/', '/dashboard', '/login']
 
 self.addEventListener('install', event => {
