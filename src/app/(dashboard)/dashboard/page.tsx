@@ -173,12 +173,29 @@ if (!user) {
 }
 
       const savedBizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') || '' : ''
-      const { data: bizList } = await supabase.from('businesses').select('*').eq('owner_id', user.id)
-      if (!bizList?.length) { setLoading(false); return }
 
-      const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
-      setBusiness(biz)
-      setBusinessId(biz.id)
+const { data: owned } = await supabase.from('businesses').select('*').eq('owner_id', user.id)
+
+const { data: memberships } = await supabase
+  .from('business_members').select('business_id, role')
+  .eq('user_id', user.id).in('status', ['accepted', 'active'])
+
+const memberBizIds = (memberships || [])
+  .map((m: any) => m.business_id)
+  .filter((id: string) => !(owned || []).find((o: any) => o.id === id))
+
+let memberBizzes: any[] = []
+if (memberBizIds.length > 0) {
+  const { data: bizData } = await supabase.from('businesses').select('*').in('id', memberBizIds)
+  memberBizzes = bizData || []
+}
+
+const bizList = [...(owned || []), ...memberBizzes]
+if (!bizList.length) { setLoading(false); return }
+
+const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
+setBusiness(biz)
+setBusinessId(biz.id)
 
       const now = new Date()
       const startOfMonth    = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
