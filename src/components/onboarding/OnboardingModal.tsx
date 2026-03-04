@@ -113,7 +113,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
       }
       const { data: biz } = await supabase.from('businesses')
         .insert({ name: businessName, logo_url, owner_id: user.id })
-        .select().single()
+        .select().maybeSingle()
       if (biz) {
         localStorage.setItem('activeBizId', biz.id)
         setBizId(biz.id)
@@ -151,14 +151,17 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
   async function saveLancamento() {
   setSaving(true)
   try {
+    // Força refresh da sessão antes de inserir
+    await supabase.auth.refreshSession()
+    
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { console.error('NO USER'); return }
 
-    // Pega bizId do localStorage como fallback
     const activeBizId = bizId || localStorage.getItem('activeBizId')
+    console.log('activeBizId:', activeBizId, 'txAmount:', txAmount, 'user:', user.id)
 
     if (activeBizId && txAmount) {
-      await supabase.from('transactions').insert({
+      const { error: txError } = await supabase.from('transactions').insert({
         business_id: activeBizId,
         type: txType,
         amount: parseFloat(txAmount),
@@ -167,7 +170,10 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
         paid: true,
         created_by: user.id,
       })
+      if (txError) console.error('TX ERROR:', txError)
+      else console.log('TX OK!')
     }
+
     await supabase.from('profiles').upsert({ id: user.id, onboarding_done: true, onboarding_step: 'done' })
     goNext()
   } finally { setSaving(false) }
