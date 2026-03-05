@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -14,23 +14,25 @@ export default function ResetPasswordPage() {
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setReady(true)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
-    if (password !== confirm) {
-      setError('As senhas não coincidem.')
-      return
-    }
-    if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres.')
-      return
-    }
+    if (password !== confirm) { setError('As senhas não coincidem.'); return }
+    if (password.length < 6) { setError('A senha deve ter pelo menos 6 caracteres.'); return }
 
     setLoading(true)
     const { error } = await supabase.auth.updateUser({ password })
@@ -54,7 +56,6 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="w-full">
-      {/* Logo */}
       <div className="mb-10">
         <div className="relative w-40 h-9">
           <Image src="/bossflow.png" alt="BossFlow" fill className="object-contain object-left" priority />
@@ -73,8 +74,14 @@ export default function ResetPasswordPage() {
             </p>
           </div>
 
+          {!ready && (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm mb-4"
+              style={{ background: 'rgba(124,110,247,0.08)', border: '1px solid rgba(124,110,247,0.2)', color: '#9d8fff' }}>
+              <Loader2 size={14} className="animate-spin" /> Validando link...
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {/* Nova senha */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>
                 Nova senha
@@ -100,7 +107,6 @@ export default function ResetPasswordPage() {
               </div>
             </div>
 
-            {/* Strength */}
             {password.length > 0 && (
               <div className="flex gap-1">
                 {[...Array(4)].map((_, i) => (
@@ -114,7 +120,6 @@ export default function ResetPasswordPage() {
               </div>
             )}
 
-            {/* Confirmar */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>
                 Confirmar senha
@@ -138,7 +143,6 @@ export default function ResetPasswordPage() {
                   {showConfirm ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
-              {/* Match indicator */}
               {confirm.length > 0 && (
                 <p className="text-xs" style={{ color: password === confirm ? '#34d399' : '#f87171' }}>
                   {password === confirm ? '✓ Senhas coincidem' : '✗ Senhas não coincidem'}
@@ -153,13 +157,14 @@ export default function ResetPasswordPage() {
               </div>
             )}
 
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={loading || !ready}
               className="flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-sm transition-all mt-1"
               style={{
-                background: loading ? '#1e1e2e' : 'linear-gradient(135deg, #7c6ef7 0%, #9d8fff 100%)',
-                color: loading ? '#4a4a6a' : 'white',
-                boxShadow: loading ? 'none' : '0 0 32px rgba(124,110,247,0.35)',
+                background: loading || !ready ? '#1e1e2e' : 'linear-gradient(135deg, #7c6ef7 0%, #9d8fff 100%)',
+                color: loading || !ready ? '#4a4a6a' : 'white',
+                boxShadow: loading || !ready ? 'none' : '0 0 32px rgba(124,110,247,0.35)',
                 letterSpacing: '0.02em',
+                cursor: loading || !ready ? 'not-allowed' : 'pointer',
               }}>
               {loading
                 ? <Loader2 size={16} className="animate-spin" />
@@ -185,7 +190,7 @@ export default function ResetPasswordPage() {
 
       {!done && (
         <div className="mt-8 flex justify-center">
-          <Link href="/auth/login"
+          <Link href="/login"
             className="text-sm transition-colors"
             style={{ color: '#4a4a6a' }}
             onMouseEnter={e => e.currentTarget.style.color = '#7c6ef7'}
