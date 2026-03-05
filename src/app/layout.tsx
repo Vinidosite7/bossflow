@@ -13,10 +13,14 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'BossFlow',
+    default: 'BossFlow — Gestão financeira para pequenas empresas',
     template: '%s · BossFlow',
   },
-  description: 'O financeiro da sua empresa na palma da mão',
+  description: 'Controle financeiro, vendas, clientes e tarefas para pequenas empresas brasileiras. Simples, rápido e feito para o dia a dia.',
+  keywords: ['gestão financeira', 'controle de despesas', 'pequenas empresas', 'fluxo de caixa', 'gestão empresarial', 'software de gestão'],
+  authors: [{ name: 'BossFlow', url: 'https://bossflow.pro' }],
+  creator: 'BossFlow',
+  metadataBase: new URL('https://app.bossflow.pro'),
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
@@ -26,6 +30,25 @@ export const metadata: Metadata = {
   icons: {
     icon: '/icon-192.png',
     apple: '/icon-192.png',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'pt_BR',
+    url: 'https://app.bossflow.pro',
+    siteName: 'BossFlow',
+    title: 'BossFlow — Gestão financeira para pequenas empresas',
+    description: 'Controle financeiro, vendas, clientes e tarefas para pequenas empresas brasileiras.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'BossFlow' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'BossFlow — Gestão financeira para pequenas empresas',
+    description: 'Controle financeiro, vendas, clientes e tarefas para pequenas empresas brasileiras.',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: false, // app não precisa ser indexado, só o marketing site
+    follow: false,
   },
 }
 

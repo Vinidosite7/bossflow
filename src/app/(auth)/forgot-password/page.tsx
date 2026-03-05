@@ -20,7 +20,7 @@ export default function ForgotPasswordPage() {
     setError('')
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: 'https://app.bossflow.pro/reset-password',
     })
 
     if (error) {
@@ -126,7 +126,7 @@ export default function ForgotPasswordPage() {
       )}
 
       <div className="mt-8 flex justify-center">
-        <Link href="/auth/login"
+        <Link href="/login"
           className="flex items-center gap-2 text-sm transition-colors"
           style={{ color: '#4a4a6a' }}
           onMouseEnter={e => e.currentTarget.style.color = '#7c6ef7'}
