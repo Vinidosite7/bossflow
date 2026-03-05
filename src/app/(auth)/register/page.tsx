@@ -50,6 +50,13 @@ export default function RegisterPage() {
   }
 }
 
+// Dispara email de boas-vindas (sem await — não bloqueia o redirect)
+fetch('/api/auth/welcome', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name, email }),
+})
+
   async function handleGoogle() {
     setGoogleLoading(true)
     await supabase.auth.signInWithOAuth({
