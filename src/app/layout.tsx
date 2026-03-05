@@ -56,14 +56,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        <meta name="color-scheme" content="dark" />
-        {/* iOS PWA */}
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
-        {/* Anti-flash branco: fundo escuro antes do JS carregar */}
-        <style>{`html,body{background-color:#070812!important}`}</style>
-      </head>
+  {/* PRIMEIRA LINHA — roda síncrono antes de tudo */}
+  <script dangerouslySetInnerHTML={{ __html: `document.documentElement.style.backgroundColor='#070812';document.documentElement.style.background='#070812'` }} />
+  
+  <meta name="color-scheme" content="dark" />
+  {/* iOS PWA */}
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  {/* Anti-flash branco: fundo escuro antes do JS carregar */}
+  <style>{`html,body{background-color:#070812!important}`}</style>
+</head>
 
       <body
         suppressHydrationWarning
