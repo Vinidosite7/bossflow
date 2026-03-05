@@ -18,7 +18,7 @@ import {
 } from 'recharts'
 import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from '@/components/TourTooltip'
-import { TourButton } from '@/components/TourButton'
+import { InstallButton } from '@/components/InstallButton'
 
 // ─── Tour steps ───────────────────────────────────────────────────────────────
 const TOUR_STEPS = [
@@ -674,7 +674,7 @@ setBusinessId(biz.id)
         onPrev={tour.prev}
         onFinish={tour.finish}
       />
-      <TourButton onRestart={tour.restart} label="Tour" />
+      <InstallButton />
 
     </div>
   )
