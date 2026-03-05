@@ -47,21 +47,22 @@ export const metadata: Metadata = {
     images: ['/og-image.png'],
   },
   robots: {
-    index: false, // app não precisa ser indexado, só o marketing site
+    index: false,
     follow: false,
   },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <meta name="color-scheme" content="dark" />
+        {/* iOS PWA */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        {/* Anti-flash branco: fundo escuro antes do JS carregar */}
+        <style>{`html,body{background-color:#070812!important}`}</style>
       </head>
 
       <body
@@ -79,24 +80,15 @@ export default function RootLayout({
           <div className="absolute inset-0 bg-[#070812]" />
           <div
             className="absolute -top-24 left-1/2 h-[520px] w-[900px] -translate-x-1/2 blur-[120px]"
-            style={{
-              background:
-                'radial-gradient(circle at 50% 30%, rgba(124,110,247,0.35), transparent 60%)',
-            }}
+            style={{ background: 'radial-gradient(circle at 50% 30%, rgba(124,110,247,0.35), transparent 60%)' }}
           />
           <div
             className="absolute bottom-[-140px] left-[-120px] h-[520px] w-[520px] blur-[130px]"
-            style={{
-              background:
-                'radial-gradient(circle at 50% 50%, rgba(34,211,238,0.18), transparent 60%)',
-            }}
+            style={{ background: 'radial-gradient(circle at 50% 50%, rgba(34,211,238,0.18), transparent 60%)' }}
           />
           <div
             className="absolute top-[20%] right-[-160px] h-[520px] w-[520px] blur-[130px]"
-            style={{
-              background:
-                'radial-gradient(circle at 50% 50%, rgba(52,211,153,0.14), transparent 60%)',
-            }}
+            style={{ background: 'radial-gradient(circle at 50% 50%, rgba(52,211,153,0.14), transparent 60%)' }}
           />
         </div>
 

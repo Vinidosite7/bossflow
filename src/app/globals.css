@@ -24,15 +24,17 @@
   box-sizing: border-box;
 }
 
+/* Anti-flash: garante fundo escuro mesmo antes do CSS carregar completamente */
 html {
   height: 100%;
+  background-color: #070812;
 }
 
 body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background: var(--bg);
+  background: #070812;
   color: var(--text);
   font-family: 'DM Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -54,10 +56,11 @@ p, span, div {
 input, button, textarea, select {
   font-family: inherit;
 }
+
 /* ===== BossFlow Signature (Autoral) ===== */
 :root {
-  --bf-bg: #070812;         /* base quase preto (roxado) */
-  --bf-bg2: #0b0c1a;        /* camada secundária */
+  --bf-bg: #070812;
+  --bf-bg2: #0b0c1a;
   --bf-card: rgba(255,255,255,0.03);
   --bf-card2: rgba(255,255,255,0.04);
   --bf-border: rgba(255,255,255,0.08);
@@ -66,7 +69,7 @@ input, button, textarea, select {
   --bf-text: rgba(255,255,255,0.92);
   --bf-muted: rgba(255,255,255,0.55);
 
-  --bf-primary: #7c6ef7;    /* roxo bossflow */
+  --bf-primary: #7c6ef7;
   --bf-good: #34d399;
   --bf-bad: #fb7185;
   --bf-warn: #fbbf24;
