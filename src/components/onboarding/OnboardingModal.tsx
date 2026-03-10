@@ -75,8 +75,9 @@ const FEATURES = [
   { Icon: Smartphone, color: '#34d399', text: 'Funciona no celular como app'        },
 ]
 
+const supabase = createClient()
+
 export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
-  const supabase = createClient()
 
   const [step,        setStep]        = useState(0)
   const [dir,         setDir]         = useState(1)
@@ -103,40 +104,50 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
   }
 
   async function saveEmpresa() {
-    if (!businessName.trim()) return
-    setSaving(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      let logo_url: string | null = null
-      if (logoFile) {
-        const ext  = logoFile.name.split('.').pop()
-        const path = `logos/${user.id}-${Date.now()}.${ext}`
-        const { error } = await supabase.storage.from('business-logos').upload(path, logoFile, { upsert: true })
-        if (!error) {
-          const { data } = supabase.storage.from('business-logos').getPublicUrl(path)
-          logo_url = data.publicUrl
-        }
+  if (!businessName.trim()) return
+  setSaving(true)
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    let logo_url: string | null = null
+    if (logoFile) {
+      const ext  = logoFile.name.split('.').pop()
+      const path = `logos/${user.id}-${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('business-logos').upload(path, logoFile, { upsert: true })
+      if (!error) {
+        const { data } = supabase.storage.from('business-logos').getPublicUrl(path)
+        logo_url = data.publicUrl
       }
-      const { data: biz } = await supabase.from('businesses')
-        .insert({ name: businessName, logo_url, owner_id: user.id })
-        .select().maybeSingle()
-      if (biz) {
-        localStorage.setItem('activeBizId', biz.id)
-        setBizId(biz.id)
-        await supabase.from('categories').insert([
-          { business_id: biz.id, name: 'Vendas',             type: 'income',  color: '#34d399' },
-          { business_id: biz.id, name: 'Servicos',           type: 'income',  color: '#22d3ee' },
-          { business_id: biz.id, name: 'Aluguel',            type: 'expense', color: '#f87171' },
-          { business_id: biz.id, name: 'Fornecedores',       type: 'expense', color: '#fbbf24' },
-          { business_id: biz.id, name: 'Marketing',          type: 'expense', color: '#a78bfa' },
-          { business_id: biz.id, name: 'Folha de pagamento', type: 'expense', color: '#fb923c' },
-        ])
-        await supabase.from('profiles').upsert({ id: user.id, onboarding_step: 'meta' })
-      }
-      goNext()
-    } finally { setSaving(false) }
+    }
+
+    const { data: biz, error: bizError } = await supabase
+      .from('businesses')
+      .insert({ name: businessName, logo_url, owner_id: user.id })
+      .select().maybeSingle()
+
+    if (bizError || !biz) {
+      console.error('[Onboarding] saveEmpresa:', bizError)
+      return // ← não avança se falhou
+    }
+
+    localStorage.setItem('activeBizId', biz.id)
+    setBizId(biz.id)
+
+    await supabase.from('categories').insert([
+      { business_id: biz.id, name: 'Vendas',             type: 'income',  color: '#34d399' },
+      { business_id: biz.id, name: 'Servicos',           type: 'income',  color: '#22d3ee' },
+      { business_id: biz.id, name: 'Aluguel',            type: 'expense', color: '#f87171' },
+      { business_id: biz.id, name: 'Fornecedores',       type: 'expense', color: '#fbbf24' },
+      { business_id: biz.id, name: 'Marketing',          type: 'expense', color: '#a78bfa' },
+      { business_id: biz.id, name: 'Folha de pagamento', type: 'expense', color: '#fb923c' },
+    ])
+    await supabase.from('profiles').upsert({ id: user.id, onboarding_step: 'meta' })
+    goNext()
+  } finally {
+    setSaving(false)
   }
+}
 
   async function saveMeta() {
     setSaving(true)
