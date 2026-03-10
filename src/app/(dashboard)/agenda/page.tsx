@@ -39,8 +39,10 @@ function AgendaSkeleton() {
   )
 }
 
+// ── FIX: supabase client criado fora do componente (evita recriação a cada render)
+const supabase = createClient()
+
 export default function AgendaPage() {
-  const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
   const [events, setEvents]           = useState<any[]>([])
   const [loading, setLoading]         = useState(true)
@@ -72,14 +74,22 @@ export default function AgendaPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault(); setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const start_at = form.time ? new Date(`${form.date}T${form.time}`).toISOString() : new Date(`${form.date}T00:00`).toISOString()
-    if (editEvent) {
-      await supabase.from('events').update({ title: form.title, description: form.description || null, start_at }).eq('id', editEvent.id)
-    } else {
-      await supabase.from('events').insert({ title: form.title, description: form.description || null, start_at, business_id: businessId, created_by: user?.id })
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const start_at = form.time
+        ? new Date(`${form.date}T${form.time}`).toISOString()
+        : new Date(`${form.date}T00:00`).toISOString()
+      if (editEvent) {
+        await supabase.from('events').update({ title: form.title, description: form.description || null, start_at }).eq('id', editEvent.id)
+      } else {
+        await supabase.from('events').insert({ title: form.title, description: form.description || null, start_at, business_id: businessId, created_by: user?.id })
+      }
+      setShowForm(false); setEditEvent(null); load()
+    } catch (err: any) {
+      console.error('[Agenda] save:', err)
+    } finally {
+      setSaving(false)
     }
-    setShowForm(false); setEditEvent(null); setSaving(false); load()
   }
 
   async function handleDelete(id: string) { await supabase.from('events').delete().eq('id', id); setShowConfirm(null); load() }

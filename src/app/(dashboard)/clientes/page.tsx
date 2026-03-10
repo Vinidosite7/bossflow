@@ -76,8 +76,10 @@ function ClientesSkeleton() {
   )
 }
 
+// ── FIX: supabase client criado fora do componente (evita recriação a cada render)
+const supabase = createClient()
+
 export default function ClientesPage() {
-  const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
   const tour = useTour('clientes', TOUR_STEPS)
 
@@ -117,19 +119,27 @@ export default function ClientesPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    if (editClient) {
-      await supabase.from('clients').update({
-        name: form.name, email: form.email || null,
-        phone: form.phone || null, document: form.document || null,
-      }).eq('id', editClient.id)
-    } else {
-      await supabase.from('clients').insert({
-        name: form.name, email: form.email || null,
-        phone: form.phone || null, document: form.document || null,
-        business_id: businessId, active: true,
-      })
+    try {
+      if (editClient) {
+        const { error } = await supabase.from('clients').update({
+          name: form.name, email: form.email || null,
+          phone: form.phone || null, document: form.document || null,
+        }).eq('id', editClient.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('clients').insert({
+          name: form.name, email: form.email || null,
+          phone: form.phone || null, document: form.document || null,
+          business_id: businessId, active: true,
+        })
+        if (error) throw error
+      }
+      setShowForm(false); setEditClient(null); load()
+    } catch (err: any) {
+      console.error('[Clientes] save:', err)
+    } finally {
+      setSaving(false)
     }
-    setShowForm(false); setEditClient(null); setSaving(false); load()
   }
 
   async function handleDelete(id: string) {

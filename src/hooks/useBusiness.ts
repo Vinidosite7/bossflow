@@ -1,19 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+
+// ── FIX: cliente criado UMA VEZ fora do hook (não recriado em cada render)
+const supabase = createClient()
 
 export function useBusiness() {
   const [businessId, setBusinessId] = useState<string>('')
-  const [business, setBusiness] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const [business, setBusiness]     = useState<any>(null)
+  const [loading, setLoading]       = useState(true)
+  const loadedRef = useRef(false)
 
   useEffect(() => {
+    // ── FIX: evita dupla chamada em StrictMode
+    if (loadedRef.current) return
+    loadedRef.current = true
+
     async function load() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { setLoading(false); return }
 
-        const savedBizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') || '' : ''
+        const savedBizId = typeof window !== 'undefined'
+          ? localStorage.getItem('activeBizId') || ''
+          : ''
 
         // Empresas que é dono
         const { data: owned } = await supabase
@@ -46,15 +55,15 @@ export function useBusiness() {
         setBusiness(biz)
         setBusinessId(biz.id)
 
-        if (!savedBizId) {
-          localStorage.setItem('activeBizId', biz.id)
-        }
+        // ── FIX: sempre persiste o activeBizId correto
+        localStorage.setItem('activeBizId', biz.id)
       } catch (err) {
-        console.error(err)
+        console.error('[useBusiness]', err)
       } finally {
         setLoading(false)
       }
     }
+
     load()
   }, [])
 

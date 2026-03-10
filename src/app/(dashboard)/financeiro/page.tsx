@@ -82,8 +82,10 @@ const fmtShort = (v: number) => {
   return fmt(v)
 }
 
+// ── FIX: supabase client criado fora do componente (evita recriação a cada render)
+const supabase = createClient()
+
 export default function FinanceiroPage() {
-  const supabase = createClient()
   const { plan } = usePlanLimits()
   const tour     = useTour('financeiro', TOUR_STEPS)
 
@@ -186,22 +188,26 @@ export default function FinanceiroPage() {
   }
   async function handleSaveTx(e: React.FormEvent) {
     e.preventDefault(); setSavingTx(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (editTx) {
-      await supabase.from('transactions').update({
-        title: txForm.title, amount: parseFloat(txForm.amount), date: txForm.date, type: txForm.type,
-        category_id: txForm.category_id || null, description: txForm.description || null,
-        paid: txForm.paid, paid_at: txForm.paid ? new Date().toISOString() : null,
-      }).eq('id', editTx.id)
-    } else {
-      await supabase.from('transactions').insert({
-        title: txForm.title, amount: parseFloat(txForm.amount), date: txForm.date, type: txForm.type,
-        category_id: txForm.category_id || null, description: txForm.description || null,
-        paid: txForm.paid, paid_at: txForm.paid ? new Date().toISOString() : null,
-        business_id: businessId, created_by: user?.id,
-      })
-    }
-    setEditTx(null); setShowTxForm(false); setSavingTx(false); load()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (editTx) {
+        const { error } = await supabase.from('transactions').update({
+          title: txForm.title, amount: parseFloat(txForm.amount), date: txForm.date, type: txForm.type,
+          category_id: txForm.category_id || null, description: txForm.description || null,
+          paid: txForm.paid, paid_at: txForm.paid ? new Date().toISOString() : null,
+        }).eq('id', editTx.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('transactions').insert({
+          title: txForm.title, amount: parseFloat(txForm.amount), date: txForm.date, type: txForm.type,
+          category_id: txForm.category_id || null, description: txForm.description || null,
+          paid: txForm.paid, paid_at: txForm.paid ? new Date().toISOString() : null,
+          business_id: businessId, created_by: user?.id,
+        })
+        if (error) throw error
+      }
+      setEditTx(null); setShowTxForm(false); load()
+    } catch (err: any) { console.error('[Financeiro] saveTx:', err) } finally { setSavingTx(false) }
   }
   async function handleDeleteTx(id: string) {
     if (!confirm('Excluir este lançamento?')) return
@@ -211,13 +217,17 @@ export default function FinanceiroPage() {
   }
   async function handleSaveCat(e: React.FormEvent) {
     e.preventDefault(); setSavingCat(true)
-    if (editCat) {
-      await supabase.from('categories').update({ name: catForm.name, type: catForm.type, color: catForm.color }).eq('id', editCat.id)
-    } else {
-      await supabase.from('categories').insert({ ...catForm, business_id: businessId })
-    }
-    setCatForm({ name: '', type: 'expense', color: '#f87171' })
-    setEditCat(null); setShowCatForm(false); setSavingCat(false); load()
+    try {
+      if (editCat) {
+        const { error } = await supabase.from('categories').update({ name: catForm.name, type: catForm.type, color: catForm.color }).eq('id', editCat.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('categories').insert({ ...catForm, business_id: businessId })
+        if (error) throw error
+      }
+      setCatForm({ name: '', type: 'expense', color: '#f87171' })
+      setEditCat(null); setShowCatForm(false); load()
+    } catch (err: any) { console.error('[Financeiro] saveCat:', err) } finally { setSavingCat(false) }
   }
   async function handleDeleteCat(id: string) {
     if (!confirm('Excluir esta categoria?')) return

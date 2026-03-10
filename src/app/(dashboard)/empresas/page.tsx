@@ -54,8 +54,10 @@ function EmpresasSkeleton() {
   )
 }
 
+// ── FIX: supabase client criado fora do componente (evita recriação a cada render)
+const supabase = createClient()
+
 export default function EmpresasPage() {
-  const supabase = createClient()
   const { plan, loading: planLoading, limits } = usePlanLimits()
   const tour = useTour('empresas', TOUR_STEPS)
 
@@ -139,18 +141,24 @@ export default function EmpresasPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault(); setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    let logo_url = editBiz?.logo_url || null
-    if (logoFile) {
-      const ext = logoFile.name.split('.').pop()
-      const path = `logos/${user.id}-${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('business-logos').upload(path, logoFile, { upsert: true })
-      if (!uploadError) { const { data: urlData } = supabase.storage.from('business-logos').getPublicUrl(path); logo_url = urlData.publicUrl }
-    }
-    if (editBiz) { await supabase.from('businesses').update({ name, logo_url }).eq('id', editBiz.id) }
-    else { const { data: newBiz } = await supabase.from('businesses').insert({ name, logo_url, owner_id: user.id }).select().single(); if (newBiz && !activeBizId) { localStorage.setItem('activeBizId', newBiz.id); setActiveBizId(newBiz.id) } }
-    setShowForm(false); setEditBiz(null); setSaving(false); load()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      let logo_url = editBiz?.logo_url || null
+      if (logoFile) {
+        const ext = logoFile.name.split('.').pop()
+        const path = `logos/${user.id}-${Date.now()}.${ext}`
+        const { error: uploadError } = await supabase.storage.from('business-logos').upload(path, logoFile, { upsert: true })
+        if (!uploadError) { const { data: urlData } = supabase.storage.from('business-logos').getPublicUrl(path); logo_url = urlData.publicUrl }
+      }
+      if (editBiz) { await supabase.from('businesses').update({ name, logo_url }).eq('id', editBiz.id) }
+      else {
+        const { data: newBiz, error: insertErr } = await supabase.from('businesses').insert({ name, logo_url, owner_id: user.id }).select().single()
+        if (insertErr) throw insertErr
+        if (newBiz) { localStorage.setItem('activeBizId', newBiz.id); setActiveBizId(newBiz.id) }
+      }
+      setShowForm(false); setEditBiz(null); load()
+    } catch (err: any) { console.error('[Empresas] save:', err) } finally { setSaving(false) }
   }
 
   async function handleDelete(id: string) {

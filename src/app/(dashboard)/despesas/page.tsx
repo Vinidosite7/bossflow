@@ -70,8 +70,10 @@ const fmtShort = (v: number) => {
   return fmt(v)
 }
 
+// ── FIX: supabase client criado fora do componente (evita recriação a cada render)
+const supabase = createClient()
+
 export default function DespesasPage() {
-  const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
   const tour = useTour('lancamentos', TOUR_STEPS)
 
@@ -120,19 +122,23 @@ export default function DespesasPage() {
   }
   async function handleSave(e: React.FormEvent) {
     e.preventDefault(); setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const payload = {
-      title: form.title, amount: parseFloat(form.amount), date: form.date,
-      type: form.type, category_id: form.category_id || null,
-      description: form.description || null, paid: form.paid,
-      paid_at: form.paid ? new Date().toISOString() : null,
-    }
-    if (editTx) {
-      await supabase.from('transactions').update(payload).eq('id', editTx.id)
-    } else {
-      await supabase.from('transactions').insert({ ...payload, business_id: businessId, created_by: user?.id })
-    }
-    setShowForm(false); setEditTx(null); setSaving(false); load()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const payload = {
+        title: form.title, amount: parseFloat(form.amount), date: form.date,
+        type: form.type, category_id: form.category_id || null,
+        description: form.description || null, paid: form.paid,
+        paid_at: form.paid ? new Date().toISOString() : null,
+      }
+      if (editTx) {
+        const { error } = await supabase.from('transactions').update(payload).eq('id', editTx.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('transactions').insert({ ...payload, business_id: businessId, created_by: user?.id })
+        if (error) throw error
+      }
+      setShowForm(false); setEditTx(null); load()
+    } catch (err: any) { console.error('[Despesas] save:', err) } finally { setSaving(false) }
   }
   async function handleDelete(id: string) {
     setDeleting(true)

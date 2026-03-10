@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useGoals } from '@/hooks/useGoals'
+import { useBusiness } from '@/hooks/useBusiness'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { TourTooltip } from "@/components/TourTooltip"
@@ -83,27 +84,14 @@ function MetasSkeleton() {
   )
 }
 
+// ── FIX: supabase client criado fora do componente (evita recriação a cada render)
+const supabase = createClient()
+
 export default function MetasPage() {
-  const supabase = createClient()
-  const [businessId, setBusinessId] = useState<string | null>(null)
-  const [loadingBiz, setLoadingBiz] = useState(true)
+  // ── FIX: usar useBusiness (suporta owner + member, não só owner)
+  const { businessId, loading: loadingBiz } = useBusiness()
   const { plan } = usePlanLimits()
   const tour = useTour('metas', TOUR_STEPS)
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-        const saved = localStorage.getItem('activeBizId') || ''
-        const { data: bizList } = await supabase.from('businesses').select('id').eq('owner_id', user.id)
-        const biz = bizList?.find(b => b.id === saved) || bizList?.[0]
-        setBusinessId(biz?.id || null)
-      } catch {}
-      finally { setLoadingBiz(false) }
-    }
-    load()
-  }, [])
 
   const { goals, loading, saveGoal, annualTarget, annualRevenue, annualPct, monthsHit, streak } = useGoals(businessId)
 

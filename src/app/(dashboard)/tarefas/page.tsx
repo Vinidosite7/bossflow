@@ -41,6 +41,8 @@ const TOUR_STEPS = [
   { target: '[data-tour="tarefas-lista"]',   title: 'Lista de tarefas',       description: 'Clique no círculo para avançar o status. Tarefas atrasadas aparecem em vermelho.', position: 'top' as const },
 ]
 
+const supabase = createClient()
+
 function TarefasSkeleton() {
   return (
     <div className="flex flex-col gap-5">
@@ -84,13 +86,33 @@ export default function TarefasPage() {
   function openEdit(task: any) { setEditTask(task); setForm({ title: task.title, description: task.description || '', due_date: task.due_date || '', status: task.status }); setShowForm(true) }
 
   async function handleSave(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
+  e.preventDefault(); setSaving(true)
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (!user) {
+      console.error('[Tarefas] usuário não autenticado:', authError)
+      return
+    }
+
     const payload = { title: form.title, description: form.description || null, due_date: form.due_date || null, status: form.status }
-    if (editTask) { await supabase.from('tasks').update(payload).eq('id', editTask.id) }
-    else { await supabase.from('tasks').insert({ ...payload, business_id: businessId, assigned_to: user?.id }) }
-    setShowForm(false); setEditTask(null); setSaving(false); load()
+    
+    const { error } = editTask
+      ? await supabase.from('tasks').update(payload).eq('id', editTask.id)
+      : await supabase.from('tasks').insert({ ...payload, business_id: businessId, created_by: user.id })
+
+    if (error) {
+      console.error('[Tarefas] erro:', error.message, '|', error.details, '|', error.hint)
+      return
+    }
+
+    setShowForm(false); setEditTask(null); load()
+  } catch (err: any) {
+    console.error('[Tarefas] catch:', err)
+  } finally {
+    setSaving(false)
   }
+}
 
   async function toggleStatus(task: any) {
     const next = task.status === 'todo' ? 'in_progress' : task.status === 'in_progress' ? 'done' : 'todo'

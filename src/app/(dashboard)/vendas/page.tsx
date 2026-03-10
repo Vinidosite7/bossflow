@@ -80,8 +80,10 @@ const fmtShort = (v: number) => {
   return fmt(v)
 }
 
+// ── FIX: supabase client criado fora do componente (evita recriação a cada render)
+const supabase = createClient()
+
 export default function VendasPage() {
-  const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
   const { plan } = usePlanLimits()
   const tour     = useTour('vendas', TOUR_STEPS)
@@ -153,16 +155,20 @@ export default function VendasPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault(); setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (editSale) {
-      await supabase.from('sales').update({ client_id: form.client_id || null, status: form.status, date: form.date, notes: form.notes || null, total }).eq('id', editSale.id)
-      await supabase.from('sale_items').delete().eq('sale_id', editSale.id)
-      await supabase.from('sale_items').insert(items.filter(i => i.name).map(i => ({ sale_id: editSale.id, ...i, product_id: i.product_id || null })))
-    } else {
-      const { data: sale } = await supabase.from('sales').insert({ client_id: form.client_id || null, status: form.status, date: form.date, notes: form.notes || null, total, business_id: businessId, created_by: user?.id }).select().single()
-      if (sale) await supabase.from('sale_items').insert(items.filter(i => i.name).map(i => ({ sale_id: sale.id, ...i, product_id: i.product_id || null })))
-    }
-    setShowForm(false); setEditSale(null); setSaving(false); load()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (editSale) {
+        const { error: updErr } = await supabase.from('sales').update({ client_id: form.client_id || null, status: form.status, date: form.date, notes: form.notes || null, total }).eq('id', editSale.id)
+        if (updErr) throw updErr
+        await supabase.from('sale_items').delete().eq('sale_id', editSale.id)
+        await supabase.from('sale_items').insert(items.filter(i => i.name).map(i => ({ sale_id: editSale.id, ...i, product_id: i.product_id || null })))
+      } else {
+        const { data: sale, error: insErr } = await supabase.from('sales').insert({ client_id: form.client_id || null, status: form.status, date: form.date, notes: form.notes || null, total, business_id: businessId, created_by: user?.id }).select().single()
+        if (insErr) throw insErr
+        if (sale) await supabase.from('sale_items').insert(items.filter(i => i.name).map(i => ({ sale_id: sale.id, ...i, product_id: i.product_id || null })))
+      }
+      setShowForm(false); setEditSale(null); load()
+    } catch (err: any) { console.error('[Vendas] save:', err) } finally { setSaving(false) }
   }
   async function handleDelete(id: string) {
     setDeleting(true)
