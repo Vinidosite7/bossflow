@@ -5,13 +5,12 @@ import { createClient } from '@/lib/supabase'
 import {
   TrendingUp, TrendingDown, Users, ShoppingCart, Package,
   Plus, ArrowRight, CheckSquare, Calendar, Target, Activity,
-  Zap, BarChart2, DollarSign, ClipboardList, CalendarDays,
-  ChevronRight,
+  BarChart2, DollarSign, ClipboardList, CalendarDays,
 } from 'lucide-react'
 import { useGoals } from '@/hooks/useGoals'
 import { GoalCard } from '@/components/GoalCard'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence, useMotionValue, useSpring, animate } from 'framer-motion'
+import { motion, AnimatePresence, animate } from 'framer-motion'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
@@ -20,130 +19,109 @@ import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from '@/components/TourTooltip'
 import { InstallButton } from '@/components/InstallButton'
 
-// ─── Tour steps ───────────────────────────────────────────────────────────────
+// ✅ Import corrigido — bossflow-ui (não aceternity)
+import {
+  SpotlightCard,
+  ShimmerButton,
+  Skeleton,
+  BackgroundGrid,
+  FloatingOrbs,
+  GlowCorner,
+} from '@/components/ui/bossflow-ui'
+
+// ─── Design tokens ────────────────────────────────────────────
+const T = {
+  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
+  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
+  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
+  green: '#34d399', red: '#f87171', amber: '#fbbf24',
+  purple: '#7c6ef7', violet: '#a78bfa', cyan: '#22d3ee',
+  blur: 'blur(20px)',
+}
+const card = {
+  background: T.bg,
+  border: `1px solid ${T.border}`,
+  backdropFilter: T.blur,
+  boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
+}
+
+// ─── Tour steps ───────────────────────────────────────────────
 const TOUR_STEPS = [
-  {
-    target: '[data-tour="kpis"]',
-    title: 'Resumo financeiro',
-    description: 'Faturamento, despesas e lucro líquido do mês. Os valores atualizam em tempo real conforme você lança.',
-  },
-  {
-    target: '[data-tour="alerts"]',
-    title: 'Alertas inteligentes',
-    description: 'Avisos de tarefas atrasadas, pagamentos pendentes e eventos do dia aparecem aqui automaticamente.',
-  },
-  {
-    target: '[data-tour="chart"]',
-    title: 'Fluxo de caixa',
-    description: 'Gráfico dos últimos 14 dias com entradas e saídas. Passe o mouse sobre os pontos para ver os valores.',
-  },
-  {
-    target: '[data-tour="performance"]',
-    title: 'Performance',
-    description: 'Compare receita, despesas, clientes e vendas com o mês anterior em barras de progresso.',
-  },
-  {
-    target: '[data-tour="meta"]',
-    title: 'Meta do mês',
-    description: 'Acompanhe o progresso da sua meta mensal e super cota. Clique em "Definir meta" para configurar.',
-  },
-  {
-    target: '[data-tour="counters"]',
-    title: 'Contadores',
-    description: 'Totais de clientes, vendas e produtos. Clique em qualquer um para ir direto para aquela seção.',
-  },
-  {
-    target: '[data-tour="quick-actions"]',
-    title: 'Acesso rápido',
-    description: 'Atalhos para as ações mais usadas: novo lançamento, tarefas, agenda e relatório financeiro.',
-  },
-  {
-    target: '[data-tour="recent-txs"]',
-    title: 'Últimas transações',
-    description: 'As 7 transações mais recentes da empresa. Clique em "Ver todas" para o histórico completo.',
-  },
+  { target: '[data-tour="kpis"]',         title: 'Resumo financeiro',    description: 'Faturamento, despesas e lucro líquido do mês. Atualizam em tempo real.' },
+  { target: '[data-tour="alerts"]',        title: 'Alertas inteligentes', description: 'Avisos de tarefas atrasadas, pagamentos pendentes e eventos do dia.' },
+  { target: '[data-tour="chart"]',         title: 'Fluxo de caixa',       description: 'Gráfico dos últimos 14 dias com entradas e saídas.' },
+  { target: '[data-tour="performance"]',   title: 'Performance',          description: 'Compare receita, despesas, clientes e vendas com o mês anterior.' },
+  { target: '[data-tour="meta"]',          title: 'Meta do mês',          description: 'Acompanhe o progresso da sua meta mensal.' },
+  { target: '[data-tour="counters"]',      title: 'Contadores',           description: 'Totais de clientes, vendas e produtos.' },
+  { target: '[data-tour="quick-actions"]', title: 'Acesso rápido',        description: 'Atalhos para as ações mais usadas.' },
+  { target: '[data-tour="recent-txs"]',    title: 'Últimas transações',   description: 'As 7 transações mais recentes.' },
 ]
 
-// ─── Helpers de animação ──────────────────────────────────────────────────────
+// ─── Helpers de animação ──────────────────────────────────────
 const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.45, delay, ease: [0.25, 0.46, 0.45, 0.94] as const },
+  initial: { opacity: 0, y: 20, filter: 'blur(4px)' },
+  animate: { opacity: 1, y: 0,  filter: 'blur(0px)' },
+  transition: { duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] as const },
 })
-
 const scaleIn = (delay = 0) => ({
   initial: { opacity: 0, scale: 0.96 },
   animate: { opacity: 1, scale: 1 },
-  transition: { duration: 0.4, delay, ease: [0.25, 0.46, 0.45, 0.94] as const },
+  transition: { duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] as const },
 })
 
-// ─── Contador animado ─────────────────────────────────────────────────────────
+// ─── Número animado ───────────────────────────────────────────
 function AnimatedNumber({ value, format }: { value: number; format: (v: number) => string }) {
-  const [display, setDisplay] = useState('0')
+  const [display, setDisplay] = useState(format(0))
   const prevRef = useRef(0)
   useEffect(() => {
-    const from = prevRef.current
-    prevRef.current = value
-    const controls = animate(from, value, {
-      duration: 0.8, ease: 'easeOut',
-      onUpdate: (v) => setDisplay(format(v)),
-    })
-    return controls.stop
+    const from = prevRef.current; prevRef.current = value
+    const ctrl = animate(from, value, { duration: 0.9, ease: 'easeOut', onUpdate: v => setDisplay(format(v)) })
+    return ctrl.stop
   }, [value])
   return <span>{display}</span>
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-function Skeleton({ className = '', style = {} }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <div className={`rounded-xl animate-pulse ${className}`}
-      style={{ background: 'linear-gradient(90deg, #1a1a2e 25%, #1e1e3a 50%, #1a1a2e 75%)', backgroundSize: '200% 100%', ...style }} />
-  )
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="flex justify-between">
-        <div className="flex flex-col gap-2"><Skeleton className="h-8 w-36" /><Skeleton className="h-4 w-52" /></div>
-        <Skeleton className="h-10 w-32 rounded-xl" />
-      </div>
-      <div className="grid grid-cols-3 gap-3">{[0,1,2].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Skeleton className="sm:col-span-2 h-52 rounded-2xl" />
-        <Skeleton className="h-52 rounded-2xl" />
-      </div>
-      <Skeleton className="h-56 rounded-2xl" />
-    </div>
-  )
-}
-
-// ─── Tooltip do gráfico ───────────────────────────────────────────────────────
-function CustomTooltip({ active, payload, label }: any) {
+// ─── Tooltip do gráfico ───────────────────────────────────────
+function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   return (
-    <div className="rounded-xl px-3 py-2.5 text-xs"
-      style={{ background: '#16162a', border: '1px solid #2a2a3e', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-      <p className="font-semibold mb-1.5" style={{ color: '#6b6b8a' }}>
+    <div style={{ background: 'rgba(6,6,10,0.97)', border: '1px solid rgba(124,110,247,0.25)', borderRadius: 12, padding: '10px 14px', fontSize: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.75)', backdropFilter: 'blur(20px)' }}>
+      <p style={{ color: T.muted, fontWeight: 600, marginBottom: 8, fontFamily: 'Syne, sans-serif', fontSize: 11 }}>
         {new Date(label).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
       </p>
       {payload.map((p: any) => (
-        <p key={p.name} className="flex items-center gap-1.5" style={{ color: p.color }}>
-          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: p.color }} />
-          {p.name === 'income' ? 'Entrada' : 'Saída'}: {fmt(p.value)}
-        </p>
+        <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.color, display: 'inline-block', boxShadow: `0 0 6px ${p.color}`, flexShrink: 0 }} />
+          <span style={{ color: T.muted }}>{p.name === 'income' ? 'Entrada' : 'Saída'}:</span>
+          <span style={{ color: p.color, fontWeight: 600, fontFamily: 'Syne, sans-serif' }}>{fmt(p.value)}</span>
+        </div>
       ))}
     </div>
   )
 }
 
-// ─── Página ───────────────────────────────────────────────────────────────────
+// ─── Skeleton ────────────────────────────────────────────────
+function DashSkeleton() {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col gap-2"><Skeleton className="h-8 w-36 rounded-xl" /><Skeleton className="h-4 w-48 rounded-lg" /></div>
+        <Skeleton className="h-10 w-36 rounded-xl" />
+      </div>
+      <div className="grid grid-cols-3 gap-3">{[0,1,2].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div>
+      <div className="grid grid-cols-3 gap-3"><Skeleton className="col-span-2 h-52 rounded-2xl" /><Skeleton className="h-52 rounded-2xl" /></div>
+      <Skeleton className="h-56 rounded-2xl" />
+    </div>
+  )
+}
+
+// ─── Página Principal ─────────────────────────────────────────
 export default function DashboardPage() {
   const supabase = createClient()
   const router   = useRouter()
-  const [loading, setLoading]     = useState(true)
-  const [business, setBusiness]   = useState<any>(null)
+  const [loading, setLoading]       = useState(true)
+  const [business, setBusiness]     = useState<any>(null)
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [stats, setStats] = useState({
     income: 0, expense: 0, clients: 0, sales: 0, products: 0,
@@ -151,63 +129,39 @@ export default function DashboardPage() {
     lastMonthIncome: 0, lastMonthExpense: 0,
   })
   const [recentTxs, setRecentTxs] = useState<any[]>([])
-  const [chartData, setChartData] = useState<{ day: string; income: number; expense: number }[]>([])
+  const [chartData, setChartData]  = useState<{ day: string; income: number; expense: number }[]>([])
   const { currentGoal } = useGoals(businessId)
-
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({
-    title: '', amount: '', type: 'expense',
-    date: new Date().toISOString().split('T')[0], paid: true,
-  })
+  const [form, setForm] = useState({ title: '', amount: '', type: 'expense', date: new Date().toISOString().split('T')[0], paid: true })
   const [saving, setSaving] = useState(false)
-
-  // ── Tour ──
   const tour = useTour('dashboard', TOUR_STEPS)
 
   async function load() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-if (!user) {
-  router.replace('/login')
-  return
-}
-
+      if (!user) { router.replace('/login'); return }
       const savedBizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') || '' : ''
+      const { data: owned } = await supabase.from('businesses').select('*').eq('owner_id', user.id)
+      const { data: memberships } = await supabase.from('business_members').select('business_id, role').eq('user_id', user.id).in('status', ['accepted', 'active'])
+      const memberBizIds = (memberships || []).map((m: any) => m.business_id).filter((id: string) => !(owned || []).find((o: any) => o.id === id))
+      let memberBizzes: any[] = []
+      if (memberBizIds.length > 0) { const { data: bd } = await supabase.from('businesses').select('*').in('id', memberBizIds); memberBizzes = bd || [] }
+      const bizList = [...(owned || []), ...memberBizzes]
+      if (!bizList.length) { setLoading(false); return }
+      const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
+      setBusiness(biz); setBusinessId(biz.id)
 
-const { data: owned } = await supabase.from('businesses').select('*').eq('owner_id', user.id)
-
-const { data: memberships } = await supabase
-  .from('business_members').select('business_id, role')
-  .eq('user_id', user.id).in('status', ['accepted', 'active'])
-
-const memberBizIds = (memberships || [])
-  .map((m: any) => m.business_id)
-  .filter((id: string) => !(owned || []).find((o: any) => o.id === id))
-
-let memberBizzes: any[] = []
-if (memberBizIds.length > 0) {
-  const { data: bizData } = await supabase.from('businesses').select('*').in('id', memberBizIds)
-  memberBizzes = bizData || []
-}
-
-const bizList = [...(owned || []), ...memberBizzes]
-if (!bizList.length) { setLoading(false); return }
-
-const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
-setBusiness(biz)
-setBusinessId(biz.id)
-
-      const now = new Date()
-      const startOfMonth    = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+      const now              = new Date()
+      const startOfMonth     = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
       const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
-      const endOfLastMonth  = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
-      const today           = now.toISOString().split('T')[0]
-      const todayEnd        = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59).toISOString()
+      const endOfLastMonth   = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
+      const today            = now.toISOString().split('T')[0]
+      const todayEnd         = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59).toISOString()
 
       const [
-        { data: txs }, { data: lastTxs }, { data: clients },
-        { data: sales }, { data: products }, { data: pendingTasks },
-        { data: todayEvents }, { data: pendingTxs }, { data: recent },
+        { data: txs }, { data: lastTxs }, { data: clients }, { data: sales },
+        { data: products }, { data: pendingTasks }, { data: todayEvents },
+        { data: pendingTxs }, { data: recent },
       ] = await Promise.all([
         supabase.from('transactions').select('*').eq('business_id', biz.id).gte('date', startOfMonth),
         supabase.from('transactions').select('*').eq('business_id', biz.id).gte('date', startOfLastMonth).lte('date', endOfLastMonth),
@@ -220,34 +174,16 @@ setBusinessId(biz.id)
         supabase.from('transactions').select('*, categories(name, color)').eq('business_id', biz.id).order('date', { ascending: false }).limit(7),
       ])
 
-      const income          = (txs || []).filter(t => t.type === 'income').reduce((a, t) => a + Number(t.amount), 0)
-      const expense         = (txs || []).filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
+      const income           = (txs || []).filter(t => t.type === 'income').reduce((a, t) => a + Number(t.amount), 0)
+      const expense          = (txs || []).filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
       const lastMonthIncome  = (lastTxs || []).filter(t => t.type === 'income').reduce((a, t) => a + Number(t.amount), 0)
       const lastMonthExpense = (lastTxs || []).filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
-
-      setStats({
-        income, expense,
-        clients: clients?.length || 0,
-        sales: sales?.length || 0,
-        products: products?.length || 0,
-        pendingTasks: pendingTasks?.length || 0,
-        todayEvents: todayEvents?.length || 0,
-        pendingTxs: pendingTxs?.length || 0,
-        lastMonthIncome,
-        lastMonthExpense,
-      })
-
+      setStats({ income, expense, clients: clients?.length || 0, sales: sales?.length || 0, products: products?.length || 0, pendingTasks: pendingTasks?.length || 0, todayEvents: todayEvents?.length || 0, pendingTxs: pendingTxs?.length || 0, lastMonthIncome, lastMonthExpense })
       setRecentTxs(recent || [])
 
       const byDay: Record<string, { income: number; expense: number }> = {}
-      for (let i = 13; i >= 0; i--) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        byDay[d.toISOString().split('T')[0]] = { income: 0, expense: 0 }
-      }
-      ;(txs || []).forEach(t => {
-        if (byDay[t.date]) byDay[t.date][t.type === 'income' ? 'income' : 'expense'] += Number(t.amount)
-      })
+      for (let i = 13; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); byDay[d.toISOString().split('T')[0]] = { income: 0, expense: 0 } }
+      ;(txs || []).forEach(t => { if (byDay[t.date]) byDay[t.date][t.type === 'income' ? 'income' : 'expense'] += Number(t.amount) })
       setChartData(Object.entries(byDay).map(([day, val]) => ({ day, ...val })))
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
@@ -256,437 +192,396 @@ setBusinessId(biz.id)
   useEffect(() => { load() }, [])
 
   async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
+    e.preventDefault(); setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('transactions').insert({
-      title: form.title, amount: parseFloat(form.amount),
-      type: form.type, date: form.date, paid: form.paid,
-      business_id: business.id, created_by: user?.id,
-    })
-    setShowModal(false)
-    setSaving(false)
+    await supabase.from('transactions').insert({ title: form.title, amount: parseFloat(form.amount), type: form.type, date: form.date, paid: form.paid, business_id: business.id, created_by: user?.id })
+    setShowModal(false); setSaving(false)
     setForm({ title: '', amount: '', type: 'expense', date: new Date().toISOString().split('T')[0], paid: true })
     load()
   }
 
   const fmt      = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-  const fmtShort = (v: number) => {
-    if (v >= 1000000) return `R$ ${(v / 1000000).toFixed(1)}M`
-    if (v >= 1000)    return `R$ ${(v / 1000).toFixed(1)}k`
-    return fmt(v)
-  }
-  const month  = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-  const profit = stats.income - stats.expense
+  const fmtShort = (v: number) => { if (v >= 1e6) return `R$ ${(v/1e6).toFixed(1)}M`; if (v >= 1e3) return `R$ ${(v/1e3).toFixed(1)}k`; return fmt(v) }
+  const month    = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const profit   = stats.income - stats.expense
+  const hasAlerts = stats.pendingTasks > 0 || stats.pendingTxs > 0 || stats.todayEvents > 0
 
   function pct(current: number, last: number) {
     if (!last) return null
     const diff = ((current - last) / last) * 100
     return { value: Math.abs(diff).toFixed(1), up: diff >= 0 }
   }
-
-  const incomeChange  = pct(stats.income, stats.lastMonthIncome)
+  const incomeChange  = pct(stats.income,  stats.lastMonthIncome)
   const expenseChange = pct(stats.expense, stats.lastMonthExpense)
-  const hasAlerts     = stats.pendingTasks > 0 || stats.pendingTxs > 0 || stats.todayEvents > 0
 
-  if (loading) return <DashboardSkeleton />
+  const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '10px 14px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s' }
+
+  if (loading) return (
+    <><BackgroundGrid><FloatingOrbs /><DashSkeleton /></BackgroundGrid></>
+  )
 
   return (
-    <div className="flex flex-col gap-5">
+    <>
+      <BackgroundGrid>
+        <FloatingOrbs />
+        <div className="flex flex-col gap-5">
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <motion.div {...fadeUp(0)} className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif' }}>Dashboard</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#34d399' }} />
-            <p className="text-sm capitalize" style={{ color: '#4a4a6a' }}>{business?.name} · {month}</p>
-          </div>
-        </div>
-        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shrink-0"
-          style={{ background: 'linear-gradient(135deg, #7c6ef7, #9d6ef7)', color: 'white', boxShadow: '0 0 24px rgba(124,110,247,0.35)' }}>
-          <Plus size={15} />
-          <span className="hidden sm:inline">Novo lançamento</span>
-          <span className="sm:hidden">Novo</span>
-        </motion.button>
-      </motion.div>
-
-      {/* ── Alertas ─────────────────────────────────────────────────────────── */}
-<motion.div {...fadeUp(0.05)} data-tour="alerts" className="flex flex-col sm:flex-row gap-2">
-  <AnimatePresence>
-    {stats.pendingTasks > 0 && (
-      <AlertBadge icon={CheckSquare} color="#f87171"
-        label={`${stats.pendingTasks} tarefa${stats.pendingTasks > 1 ? 's' : ''} atrasada${stats.pendingTasks > 1 ? 's' : ''}`}
-        onClick={() => router.push('/tarefas')} />
-    )}
-    {stats.pendingTxs > 0 && (
-      <AlertBadge icon={Activity} color="#fbbf24"
-        label={`${stats.pendingTxs} pagamento${stats.pendingTxs > 1 ? 's' : ''} pendente${stats.pendingTxs > 1 ? 's' : ''}`}
-        onClick={() => router.push('/financeiro')} />
-    )}
-    {stats.todayEvents > 0 && (
-      <AlertBadge icon={Calendar} color="#22d3ee"
-        label={`${stats.todayEvents} evento${stats.todayEvents > 1 ? 's' : ''} hoje`}
-        onClick={() => router.push('/agenda')} />
-    )}
-    {!hasAlerts && (
-      <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-xs"
-        style={{ background: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.1)', color: '#4a4a6a' }}>
-        ✅ Tudo em dia — sem alertas no momento
-      </div>
-    )}
-  </AnimatePresence>
-</motion.div>
-
-      {/* ── KPI Cards ───────────────────────────────────────────────────────── */}
-      <div data-tour="kpis" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {[
-          { label: 'Faturamento', value: stats.income, color: '#34d399', icon: TrendingUp, bg: 'rgba(52,211,153,0.08)', change: incomeChange, glow: 'rgba(52,211,153,0.15)' },
-          { label: 'Despesas', value: stats.expense, color: '#f87171', icon: TrendingDown, bg: 'rgba(248,113,113,0.08)', change: expenseChange, glow: 'rgba(248,113,113,0.15)' },
-          { label: 'Lucro Líquido', value: profit, color: profit >= 0 ? '#34d399' : '#f87171', icon: profit >= 0 ? TrendingUp : TrendingDown, bg: profit >= 0 ? 'rgba(52,211,153,0.08)' : 'rgba(248,113,113,0.08)', change: null, glow: profit >= 0 ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)' },
-        ].map(({ label, value, color, icon: Icon, bg, change, glow }, i) => (
-          <motion.div key={label} {...fadeUp(0.1 + i * 0.07)}
-            className="rounded-2xl p-5 relative overflow-hidden"
-            style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-            <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full blur-2xl pointer-events-none" style={{ background: glow }} />
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>{label}</span>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: bg }}>
-                <Icon size={15} style={{ color }} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif', color }}>
-              <AnimatedNumber value={value} format={fmtShort} />
-            </p>
-            {change ? (
-              <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: change.up ? '#34d399' : '#f87171' }}>
-                {change.up ? '↑' : '↓'} {change.value}% vs mês anterior
-              </p>
-            ) : (
-              <p className="text-xs mt-1.5" style={{ color: '#3a3a5c' }}>
-                {profit >= 0 ? `Margem: ${stats.income > 0 ? ((profit / stats.income) * 100).toFixed(1) : 0}%` : 'Mês no prejuízo'}
-              </p>
-            )}
-          </motion.div>
-        ))}
-      </div>
-
-      {/* ── Gráfico + Performance ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <motion.div {...scaleIn(0.22)} data-tour="chart"
-          className="sm:col-span-2 rounded-2xl p-5"
-          style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-          <div className="flex items-center justify-between mb-4">
+          {/* ── Header ─────────────────────────────────────────── */}
+          <motion.div {...fadeUp(0)} className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif' }}>Fluxo de caixa</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>Últimos 14 dias</p>
-            </div>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-1.5 text-xs" style={{ color: '#4a4a6a' }}>
-                <div className="w-2 h-2 rounded-full" style={{ background: '#34d399' }} /> Entrada
-              </div>
-              <div className="flex items-center gap-1.5 text-xs" style={{ color: '#4a4a6a' }}>
-                <div className="w-2 h-2 rounded-full" style={{ background: '#f87171' }} /> Saída
-              </div>
-            </div>
-          </div>
-          {chartData.every(d => d.income === 0 && d.expense === 0) ? (
-            <div className="flex flex-col items-center justify-center h-40 gap-2">
-              <BarChart2 size={28} style={{ color: '#2a2a3e' }} />
-              <p className="text-sm" style={{ color: '#3a3a5c' }}>Sem dados ainda</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={160}>
-              <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                <defs>
-                  <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f87171" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a2e" vertical={false} />
-                <XAxis dataKey="day" tickFormatter={d => new Date(d).getDate().toString()}
-                  tick={{ fontSize: 10, fill: '#3a3a5c' }} axisLine={false} tickLine={false} interval={2} />
-                <YAxis tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}
-                  tick={{ fontSize: 10, fill: '#3a3a5c' }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#2a2a3e', strokeWidth: 1 }} />
-                <Area type="monotone" dataKey="income" stroke="#34d399" strokeWidth={2}
-                  fill="url(#incomeGrad)" dot={false} activeDot={{ r: 4, fill: '#34d399', strokeWidth: 0 }} />
-                <Area type="monotone" dataKey="expense" stroke="#f87171" strokeWidth={2}
-                  fill="url(#expenseGrad)" dot={false} activeDot={{ r: 4, fill: '#f87171', strokeWidth: 0 }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </motion.div>
-
-        <motion.div {...scaleIn(0.28)} data-tour="performance"
-          className="rounded-2xl p-5 flex flex-col gap-3"
-          style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-          <div>
-            <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif' }}>Performance</h2>
-            <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>vs mês anterior</p>
-          </div>
-          {[
-            { label: 'Receita',  value: stats.income,  max: Math.max(stats.income, stats.lastMonthIncome, 1),   color: '#34d399' },
-            { label: 'Despesas', value: stats.expense, max: Math.max(stats.expense, stats.lastMonthExpense, 1), color: '#f87171' },
-            { label: 'Clientes', value: stats.clients, max: Math.max(stats.clients, 10), color: '#fbbf24' },
-            { label: 'Vendas',   value: stats.sales,   max: Math.max(stats.sales, 10),   color: '#22d3ee' },
-          ].map(({ label, value, max, color }) => (
-            <div key={label}>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span style={{ color: '#6b6b8a' }}>{label}</span>
-                <span className="font-semibold" style={{ color: '#d0d0e0' }}>
-                  {value > 100 ? fmtShort(value) : value}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#1e1e2e' }}>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min((value / max) * 100, 100)}%` }}
-                  transition={{ duration: 0.8, delay: 0.4, ease: 'easeOut' }}
-                  className="h-full rounded-full" style={{ background: color }} />
-              </div>
-            </div>
-          ))}
-          <div className="mt-auto pt-3 border-t" style={{ borderColor: '#1a1a2a' }}>
-            <div className="flex items-center gap-2">
-              <Target size={13} style={{ color: profit >= 0 ? '#34d399' : '#f87171' }} />
-              <span className="text-xs font-medium" style={{ color: '#6b6b8a' }}>
-                {profit >= 0
-                  ? `Margem líquida: ${stats.income > 0 ? ((profit / stats.income) * 100).toFixed(1) : 0}%`
-                  : 'Mês no prejuízo'}
-              </span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* ── Meta + Contadores + Ações ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div data-tour="meta">
-          <GoalCard goal={currentGoal} onSetGoal={() => router.push('/metas')} />
-        </div>
-
-        <motion.div {...fadeUp(0.32)} data-tour="counters"
-          className="sm:col-span-2 grid grid-cols-3 gap-3 content-start">
-          {[
-            { label: 'Clientes', value: stats.clients, icon: Users,        color: '#fbbf24', href: '/clientes' },
-            { label: 'Vendas',   value: stats.sales,   icon: ShoppingCart,  color: '#22d3ee', href: '/vendas' },
-            { label: 'Produtos', value: stats.products, icon: Package,      color: '#a78bfa', href: '/produtos' },
-          ].map(({ label, value, icon: Icon, color, href }, i) => (
-            <motion.button key={label} whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}
-              onClick={() => router.push(href)}
-              className="rounded-2xl p-4 text-center relative overflow-hidden"
-              style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-              <div className="absolute inset-x-0 bottom-0 h-1 rounded-b-2xl"
-                style={{ background: `linear-gradient(90deg, transparent, ${color}40, transparent)` }} />
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center mx-auto mb-2" style={{ background: `${color}15` }}>
-                <Icon size={15} style={{ color }} />
-              </div>
-              <p className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif', color }}>
-                <AnimatedNumber value={value} format={v => Math.round(v).toString()} />
-              </p>
-              <p className="text-xs mt-1" style={{ color: '#4a4a6a' }}>{label}</p>
-            </motion.button>
-          ))}
-        </motion.div>
-
-        <motion.div {...fadeUp(0.36)} data-tour="quick-actions"
-          className="sm:col-span-3 rounded-2xl p-4 flex flex-col gap-2"
-          style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#4a4a6a' }}>Acesso rápido</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { label: 'Novo lançamento',    icon: DollarSign,   color: '#7c6ef7', action: () => setShowModal(true) },
-              { label: 'Ver tarefas',        icon: ClipboardList, color: '#f87171', action: () => router.push('/tarefas'),  badge: stats.pendingTasks > 0 ? stats.pendingTasks : null },
-              { label: 'Agenda de hoje',     icon: CalendarDays,  color: '#22d3ee', action: () => router.push('/agenda'),   badge: stats.todayEvents > 0 ? stats.todayEvents : null },
-              { label: 'Relatório financeiro', icon: BarChart2,   color: '#34d399', action: () => router.push('/financeiro') },
-            ].map(({ label, icon: Icon, color, action, badge }) => (
-              <motion.button key={label} whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}
-                onClick={action}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-left w-full transition-colors"
-                style={{ color: '#8a8aaa', background: '#0d0d14', border: '1px solid #1a1a2e' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#2a2a3e'; e.currentTarget.style.color = '#d0d0e0' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#1a1a2e'; e.currentTarget.style.color = '#8a8aaa' }}>
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
-                  <Icon size={13} style={{ color }} />
+              <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Dashboard</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: T.green, animationDuration: '1.4s' }} />
+                  <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: T.green, boxShadow: `0 0 6px ${T.green}` }} />
                 </div>
-                <span className="text-sm font-medium flex-1 truncate">{label}</span>
-                {badge && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full font-bold"
-                    style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>{badge}</span>
-                )}
-              </motion.button>
+                <p className="text-sm capitalize" style={{ color: T.muted }}>{business?.name} · {month}</p>
+              </div>
+            </div>
+            <ShimmerButton onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shrink-0"
+              style={{ background: 'linear-gradient(135deg, #7c6ef7 0%, #a06ef7 100%)', color: 'white', boxShadow: '0 0 28px rgba(124,110,247,0.45), inset 0 1px 0 rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
+              <Plus size={15} />
+              <span className="hidden sm:inline">Novo lançamento</span>
+              <span className="sm:hidden">Novo</span>
+            </ShimmerButton>
+          </motion.div>
+
+          {/* ── Alertas ────────────────────────────────────────── */}
+          <motion.div {...fadeUp(0.05)} data-tour="alerts" className="flex flex-col sm:flex-row gap-2">
+            <AnimatePresence>
+              {stats.pendingTasks > 0 && <AlertBadge icon={CheckSquare} color={T.red}   label={`${stats.pendingTasks} tarefa${stats.pendingTasks > 1 ? 's' : ''} atrasada${stats.pendingTasks > 1 ? 's' : ''}`} onClick={() => router.push('/tarefas')} />}
+              {stats.pendingTxs  > 0 && <AlertBadge icon={Activity}    color={T.amber} label={`${stats.pendingTxs} pagamento${stats.pendingTxs > 1 ? 's' : ''} pendente${stats.pendingTxs > 1 ? 's' : ''}`} onClick={() => router.push('/financeiro')} />}
+              {stats.todayEvents > 0 && <AlertBadge icon={Calendar}    color={T.cyan}  label={`${stats.todayEvents} evento${stats.todayEvents > 1 ? 's' : ''} hoje`} onClick={() => router.push('/agenda')} />}
+              {!hasAlerts && (
+                <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl text-xs"
+                  style={{ background: `${T.green}06`, border: `1px solid ${T.green}18`, color: T.muted }}>
+                  <span style={{ color: T.green }}>✅</span> Tudo em dia — sem alertas no momento
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* ── KPI Cards ──────────────────────────────────────── */}
+          <div data-tour="kpis" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { label: 'Faturamento',   value: stats.income,  color: T.green, icon: TrendingUp,   badge: incomeChange  ? { up: incomeChange.up,   value: incomeChange.value,  label: 'vs mês anterior' } : null, sub: null },
+              { label: 'Despesas',      value: stats.expense, color: T.red,   icon: TrendingDown, badge: expenseChange ? { up: !expenseChange.up,  value: expenseChange.value, label: 'vs mês anterior' } : null, sub: null },
+              { label: 'Lucro Líquido', value: profit, color: profit >= 0 ? T.green : T.red, icon: profit >= 0 ? TrendingUp : TrendingDown, badge: null, sub: profit >= 0 ? `Margem: ${stats.income > 0 ? ((profit / stats.income) * 100).toFixed(1) : 0}%` : 'Mês no prejuízo' },
+            ].map(({ label, value, color, icon: Icon, badge, sub }, i) => (
+              <motion.div key={label} {...fadeUp(0.1 + i * 0.07)}>
+                <SpotlightCard className="rounded-2xl h-full" spotlightColor={`${color}16`} style={card}>
+                  <div className="p-5 relative overflow-hidden">
+                    <GlowCorner color={`${color}22`} position="bottom-right" />
+                    <div className="flex items-center justify-between mb-4" style={{ position: 'relative', zIndex: 1 }}>
+                      <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, letterSpacing: '0.1em', fontFamily: 'Syne, sans-serif' }}>{label}</span>
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}14`, border: `1px solid ${color}25`, boxShadow: `0 0 14px ${color}20` }}>
+                        <Icon size={14} style={{ color }} strokeWidth={2} />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold tabular-nums" style={{ fontFamily: 'Syne, sans-serif', color, textShadow: `0 0 28px ${color}55`, letterSpacing: '-0.01em', position: 'relative', zIndex: 1 }}>
+                      <AnimatedNumber value={value} format={fmtShort} />
+                    </p>
+                    <div className="mt-2.5" style={{ position: 'relative', zIndex: 1 }}>
+                      {badge ? (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg font-semibold" style={{ background: badge.up ? `${T.green}12` : `${T.red}12`, color: badge.up ? T.green : T.red, border: `1px solid ${badge.up ? `${T.green}25` : `${T.red}25`}` }}>
+                            {badge.up ? '↑' : '↓'} {badge.value}%
+                          </span>
+                          <span className="text-xs" style={{ color: T.muted }}>{badge.label}</span>
+                        </div>
+                      ) : sub ? (
+                        <p className="text-xs" style={{ color: T.muted }}>{sub}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </SpotlightCard>
+              </motion.div>
             ))}
           </div>
-        </motion.div>
-      </div>
 
-      {/* ── Últimas transações ────────────────────────────────────────────── */}
-      <motion.div {...fadeUp(0.42)} data-tour="recent-txs"
-        className="rounded-2xl overflow-hidden"
-        style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#1a1a2a' }}>
-          <div>
-            <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif' }}>Últimas transações</h2>
-            <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>{recentTxs.length} mais recentes</p>
+          {/* ── Gráfico + Performance ───────────────────────────── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <motion.div {...scaleIn(0.22)} data-tour="chart" className="sm:col-span-2">
+              <SpotlightCard className="rounded-2xl h-full" style={card}>
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Fluxo de caixa</h2>
+                      <p className="text-xs mt-0.5" style={{ color: T.muted }}>Últimos 14 dias</p>
+                    </div>
+                    <div className="flex gap-4">
+                      {[{ color: T.green, label: 'Entrada' }, { color: T.red, label: 'Saída' }].map(l => (
+                        <div key={l.label} className="flex items-center gap-1.5 text-xs" style={{ color: T.muted }}>
+                          <div className="w-2 h-2 rounded-full" style={{ background: l.color, boxShadow: `0 0 5px ${l.color}` }} />
+                          {l.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {chartData.every(d => d.income === 0 && d.expense === 0) ? (
+                    <div className="flex flex-col items-center justify-center h-40 gap-2">
+                      <BarChart2 size={28} style={{ color: T.muted }} />
+                      <p className="text-sm" style={{ color: T.muted }}>Sem dados ainda</p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={160}>
+                      <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                        <defs>
+                          <linearGradient id="incG" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor={T.green} stopOpacity={0.3} />
+                            <stop offset="95%" stopColor={T.green} stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="expG" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor={T.red} stopOpacity={0.24} />
+                            <stop offset="95%" stopColor={T.red} stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis dataKey="day" tickFormatter={d => new Date(d).getDate().toString()} tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} interval={2} />
+                        <YAxis tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} />
+                        <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(124,110,247,0.18)', strokeWidth: 1 }} />
+                        <Area type="monotone" dataKey="income"  stroke={T.green} strokeWidth={2} fill="url(#incG)" dot={false} activeDot={{ r: 4, fill: T.green, strokeWidth: 0, filter: `drop-shadow(0 0 5px ${T.green})` }} />
+                        <Area type="monotone" dataKey="expense" stroke={T.red}   strokeWidth={2} fill="url(#expG)" dot={false} activeDot={{ r: 4, fill: T.red,   strokeWidth: 0, filter: `drop-shadow(0 0 5px ${T.red})` }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </SpotlightCard>
+            </motion.div>
+
+            <motion.div {...scaleIn(0.28)} data-tour="performance">
+              <SpotlightCard className="rounded-2xl h-full" style={card}>
+                <div className="p-5 flex flex-col gap-4 h-full">
+                  <div>
+                    <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Performance</h2>
+                    <p className="text-xs mt-0.5" style={{ color: T.muted }}>vs mês anterior</p>
+                  </div>
+                  {[
+                    { label: 'Receita',  value: stats.income,  max: Math.max(stats.income, stats.lastMonthIncome, 1),   color: T.green },
+                    { label: 'Despesas', value: stats.expense, max: Math.max(stats.expense, stats.lastMonthExpense, 1), color: T.red   },
+                    { label: 'Clientes', value: stats.clients, max: Math.max(stats.clients, 10),                        color: T.amber },
+                    { label: 'Vendas',   value: stats.sales,   max: Math.max(stats.sales, 10),                          color: T.cyan  },
+                  ].map(({ label, value, max, color }, idx) => (
+                    <div key={label}>
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span style={{ color: T.sub }}>{label}</span>
+                        <span className="font-semibold tabular-nums" style={{ color: T.text, fontFamily: 'Syne, sans-serif' }}>{value > 100 ? fmtShort(value) : value}</span>
+                      </div>
+                      <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((value / max) * 100, 100)}%` }}
+                          transition={{ duration: 1.1, delay: 0.38 + idx * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                          className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${color}aa, ${color})`, boxShadow: `0 0 10px ${color}60` }} />
+                      </div>
+                    </div>
+                  ))}
+                  <div className="mt-auto pt-3 border-t" style={{ borderColor: T.border }}>
+                    <div className="flex items-center gap-2">
+                      <Target size={13} style={{ color: profit >= 0 ? T.green : T.red }} />
+                      <span className="text-xs" style={{ color: T.muted }}>
+                        {profit >= 0 ? `Margem líquida: ${stats.income > 0 ? ((profit / stats.income) * 100).toFixed(1) : 0}%` : 'Mês no prejuízo'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </SpotlightCard>
+            </motion.div>
           </div>
-          <motion.button whileHover={{ x: 2 }} onClick={() => router.push('/financeiro')}
-            className="flex items-center gap-1 text-xs font-medium" style={{ color: '#7c6ef7' }}>
-            Ver todas <ArrowRight size={12} />
-          </motion.button>
-        </div>
 
-        {recentTxs.length === 0 ? (
-          <div className="px-5 py-12 text-center">
-            <DollarSign size={28} className="mx-auto mb-3" style={{ color: '#2a2a3e' }} />
-            <p className="text-sm mb-3" style={{ color: '#4a4a6a' }}>Nenhuma transação ainda</p>
-            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              onClick={() => setShowModal(true)}
-              className="text-xs font-semibold px-4 py-2.5 rounded-xl"
-              style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff', border: '1px solid rgba(124,110,247,0.2)' }}>
-              + Adicionar primeira transação
-            </motion.button>
+          {/* ── Meta + Contadores ───────────────────────────────── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-tour="counters">
+            <div data-tour="meta">
+              <GoalCard goal={currentGoal} onSetGoal={() => router.push('/metas')} currentRevenue={stats.income} />
+            </div>
+            <div className="sm:col-span-2 grid grid-cols-3 gap-3">
+              {([
+                { label: 'Clientes', sub: 'ativos',      value: stats.clients,  icon: Users,        color: T.amber,  href: '/clientes' },
+                { label: 'Vendas',   sub: 'este mês',    value: stats.sales,    icon: ShoppingCart, color: T.cyan,   href: '/vendas'   },
+                { label: 'Produtos', sub: 'cadastrados', value: stats.products, icon: Package,      color: T.violet, href: '/produtos' },
+              ] as const).map(({ label, sub, value, icon: Icon, color, href }, i) => (
+                <motion.div key={label} {...fadeUp(0.3 + i * 0.06)} className="h-full">
+                  <SpotlightCard className="rounded-2xl h-full cursor-pointer" spotlightColor={`${color}14`} style={card}>
+                    <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }} onClick={() => router.push(href)}
+                      className="w-full p-4 flex flex-col gap-3 relative overflow-hidden h-full"
+                      style={{ cursor: 'pointer', background: 'none', border: 'none', textAlign: 'left' }}>
+                      <GlowCorner color={`${color}20`} position="bottom-right" />
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}10`, border: `1px solid ${color}22`, boxShadow: `0 0 14px ${color}16` }}>
+                        <Icon size={14} style={{ color }} strokeWidth={1.8} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-3xl font-bold tabular-nums leading-none" style={{ fontFamily: 'Syne, sans-serif', color: T.text, letterSpacing: '-0.02em', position: 'relative', zIndex: 1 }}>
+                          <AnimatedNumber value={value} format={v => Math.round(v).toString()} />
+                        </p>
+                        <p className="text-xs mt-1.5" style={{ color: T.muted }}>
+                          <span style={{ color: T.sub, fontWeight: 600 }}>{label}</span>{' '}<span>{sub}</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs pt-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                        <ArrowRight size={11} style={{ color }} />
+                        <span style={{ color, fontWeight: 500 }}>Ver todos</span>
+                      </div>
+                    </motion.button>
+                  </SpotlightCard>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        ) : recentTxs.map((tx, i) => (
-          <motion.div key={tx.id}
-            initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.5 + i * 0.04 }}
-            className="flex items-center gap-3 px-5 py-3.5 transition-colors cursor-default"
-            style={{ borderBottom: i < recentTxs.length - 1 ? '1px solid #1a1a2a' : 'none' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#0d0d14'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: tx.type === 'income' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)' }}>
-              {tx.type === 'income'
-                ? <TrendingUp size={14} style={{ color: '#34d399' }} />
-                : <TrendingDown size={14} style={{ color: '#f87171' }} />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate" style={{ color: '#d0d0e0' }}>{tx.title}</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs" style={{ color: '#4a4a6a' }}>
-                  {new Date(tx.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                </span>
-                {tx.categories?.name && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-md"
-                    style={{ background: tx.categories.color ? `${tx.categories.color}18` : '#1e1e2e', color: tx.categories.color || '#6b6b8a' }}>
-                    {tx.categories.name}
-                  </span>
-                )}
-                {!tx.paid && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-md"
-                    style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>Pendente</span>
-                )}
-              </div>
-            </div>
-            <span className="text-sm font-bold shrink-0" style={{ color: tx.type === 'income' ? '#34d399' : '#f87171' }}>
-              {tx.type === 'income' ? '+' : '-'}{fmt(Number(tx.amount))}
-            </span>
-          </motion.div>
-        ))}
-      </motion.div>
 
-      {/* ── Modal novo lançamento ─────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}
-            onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
-            <motion.div
-              initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-              transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-              className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border p-6"
-              style={{ background: '#111118', borderColor: '#1e1e2e' }}>
-              <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: '#2a2a3e' }} />
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>Novo lançamento</h2>
-                <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowModal(false)}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center"
-                  style={{ background: '#1a1a2e', color: '#6b6b8a' }}>✕</motion.button>
-              </div>
-              <form onSubmit={handleSave} className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-2">
-                  {['expense', 'income'].map(t => (
-                    <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
-                      className="py-2.5 rounded-xl text-sm font-semibold transition-all"
-                      style={{
-                        background: form.type === t ? (t === 'income' ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)') : '#0d0d14',
-                        color: form.type === t ? (t === 'income' ? '#34d399' : '#f87171') : '#4a4a6a',
-                        border: `1px solid ${form.type === t ? (t === 'income' ? '#34d399' : '#f87171') : '#1e1e2e'}`,
-                      }}>
-                      {t === 'income' ? '↑ Entrada' : '↓ Saída'}
-                    </button>
+          {/* ── Quick Actions ───────────────────────────────────── */}
+          <motion.div {...fadeUp(0.36)} data-tour="quick-actions">
+            <SpotlightCard className="rounded-2xl" style={card}>
+              <div className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: T.muted, letterSpacing: '0.1em', fontFamily: 'Syne, sans-serif' }}>Acesso rápido</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { label: 'Novo lançamento',     icon: DollarSign,    color: T.purple, action: () => setShowModal(true) },
+                    { label: 'Ver tarefas',          icon: ClipboardList, color: T.red,    action: () => router.push('/tarefas'),    badge: stats.pendingTasks > 0 ? stats.pendingTasks : null },
+                    { label: 'Agenda de hoje',       icon: CalendarDays,  color: T.cyan,   action: () => router.push('/agenda'),     badge: stats.todayEvents > 0 ? stats.todayEvents : null },
+                    { label: 'Relatório financeiro', icon: BarChart2,     color: T.green,  action: () => router.push('/financeiro') },
+                  ].map(({ label, icon: Icon, color, action, badge }) => (
+                    <motion.button key={label} whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }} onClick={action}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-left w-full"
+                      style={{ color: T.sub, background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}`, transition: 'all 0.15s', cursor: 'pointer' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = `${color}0b`; e.currentTarget.style.borderColor = `${color}28`; e.currentTarget.style.boxShadow = `0 0 14px ${color}10` }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = T.border; e.currentTarget.style.boxShadow = 'none' }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}12`, border: `1px solid ${color}22` }}>
+                        <Icon size={13} style={{ color }} strokeWidth={1.8} />
+                      </div>
+                      <span className="text-sm font-medium flex-1 truncate" style={{ color: T.sub }}>{label}</span>
+                      {badge && <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ background: `${T.red}15`, color: T.red, border: `1px solid ${T.red}28` }}>{badge}</span>}
+                    </motion.button>
                   ))}
                 </div>
-                <input type="text" placeholder="Título *" value={form.title} required
-                  onChange={e => setForm({ ...form, title: e.target.value })}
-                  className="px-3 py-3 rounded-xl border text-sm outline-none"
-                  style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }}
-                  onFocus={e => e.currentTarget.style.borderColor = '#7c6ef7'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#1e1e2e'} />
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" step="0.01" placeholder="Valor *" value={form.amount} required
-                    onChange={e => setForm({ ...form, amount: e.target.value })}
-                    className="px-3 py-3 rounded-xl border text-sm outline-none"
-                    style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }}
-                    onFocus={e => e.currentTarget.style.borderColor = '#7c6ef7'}
-                    onBlur={e => e.currentTarget.style.borderColor = '#1e1e2e'} />
-                  <input type="date" value={form.date} required
-                    onChange={e => setForm({ ...form, date: e.target.value })}
-                    className="px-3 py-3 rounded-xl border text-sm outline-none"
-                    style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }}
-                    onFocus={e => e.currentTarget.style.borderColor = '#7c6ef7'}
-                    onBlur={e => e.currentTarget.style.borderColor = '#1e1e2e'} />
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="checkbox" checked={form.paid} onChange={e => setForm({ ...form, paid: e.target.checked })} />
-                  <span className="text-sm" style={{ color: '#6b6b8a' }}>Já foi pago/recebido</span>
-                </label>
-                <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                  type="submit" disabled={saving}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm"
-                  style={{ background: 'linear-gradient(135deg, #7c6ef7, #9d6ef7)', color: 'white', boxShadow: '0 0 20px rgba(124,110,247,0.3)' }}>
-                  {saving
-                    ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    : 'Salvar lançamento'}
-                </motion.button>
-              </form>
-            </motion.div>
+              </div>
+            </SpotlightCard>
           </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* ── Tour ─────────────────────────────────────────────────────────── */}
-      <TourTooltip
-        active={tour.active}
-        step={tour.step}
-        current={tour.current}
-        total={tour.total}
-        onNext={tour.next}
-        onPrev={tour.prev}
-        onFinish={tour.finish}
-      />
-      <InstallButton />
+          {/* ── Últimas transações ──────────────────────────────── */}
+          <motion.div {...fadeUp(0.42)} data-tour="recent-txs">
+            <SpotlightCard className="rounded-2xl overflow-hidden" style={card}>
+              <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: T.border }}>
+                <div>
+                  <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Últimas transações</h2>
+                  <p className="text-xs mt-0.5" style={{ color: T.muted }}>{recentTxs.length} mais recentes</p>
+                </div>
+                <motion.button whileHover={{ x: 2 }} onClick={() => router.push('/financeiro')}
+                  className="flex items-center gap-1 text-xs font-semibold"
+                  style={{ color: T.violet, cursor: 'pointer', background: 'none', border: 'none' }}>
+                  Ver todas <ArrowRight size={12} />
+                </motion.button>
+              </div>
+              {recentTxs.length === 0 ? (
+                <div className="px-5 py-12 text-center">
+                  <DollarSign size={28} className="mx-auto mb-3" style={{ color: T.muted }} />
+                  <p className="text-sm mb-3" style={{ color: T.muted }}>Nenhuma transação ainda</p>
+                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowModal(true)}
+                    className="text-xs font-semibold px-4 py-2.5 rounded-xl"
+                    style={{ background: `${T.purple}12`, color: T.violet, border: `1px solid ${T.purple}28`, cursor: 'pointer' }}>
+                    + Adicionar primeira transação
+                  </motion.button>
+                </div>
+              ) : recentTxs.map((tx, i) => (
+                <motion.div key={tx.id}
+                  initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.48 + i * 0.04 }}
+                  className="flex items-center gap-3 px-5 py-3.5"
+                  style={{ borderBottom: i < recentTxs.length - 1 ? `1px solid rgba(255,255,255,0.04)` : 'none', transition: 'background 0.12s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.022)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: tx.type === 'income' ? `${T.green}10` : `${T.red}10`, border: `1px solid ${tx.type === 'income' ? T.green : T.red}20`, boxShadow: `0 0 10px ${tx.type === 'income' ? T.green : T.red}12` }}>
+                    {tx.type === 'income' ? <TrendingUp size={14} style={{ color: T.green }} strokeWidth={2} /> : <TrendingDown size={14} style={{ color: T.red }} strokeWidth={2} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: T.text }}>{tx.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs" style={{ color: T.muted }}>
+                        {new Date(tx.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                      </span>
+                      {tx.categories?.name && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-md"
+                          style={{ background: `${tx.categories.color || T.sub}14`, color: tx.categories.color || T.sub, border: `1px solid ${tx.categories.color || T.sub}22` }}>
+                          {tx.categories.name}
+                        </span>
+                      )}
+                      {!tx.paid && <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: `${T.amber}10`, color: T.amber, border: `1px solid ${T.amber}22` }}>Pendente</span>}
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold shrink-0 tabular-nums" style={{ fontFamily: 'Syne, sans-serif', color: tx.type === 'income' ? T.green : T.red, textShadow: tx.type === 'income' ? `0 0 14px ${T.green}40` : `0 0 14px ${T.red}40` }}>
+                    {tx.type === 'income' ? '+' : '−'}{fmt(Number(tx.amount))}
+                  </span>
+                </motion.div>
+              ))}
+            </SpotlightCard>
+          </motion.div>
 
-    </div>
+          {/* ── Modal novo lançamento ───────────────────────────── */}
+          <AnimatePresence>
+            {showModal && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+                style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
+                onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
+                <motion.div initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
+                  transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
+                  className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
+                  style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
+                  <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Novo lançamento</h2>
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowModal(false)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>✕</motion.button>
+                  </div>
+                  <form onSubmit={handleSave} className="flex flex-col gap-4">
+                    <div className="grid grid-cols-2 gap-2">
+                      {['expense', 'income'].map(t => (
+                        <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
+                          className="py-2.5 rounded-xl text-sm font-semibold"
+                          style={{ background: form.type === t ? (t === 'income' ? `${T.green}12` : `${T.red}12`) : 'rgba(255,255,255,0.02)', color: form.type === t ? (t === 'income' ? T.green : T.red) : T.muted, border: `1px solid ${form.type === t ? (t === 'income' ? `${T.green}30` : `${T.red}30`) : T.border}`, transition: 'all 0.15s', cursor: 'pointer' }}>
+                          {t === 'income' ? '↑ Entrada' : '↓ Saída'}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="text" placeholder="Título *" value={form.title} required onChange={e => setForm({ ...form, title: e.target.value })} style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input type="number" step="0.01" placeholder="Valor *" value={form.amount} required onChange={e => setForm({ ...form, amount: e.target.value })} style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
+                      <input type="date" value={form.date} required onChange={e => setForm({ ...form, date: e.target.value })} style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={form.paid} onChange={e => setForm({ ...form, paid: e.target.checked })} style={{ accentColor: T.purple }} />
+                      <span className="text-sm" style={{ color: T.sub }}>Já foi pago/recebido</span>
+                    </label>
+                    <ShimmerButton type="submit" disabled={saving}
+                      className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full"
+                      style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: saving ? 'none' : '0 0 28px rgba(124,110,247,0.4)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                      {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : 'Salvar lançamento'}
+                    </ShimmerButton>
+                  </form>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+          <InstallButton />
+        </div>
+      </BackgroundGrid>
+    </>
   )
 }
 
+// ─── AlertBadge ───────────────────────────────────────────────
 function AlertBadge({ icon: Icon, color, label, onClick }: { icon: any; color: string; label: string; onClick: () => void }) {
   return (
-    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onClick}
+    <motion.button initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+      whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }} onClick={onClick}
       className="flex items-center gap-3 px-4 py-3 rounded-xl flex-1 text-left"
-      style={{ background: `${color}08`, border: `1px solid ${color}25` }}>
+      style={{ background: `${color}08`, border: `1px solid ${color}22`, backdropFilter: 'blur(8px)', cursor: 'pointer', transition: 'box-shadow 0.2s' }}
+      onMouseEnter={e => e.currentTarget.style.boxShadow = `0 0 24px ${color}18`}
+      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
       <Icon size={14} style={{ color, flexShrink: 0 }} />
-      <span className="text-xs font-medium flex-1" style={{ color }}>{label}</span>
+      <span className="text-xs font-semibold flex-1" style={{ color }}>{label}</span>
       <ArrowRight size={11} style={{ color }} />
     </motion.button>
   )
