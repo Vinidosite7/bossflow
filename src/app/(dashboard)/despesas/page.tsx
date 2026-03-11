@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { sendPush, fmt as fmtPush } from '@/lib/push'
 import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from '@/components/TourTooltip'
 import {
@@ -136,6 +137,7 @@ export default function DespesasPage() {
       } else {
         const { error } = await supabase.from('transactions').insert({ ...payload, business_id: businessId, created_by: user?.id })
         if (error) throw error
+        if (user) await sendPush(user.id, '🔴 Nova despesa registrada', `${form.title} · ${fmtPush(parseFloat(form.amount))}`, '/despesas')
       }
       setShowForm(false); setEditTx(null); load()
     } catch (err: any) { console.error('[Despesas] save:', err) } finally { setSaving(false) }

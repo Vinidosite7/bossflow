@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { sendPush } from '@/lib/push'
 import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from "@/components/TourTooltip"
 import { CheckSquare, Plus, X, Pencil, Trash2 } from 'lucide-react'
@@ -105,6 +106,11 @@ export default function TarefasPage() {
       return
     }
 
+    if (!editTask) {
+      const dueDateStr = form.due_date ? ` · prazo ${new Date(form.due_date).toLocaleDateString('pt-BR')}` : ''
+      await sendPush(user.id, '📋 Nova tarefa criada!', `${form.title}${dueDateStr}`, '/tarefas')
+    }
+
     setShowForm(false); setEditTask(null); load()
   } catch (err: any) {
     console.error('[Tarefas] catch:', err)
@@ -115,7 +121,12 @@ export default function TarefasPage() {
 
   async function toggleStatus(task: any) {
     const next = task.status === 'todo' ? 'in_progress' : task.status === 'in_progress' ? 'done' : 'todo'
-    await supabase.from('tasks').update({ status: next }).eq('id', task.id); load()
+    await supabase.from('tasks').update({ status: next }).eq('id', task.id)
+    if (next === 'done') {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) await sendPush(user.id, '✅ Tarefa concluída!', task.title, '/tarefas')
+    }
+    load()
   }
 
   async function handleDelete(id: string) { await supabase.from('tasks').delete().eq('id', id); setShowConfirm(null); load() }

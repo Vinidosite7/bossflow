@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { sendPush, fmt as fmtPush } from '@/lib/push'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { TourTooltip } from '@/components/TourTooltip'
@@ -165,7 +166,13 @@ export default function VendasPage() {
       } else {
         const { data: sale, error: insErr } = await supabase.from('sales').insert({ client_id: form.client_id || null, status: form.status, date: form.date, notes: form.notes || null, total, business_id: businessId, created_by: user?.id }).select().single()
         if (insErr) throw insErr
-        if (sale) await supabase.from('sale_items').insert(items.filter(i => i.name).map(i => ({ sale_id: sale.id, ...i, product_id: i.product_id || null })))
+        if (sale) {
+          await supabase.from('sale_items').insert(items.filter(i => i.name).map(i => ({ sale_id: sale.id, ...i, product_id: i.product_id || null })))
+          if (user) {
+            const clientName = clients.find((c: any) => c.id === form.client_id)?.name
+            await sendPush(user.id, '💰 Nova venda registrada!', `${clientName ? clientName + ' · ' : ''}${fmtPush(total)}`, '/vendas')
+          }
+        }
       }
       setShowForm(false); setEditSale(null); load()
     } catch (err: any) { console.error('[Vendas] save:', err) } finally { setSaving(false) }

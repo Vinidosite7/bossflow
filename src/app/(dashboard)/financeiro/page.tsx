@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { sendPush, fmt as fmtPush } from '@/lib/push'
 import { TourTooltip } from '@/components/TourTooltip'
 import { PlanGate } from '@/components/PlanGate'
 import {
@@ -205,6 +206,15 @@ export default function FinanceiroPage() {
           business_id: businessId, created_by: user?.id,
         })
         if (error) throw error
+        if (user) {
+          const isIncome = txForm.type === 'income'
+          await sendPush(
+            user.id,
+            isIncome ? '💚 Entrada registrada!' : '🔴 Saída registrada!',
+            `${txForm.title} · ${fmtPush(parseFloat(txForm.amount))}`,
+            '/financeiro'
+          )
+        }
       }
       setEditTx(null); setShowTxForm(false); load()
     } catch (err: any) { console.error('[Financeiro] saveTx:', err) } finally { setSavingTx(false) }

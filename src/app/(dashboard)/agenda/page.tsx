@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { sendPush } from '@/lib/push'
 import { Calendar, Plus, X, Clock, Pencil, Trash2, CalendarDays } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -83,6 +84,10 @@ export default function AgendaPage() {
         await supabase.from('events').update({ title: form.title, description: form.description || null, start_at }).eq('id', editEvent.id)
       } else {
         await supabase.from('events').insert({ title: form.title, description: form.description || null, start_at, business_id: businessId, created_by: user?.id })
+        if (user) {
+          const dateStr = new Date(start_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: form.time ? '2-digit' : undefined, minute: form.time ? '2-digit' : undefined })
+          await sendPush(user.id, '📅 Evento agendado!', `${form.title} · ${dateStr}`, '/agenda')
+        }
       }
       setShowForm(false); setEditEvent(null); load()
     } catch (err: any) {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { sendPush } from '@/lib/push'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { TourTooltip } from "@/components/TourTooltip"
@@ -139,9 +140,15 @@ export default function ProdutosPage() {
       if (editProduct) {
         const { error } = await supabase.from('products').update(payload).eq('id', editProduct.id)
         if (error) throw error
+        if (payload.stock != null && payload.stock < 5) {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) await sendPush(user.id, '⚠️ Estoque baixo!', `${form.name} · ${payload.stock} unidades restantes`, '/produtos')
+        }
       } else {
         const { error } = await supabase.from('products').insert({ ...payload, business_id: businessId, active: true })
         if (error) throw error
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) await sendPush(user.id, '📦 Produto cadastrado!', form.name, '/produtos')
       }
       setShowForm(false); setEditProduct(null); load()
     } catch (err: any) {
