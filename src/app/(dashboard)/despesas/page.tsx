@@ -45,7 +45,7 @@ const inp: React.CSSProperties = {
   border:       `1px solid ${T.border}`,
   color:        T.text,
   borderRadius: 12,
-  padding:      '10px 14px',
+  padding:      '13px 16px',
   fontSize:     13,
   outline:      'none',
   width:        '100%',
@@ -408,10 +408,10 @@ export default function DespesasPage() {
               <motion.div
                 initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
                 transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
+                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl px-5 pt-5 pb-8 sm:p-7 max-h-[92dvh] overflow-y-auto"
                 style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08),0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
-                <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                <div className="flex items-center justify-between mb-5">
+                <div className="w-12 h-1 rounded-full mx-auto mb-6 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                <div className="flex items-center justify-between mb-6">
                   <h2 className="font-bold text-lg" style={{ fontFamily: SYNE, color: T.text }}>
                     {editTx ? 'Editar lançamento' : 'Novo lançamento'}
                   </h2>

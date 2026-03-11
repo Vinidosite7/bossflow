@@ -21,7 +21,7 @@ const T = {
   blur: 'blur(20px)',
 }
 const card = { background: T.bg, border: `1px solid ${T.border}`, backdropFilter: T.blur, boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)' }
-const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '10px 14px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s' }
+const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '13px 16px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s' }
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', marginBottom: 6, display: 'block' }
 
 const fadeUp = (delay = 0) => ({
@@ -52,7 +52,7 @@ function TarefasSkeleton() {
         <Skeleton className="h-10 w-36 rounded-xl" />
       </div>
       <div className="flex gap-2"><Skeleton className="h-8 w-20 rounded-xl" /><Skeleton className="h-8 w-24 rounded-xl" /><Skeleton className="h-8 w-28 rounded-xl" /><Skeleton className="h-8 w-24 rounded-xl" /></div>
-      <div className="flex flex-col gap-3">{[0,1,2,3].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
+      <div className="flex flex-col gap-4">{[0,1,2,3].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
     </div>
   )
 }
@@ -284,10 +284,10 @@ export default function TarefasPage() {
               onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditTask(null) } }}>
               <motion.div initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
                 transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
+                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl px-5 pt-5 pb-8 sm:p-7 max-h-[92dvh] overflow-y-auto"
                 style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
-                <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                <div className="flex items-center justify-between mb-5">
+                <div className="w-12 h-1 rounded-full mx-auto mb-6 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${T.purple}14`, border: `1px solid ${T.purple}28` }}>
                       <CheckSquare size={14} style={{ color: T.purple }} />
@@ -300,7 +300,7 @@ export default function TarefasPage() {
                     <X size={14} />
                   </motion.button>
                 </div>
-                <form onSubmit={handleSave} className="flex flex-col gap-3">
+                <form onSubmit={handleSave} className="flex flex-col gap-4">
                   <input type="text" placeholder="Título da tarefa *" value={form.title} required onChange={e => setForm({ ...form, title: e.target.value })}
                     style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
                   <textarea placeholder="Descrição (opcional)" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2}

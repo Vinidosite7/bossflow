@@ -524,16 +524,16 @@ export default function DashboardPage() {
                 onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
                 <motion.div initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
                   transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                  className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
+                  className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl px-5 pt-5 pb-8 sm:p-7"
                   style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
-                  <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                  <div className="flex items-center justify-between mb-5">
+                  <div className="w-12 h-1 rounded-full mx-auto mb-6 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                  <div className="flex items-center justify-between mb-6">
                     <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Novo lançamento</h2>
                     <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowModal(false)}
                       className="w-8 h-8 rounded-xl flex items-center justify-center"
                       style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>✕</motion.button>
                   </div>
-                  <form onSubmit={handleSave} className="flex flex-col gap-4">
+                  <form onSubmit={handleSave} className="flex flex-col gap-5">
                     <div className="grid grid-cols-2 gap-2">
                       {['expense', 'income'].map(t => (
                         <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
