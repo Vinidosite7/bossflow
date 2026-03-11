@@ -60,9 +60,11 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
   )
 }
 
+// ── FIX: supabase client criado fora dos componentes
+const supabase = createClient()
+
 // ─── Modal Senha ─────────────────────────────────────────────
 function PasswordModal({ onClose }: { onClose: () => void }) {
-  const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [sent, setSent]       = useState(false)
   const [email, setEmail]     = useState('')
@@ -134,7 +136,6 @@ function PasswordModal({ onClose }: { onClose: () => void }) {
 
 // ─── Page ────────────────────────────────────────────────────
 export default function ConfiguracoesPage() {
-  const supabase = createClient()
   const tour     = useTour('configuracoes', TOUR_STEPS)
   const { permission: pushPermissionHook, loading: pushLoadingHook, requestPermission: subscribePush } = usePushNotification()
 

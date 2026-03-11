@@ -57,7 +57,6 @@ function TarefasSkeleton() {
 }
 
 export default function TarefasPage() {
-  const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
   const tour = useTour('tarefas', TOUR_STEPS)
 

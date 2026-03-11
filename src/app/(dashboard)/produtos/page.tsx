@@ -87,8 +87,10 @@ function ProdutosSkeleton() {
   )
 }
 
+// ── FIX: supabase client criado fora do componente
+const supabase = createClient()
+
 export default function ProdutosPage() {
-  const supabase = createClient()
   const { businessId, loading: bizLoading } = useBusiness()
   const { plan } = usePlanLimits()
   const tour = useTour('produtos', TOUR_STEPS)
@@ -129,16 +131,24 @@ export default function ProdutosPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    const payload = {
-      name: form.name, price: parseFloat(form.price),
-      unit: form.unit, stock: form.stock ? parseInt(form.stock) : null,
+    try {
+      const payload = {
+        name: form.name, price: parseFloat(form.price),
+        unit: form.unit, stock: form.stock ? parseInt(form.stock) : null,
+      }
+      if (editProduct) {
+        const { error } = await supabase.from('products').update(payload).eq('id', editProduct.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('products').insert({ ...payload, business_id: businessId, active: true })
+        if (error) throw error
+      }
+      setShowForm(false); setEditProduct(null); load()
+    } catch (err: any) {
+      console.error('[Produtos] save:', err)
+    } finally {
+      setSaving(false)
     }
-    if (editProduct) {
-      await supabase.from('products').update(payload).eq('id', editProduct.id)
-    } else {
-      await supabase.from('products').insert({ ...payload, business_id: businessId, active: true })
-    }
-    setShowForm(false); setEditProduct(null); setSaving(false); load()
   }
 
   async function handleDelete(id: string) {

@@ -40,10 +40,12 @@ function btnStyle(open: boolean): React.CSSProperties {
   }
 }
 
+// ── FIX: supabase client criado fora do componente
+const supabase = createClient()
+
 // ── Componente Principal ─────────────────────────────────────────
 export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const router   = useRouter()
-  const supabase = createClient()
   const [user, setUser]                     = useState<any>(null)
   const [avatarUrl, setAvatarUrl]           = useState('')
   const [businesses, setBusinesses]         = useState<any[]>([])
