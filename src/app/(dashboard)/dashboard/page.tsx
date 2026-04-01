@@ -10,6 +10,7 @@ import {
 import { useGoals } from '@/hooks/useGoals'
 import { GoalCard } from '@/components/GoalCard'
 import { useRouter } from 'next/navigation'
+import { useBusinessContext } from '@/lib/business-context'
 import { motion, AnimatePresence, animate } from 'framer-motion'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -19,31 +20,11 @@ import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from '@/components/TourTooltip'
 import { InstallButton } from '@/components/InstallButton'
 
-// ✅ Import corrigido — bossflow-ui (não aceternity)
-import {
-  SpotlightCard,
-  ShimmerButton,
-  Skeleton,
-  BackgroundGrid,
-  FloatingOrbs,
-  GlowCorner,
-} from '@/components/ui/bossflow-ui'
-
-// ─── Design tokens ────────────────────────────────────────────
-const T = {
-  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
-  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
-  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
-  green: '#34d399', red: '#f87171', amber: '#fbbf24',
-  purple: '#7c6ef7', violet: '#a78bfa', cyan: '#22d3ee',
-  blur: 'blur(20px)',
-}
-const card = {
-  background: T.bg,
-  border: `1px solid ${T.border}`,
-  backdropFilter: T.blur,
-  boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
-}
+// ── Design System ────────────────────────────────────────────────────────────
+import { T, card, inp, SYNE, btnPrimary } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
+import { SpotlightCard, Skeleton, GlowCorner } from '@/components/ui/bossflow-ui'
+import { PageBackground, KPICard, SectionHeader, FormModal, ModalSubmitButton } from '@/components/core'
 
 // ─── Tour steps ───────────────────────────────────────────────
 const TOUR_STEPS = [
@@ -56,18 +37,6 @@ const TOUR_STEPS = [
   { target: '[data-tour="quick-actions"]', title: 'Acesso rápido',        description: 'Atalhos para as ações mais usadas.' },
   { target: '[data-tour="recent-txs"]',    title: 'Últimas transações',   description: 'As 7 transações mais recentes.' },
 ]
-
-// ─── Helpers de animação ──────────────────────────────────────
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 20, filter: 'blur(4px)' },
-  animate: { opacity: 1, y: 0,  filter: 'blur(0px)' },
-  transition: { duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
-const scaleIn = (delay = 0) => ({
-  initial: { opacity: 0, scale: 0.96 },
-  animate: { opacity: 1, scale: 1 },
-  transition: { duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
 
 // ─── Número animado ───────────────────────────────────────────
 function AnimatedNumber({ value, format }: { value: number; format: (v: number) => string }) {
@@ -87,14 +56,14 @@ function ChartTooltip({ active, payload, label }: any) {
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   return (
     <div style={{ background: 'rgba(6,6,10,0.97)', border: '1px solid rgba(124,110,247,0.25)', borderRadius: 12, padding: '10px 14px', fontSize: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.75)', backdropFilter: 'blur(20px)' }}>
-      <p style={{ color: T.muted, fontWeight: 600, marginBottom: 8, fontFamily: 'Syne, sans-serif', fontSize: 11 }}>
+      <p style={{ color: T.muted, fontWeight: 600, marginBottom: 8, fontFamily: SYNE, fontSize: 11 }}>
         {new Date(label).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
       </p>
       {payload.map((p: any) => (
         <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.color, display: 'inline-block', boxShadow: `0 0 6px ${p.color}`, flexShrink: 0 }} />
           <span style={{ color: T.muted }}>{p.name === 'income' ? 'Entrada' : 'Saída'}:</span>
-          <span style={{ color: p.color, fontWeight: 600, fontFamily: 'Syne, sans-serif' }}>{fmt(p.value)}</span>
+          <span style={{ color: p.color, fontWeight: 600, fontFamily: SYNE }}>{fmt(p.value)}</span>
         </div>
       ))}
     </div>
@@ -120,9 +89,8 @@ function DashSkeleton() {
 export default function DashboardPage() {
   const supabase = createClient()
   const router   = useRouter()
-  const [loading, setLoading]       = useState(true)
-  const [business, setBusiness]     = useState<any>(null)
-  const [businessId, setBusinessId] = useState<string | null>(null)
+  const { business, businessId, loading: bizLoading } = useBusinessContext()
+  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
     income: 0, expense: 0, clients: 0, sales: 0, products: 0,
     pendingTasks: 0, todayEvents: 0, pendingTxs: 0,
@@ -136,21 +104,8 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false)
   const tour = useTour('dashboard', TOUR_STEPS)
 
-  async function load() {
+  async function load(bizId: string) {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
-      const savedBizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') || '' : ''
-      const { data: owned } = await supabase.from('businesses').select('*').eq('owner_id', user.id)
-      const { data: memberships } = await supabase.from('business_members').select('business_id, role').eq('user_id', user.id).in('status', ['accepted', 'active'])
-      const memberBizIds = (memberships || []).map((m: any) => m.business_id).filter((id: string) => !(owned || []).find((o: any) => o.id === id))
-      let memberBizzes: any[] = []
-      if (memberBizIds.length > 0) { const { data: bd } = await supabase.from('businesses').select('*').in('id', memberBizIds); memberBizzes = bd || [] }
-      const bizList = [...(owned || []), ...memberBizzes]
-      if (!bizList.length) { setLoading(false); return }
-      const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
-      setBusiness(biz); setBusinessId(biz.id)
-
       const now              = new Date()
       const startOfMonth     = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
       const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
@@ -163,15 +118,15 @@ export default function DashboardPage() {
         { data: products }, { data: pendingTasks }, { data: todayEvents },
         { data: pendingTxs }, { data: recent },
       ] = await Promise.all([
-        supabase.from('transactions').select('*').eq('business_id', biz.id).gte('date', startOfMonth),
-        supabase.from('transactions').select('*').eq('business_id', biz.id).gte('date', startOfLastMonth).lte('date', endOfLastMonth),
-        supabase.from('clients').select('id').eq('business_id', biz.id),
-        supabase.from('sales').select('id').eq('business_id', biz.id).gte('date', startOfMonth),
-        supabase.from('products').select('id').eq('business_id', biz.id),
-        supabase.from('tasks').select('id').eq('business_id', biz.id).eq('status', 'todo').lt('due_date', today),
-        supabase.from('events').select('id').eq('business_id', biz.id).gte('start_at', today).lte('start_at', todayEnd),
-        supabase.from('transactions').select('id').eq('business_id', biz.id).eq('paid', false),
-        supabase.from('transactions').select('*, categories(name, color)').eq('business_id', biz.id).order('date', { ascending: false }).limit(7),
+        supabase.from('transactions').select('*').eq('business_id', bizId).gte('date', startOfMonth),
+        supabase.from('transactions').select('*').eq('business_id', bizId).gte('date', startOfLastMonth).lte('date', endOfLastMonth),
+        supabase.from('clients').select('id').eq('business_id', bizId),
+        supabase.from('sales').select('id').eq('business_id', bizId).gte('date', startOfMonth),
+        supabase.from('products').select('id').eq('business_id', bizId),
+        supabase.from('tasks').select('id').eq('business_id', bizId).eq('status', 'todo').lt('due_date', today),
+        supabase.from('events').select('id').eq('business_id', bizId).gte('start_at', today).lte('start_at', todayEnd),
+        supabase.from('transactions').select('id').eq('business_id', bizId).eq('paid', false),
+        supabase.from('transactions').select('*, categories(name, color)').eq('business_id', bizId).order('date', { ascending: false }).limit(7),
       ])
 
       const income           = (txs || []).filter(t => t.type === 'income').reduce((a, t) => a + Number(t.amount), 0)
@@ -189,7 +144,7 @@ export default function DashboardPage() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (businessId) load(businessId) }, [businessId])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault(); setSaving(true)
@@ -214,38 +169,23 @@ export default function DashboardPage() {
   const incomeChange  = pct(stats.income,  stats.lastMonthIncome)
   const expenseChange = pct(stats.expense, stats.lastMonthExpense)
 
-  const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '10px 14px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s' }
-
-  if (loading) return (
-    <><BackgroundGrid><FloatingOrbs /><DashSkeleton /></BackgroundGrid></>
+  if (loading || bizLoading) return (
+    <PageBackground><DashSkeleton /></PageBackground>
   )
 
   return (
-    <>
-      <BackgroundGrid>
-        <FloatingOrbs />
-        <div className="flex flex-col gap-5">
+    <PageBackground>
+      <div className="flex flex-col gap-5">
 
           {/* ── Header ─────────────────────────────────────────── */}
-          <motion.div {...fadeUp(0)} className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Dashboard</h1>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: T.green, animationDuration: '1.4s' }} />
-                  <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: T.green, boxShadow: `0 0 6px ${T.green}` }} />
-                </div>
-                <p className="text-sm capitalize" style={{ color: T.muted }}>{business?.name} · {month}</p>
-              </div>
-            </div>
-            <ShimmerButton onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shrink-0"
-              style={{ background: 'linear-gradient(135deg, #7c6ef7 0%, #a06ef7 100%)', color: 'white', boxShadow: '0 0 28px rgba(124,110,247,0.45), inset 0 1px 0 rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-              <Plus size={15} />
-              <span className="hidden sm:inline">Novo lançamento</span>
-              <span className="sm:hidden">Novo</span>
-            </ShimmerButton>
-          </motion.div>
+          <SectionHeader
+            title="Dashboard"
+            subtitle={`${business?.name} · ${month}`}
+            live
+            ctaLabel="Novo lançamento"
+            ctaIcon={Plus}
+            onCta={() => setShowModal(true)}
+          />
 
           {/* ── Alertas ────────────────────────────────────────── */}
           <motion.div {...fadeUp(0.05)} data-tour="alerts" className="flex flex-col sm:flex-row gap-2">
@@ -265,40 +205,32 @@ export default function DashboardPage() {
 
           {/* ── KPI Cards ──────────────────────────────────────── */}
           <div data-tour="kpis" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { label: 'Faturamento',   value: stats.income,  color: T.green, icon: TrendingUp,   badge: incomeChange  ? { up: incomeChange.up,   value: incomeChange.value,  label: 'vs mês anterior' } : null, sub: null },
-              { label: 'Despesas',      value: stats.expense, color: T.red,   icon: TrendingDown, badge: expenseChange ? { up: !expenseChange.up,  value: expenseChange.value, label: 'vs mês anterior' } : null, sub: null },
-              { label: 'Lucro Líquido', value: profit, color: profit >= 0 ? T.green : T.red, icon: profit >= 0 ? TrendingUp : TrendingDown, badge: null, sub: profit >= 0 ? `Margem: ${stats.income > 0 ? ((profit / stats.income) * 100).toFixed(1) : 0}%` : 'Mês no prejuízo' },
-            ].map(({ label, value, color, icon: Icon, badge, sub }, i) => (
-              <motion.div key={label} {...fadeUp(0.1 + i * 0.07)}>
-                <SpotlightCard className="rounded-2xl h-full" spotlightColor={`${color}16`} style={card}>
-                  <div className="p-5 relative overflow-hidden">
-                    <GlowCorner color={`${color}22`} position="bottom-right" />
-                    <div className="flex items-center justify-between mb-4" style={{ position: 'relative', zIndex: 1 }}>
-                      <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, letterSpacing: '0.1em', fontFamily: 'Syne, sans-serif' }}>{label}</span>
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}14`, border: `1px solid ${color}25`, boxShadow: `0 0 14px ${color}20` }}>
-                        <Icon size={14} style={{ color }} strokeWidth={2} />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold tabular-nums" style={{ fontFamily: 'Syne, sans-serif', color, textShadow: `0 0 28px ${color}55`, letterSpacing: '-0.01em', position: 'relative', zIndex: 1 }}>
-                      <AnimatedNumber value={value} format={fmtShort} />
-                    </p>
-                    <div className="mt-2.5" style={{ position: 'relative', zIndex: 1 }}>
-                      {badge ? (
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg font-semibold" style={{ background: badge.up ? `${T.green}12` : `${T.red}12`, color: badge.up ? T.green : T.red, border: `1px solid ${badge.up ? `${T.green}25` : `${T.red}25`}` }}>
-                            {badge.up ? '↑' : '↓'} {badge.value}%
-                          </span>
-                          <span className="text-xs" style={{ color: T.muted }}>{badge.label}</span>
-                        </div>
-                      ) : sub ? (
-                        <p className="text-xs" style={{ color: T.muted }}>{sub}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                </SpotlightCard>
-              </motion.div>
-            ))}
+            <motion.div {...fadeUp(0.10)}>
+              <KPICard
+                label="Faturamento" value={stats.income} color={T.green}
+                icon={TrendingUp} format={fmtShort}
+                change={incomeChange ? { value: incomeChange.value, up: incomeChange.up } : undefined}
+              />
+            </motion.div>
+            <motion.div {...fadeUp(0.17)}>
+              <KPICard
+                label="Despesas" value={stats.expense} color={T.red}
+                icon={TrendingDown} format={fmtShort}
+                change={expenseChange ? { value: expenseChange.value, up: expenseChange.up } : undefined}
+                invertBadge
+              />
+            </motion.div>
+            <motion.div {...fadeUp(0.24)}>
+              <KPICard
+                label="Lucro Líquido" value={profit}
+                color={profit >= 0 ? T.green : T.red}
+                icon={profit >= 0 ? TrendingUp : TrendingDown}
+                format={fmtShort}
+                sub={profit >= 0
+                  ? `Margem: ${stats.income > 0 ? ((profit / stats.income) * 100).toFixed(1) : 0}%`
+                  : 'Mês no prejuízo'}
+              />
+            </motion.div>
           </div>
 
           {/* ── Gráfico + Performance ───────────────────────────── */}
@@ -308,7 +240,7 @@ export default function DashboardPage() {
                 <div className="p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Fluxo de caixa</h2>
+                      <h2 className="font-bold text-sm" style={{ fontFamily: SYNE, color: T.text }}>Fluxo de caixa</h2>
                       <p className="text-xs mt-0.5" style={{ color: T.muted }}>Últimos 14 dias</p>
                     </div>
                     <div className="flex gap-4">
@@ -355,7 +287,7 @@ export default function DashboardPage() {
               <SpotlightCard className="rounded-2xl h-full" style={card}>
                 <div className="p-5 flex flex-col gap-4 h-full">
                   <div>
-                    <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Performance</h2>
+                    <h2 className="font-bold text-sm" style={{ fontFamily: SYNE, color: T.text }}>Performance</h2>
                     <p className="text-xs mt-0.5" style={{ color: T.muted }}>vs mês anterior</p>
                   </div>
                   {[
@@ -367,7 +299,7 @@ export default function DashboardPage() {
                     <div key={label}>
                       <div className="flex items-center justify-between text-xs mb-1.5">
                         <span style={{ color: T.sub }}>{label}</span>
-                        <span className="font-semibold tabular-nums" style={{ color: T.text, fontFamily: 'Syne, sans-serif' }}>{value > 100 ? fmtShort(value) : value}</span>
+                        <span className="font-semibold tabular-nums" style={{ color: T.text, fontFamily: SYNE }}>{value > 100 ? fmtShort(value) : value}</span>
                       </div>
                       <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((value / max) * 100, 100)}%` }}
@@ -410,7 +342,7 @@ export default function DashboardPage() {
                         <Icon size={14} style={{ color }} strokeWidth={1.8} />
                       </div>
                       <div className="flex-1">
-                        <p className="text-3xl font-bold tabular-nums leading-none" style={{ fontFamily: 'Syne, sans-serif', color: T.text, letterSpacing: '-0.02em', position: 'relative', zIndex: 1 }}>
+                        <p className="text-3xl font-bold tabular-nums leading-none" style={{ fontFamily: SYNE, color: T.text, letterSpacing: '-0.02em', position: 'relative', zIndex: 1 }}>
                           <AnimatedNumber value={value} format={v => Math.round(v).toString()} />
                         </p>
                         <p className="text-xs mt-1.5" style={{ color: T.muted }}>
@@ -432,7 +364,7 @@ export default function DashboardPage() {
           <motion.div {...fadeUp(0.36)} data-tour="quick-actions">
             <SpotlightCard className="rounded-2xl" style={card}>
               <div className="p-4">
-                <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: T.muted, letterSpacing: '0.1em', fontFamily: 'Syne, sans-serif' }}>Acesso rápido</p>
+                <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: T.muted, letterSpacing: '0.1em', fontFamily: SYNE }}>Acesso rápido</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
                     { label: 'Novo lançamento',     icon: DollarSign,    color: T.purple, action: () => setShowModal(true) },
@@ -462,7 +394,7 @@ export default function DashboardPage() {
             <SpotlightCard className="rounded-2xl overflow-hidden" style={card}>
               <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: T.border }}>
                 <div>
-                  <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Últimas transações</h2>
+                  <h2 className="font-bold text-sm" style={{ fontFamily: SYNE, color: T.text }}>Últimas transações</h2>
                   <p className="text-xs mt-0.5" style={{ color: T.muted }}>{recentTxs.length} mais recentes</p>
                 </div>
                 <motion.button whileHover={{ x: 2 }} onClick={() => router.push('/financeiro')}
@@ -507,7 +439,7 @@ export default function DashboardPage() {
                       {!tx.paid && <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: `${T.amber}10`, color: T.amber, border: `1px solid ${T.amber}22` }}>Pendente</span>}
                     </div>
                   </div>
-                  <span className="text-sm font-bold shrink-0 tabular-nums" style={{ fontFamily: 'Syne, sans-serif', color: tx.type === 'income' ? T.green : T.red, textShadow: tx.type === 'income' ? `0 0 14px ${T.green}40` : `0 0 14px ${T.red}40` }}>
+                  <span className="text-sm font-bold shrink-0 tabular-nums" style={{ fontFamily: SYNE, color: tx.type === 'income' ? T.green : T.red, textShadow: tx.type === 'income' ? `0 0 14px ${T.green}40` : `0 0 14px ${T.red}40` }}>
                     {tx.type === 'income' ? '+' : '−'}{fmt(Number(tx.amount))}
                   </span>
                 </motion.div>
@@ -516,58 +448,47 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* ── Modal novo lançamento ───────────────────────────── */}
-          <AnimatePresence>
-            {showModal && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-                style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-                onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
-                <motion.div initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
-                  transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                  className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl px-5 pt-5 pb-8 sm:p-7"
-                  style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
-                  <div className="w-12 h-1 rounded-full mx-auto mb-6 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Novo lançamento</h2>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowModal(false)}
-                      className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>✕</motion.button>
-                  </div>
-                  <form onSubmit={handleSave} className="flex flex-col gap-5">
-                    <div className="grid grid-cols-2 gap-2">
-                      {['expense', 'income'].map(t => (
-                        <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
-                          className="py-2.5 rounded-xl text-sm font-semibold"
-                          style={{ background: form.type === t ? (t === 'income' ? `${T.green}12` : `${T.red}12`) : 'rgba(255,255,255,0.02)', color: form.type === t ? (t === 'income' ? T.green : T.red) : T.muted, border: `1px solid ${form.type === t ? (t === 'income' ? `${T.green}30` : `${T.red}30`) : T.border}`, transition: 'all 0.15s', cursor: 'pointer' }}>
-                          {t === 'income' ? '↑ Entrada' : '↓ Saída'}
-                        </button>
-                      ))}
-                    </div>
-                    <input type="text" placeholder="Título *" value={form.title} required onChange={e => setForm({ ...form, title: e.target.value })} style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                    <div className="grid grid-cols-2 gap-3">
-                      <input type="number" step="0.01" placeholder="Valor *" value={form.amount} required onChange={e => setForm({ ...form, amount: e.target.value })} style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                      <input type="date" value={form.date} required onChange={e => setForm({ ...form, date: e.target.value })} style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                    </div>
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input type="checkbox" checked={form.paid} onChange={e => setForm({ ...form, paid: e.target.checked })} style={{ accentColor: T.purple }} />
-                      <span className="text-sm" style={{ color: T.sub }}>Já foi pago/recebido</span>
-                    </label>
-                    <ShimmerButton type="submit" disabled={saving}
-                      className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full"
-                      style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: saving ? 'none' : '0 0 28px rgba(124,110,247,0.4)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                      {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : 'Salvar lançamento'}
-                    </ShimmerButton>
-                  </form>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <FormModal
+            open={showModal}
+            onClose={() => setShowModal(false)}
+            title="Novo lançamento"
+          >
+            <form onSubmit={handleSave} className="flex flex-col gap-5">
+              <div className="grid grid-cols-2 gap-2">
+                {['expense', 'income'].map(t => (
+                  <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
+                    className="py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background: form.type === t ? (t === 'income' ? `${T.green}12` : `${T.red}12`) : 'rgba(255,255,255,0.02)', color: form.type === t ? (t === 'income' ? T.green : T.red) : T.muted, border: `1px solid ${form.type === t ? (t === 'income' ? `${T.green}30` : `${T.red}30`) : T.border}`, transition: 'all 0.15s', cursor: 'pointer' }}>
+                    {t === 'income' ? '↑ Entrada' : '↓ Saída'}
+                  </button>
+                ))}
+              </div>
+              <input type="text" placeholder="Título *" value={form.title} required
+                onChange={e => setForm({ ...form, title: e.target.value })} style={inp}
+                onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+                onBlur={e => e.currentTarget.style.borderColor = T.border} />
+              <div className="grid grid-cols-2 gap-3">
+                <input type="number" step="0.01" placeholder="Valor *" value={form.amount} required
+                  onChange={e => setForm({ ...form, amount: e.target.value })} style={inp}
+                  onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+                  onBlur={e => e.currentTarget.style.borderColor = T.border} />
+                <input type="date" value={form.date} required
+                  onChange={e => setForm({ ...form, date: e.target.value })} style={inp}
+                  onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+                  onBlur={e => e.currentTarget.style.borderColor = T.border} />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={form.paid} onChange={e => setForm({ ...form, paid: e.target.checked })} style={{ accentColor: T.purple }} />
+                <span className="text-sm" style={{ color: T.sub, fontFamily: SYNE }}>Já foi pago/recebido</span>
+              </label>
+              <ModalSubmitButton loading={saving}>Salvar lançamento</ModalSubmitButton>
+            </form>
+          </FormModal>
 
-          <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+                    <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
           <InstallButton />
         </div>
-      </BackgroundGrid>
-    </>
+    </PageBackground>
   )
 }
 

@@ -6,22 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Lock, Zap, Star, Rocket, Building2, PartyPopper, X, Bot, CalendarClock, Share2, BarChart3, Target, BellDot } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { PLAN_LABELS, PLAN_PRICES, PLAN_CHECKOUT_URLS, type PlanKey } from '@/lib/plans'
-import {
-  SpotlightCard, ShimmerButton, Skeleton, BackgroundGrid, FloatingOrbs, GlowCorner,
-} from '@/components/ui/bossflow-ui'
+import { SpotlightCard, ShimmerButton, Skeleton, GlowCorner } from '@/components/ui/bossflow-ui'
 
-// ─── Design tokens ────────────────────────────────────────────
-const T = {
-  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
-  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
-  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
-  green: '#34d399', red: '#f87171', amber: '#fbbf24',
-  purple: '#7c6ef7', violet: '#a78bfa', cyan: '#22d3ee',
-  blur: 'blur(20px)',
-}
-const card = { background: T.bg, border: `1px solid ${T.border}`, backdropFilter: T.blur, boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)' }
-const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '10px 14px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s' }
+// ── Design System ──────────────────────────────────────────────────────────
+import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
 
+import { PageBackground } from '@/components/core'
 // ─── Motion ──────────────────────────────────────────────────
 const vContainer = {
   hidden: { opacity: 1 },
@@ -122,7 +113,7 @@ function PlanCard({ plan, fmt }: { plan: PlanDef; fmt: (v: number) => string }) 
               {plan.icon}
             </span>
             <div>
-              <h2 className="font-bold text-base leading-none" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>{plan.title}</h2>
+              <h2 className="font-bold text-base leading-none" style={{ fontFamily: SYNE, color: T.text }}>{plan.title}</h2>
               <p className="text-xs mt-0.5" style={{ color: T.muted }}>{plan.subtitle}</p>
             </div>
           </div>
@@ -130,7 +121,7 @@ function PlanCard({ plan, fmt }: { plan: PlanDef; fmt: (v: number) => string }) 
           {/* Preço */}
           <div>
             <div className="flex items-end gap-1">
-              <span className="text-3xl font-extrabold" style={{ fontFamily: 'Syne, sans-serif', color: plan.currentPlan ? T.green : plan.highlight ? T.violet : T.text, textShadow: plan.highlight ? `0 0 28px ${T.purple}55` : 'none' }}>
+              <span className="text-3xl font-extrabold" style={{ fontFamily: SYNE, color: plan.currentPlan ? T.green : plan.highlight ? T.violet : T.text, textShadow: plan.highlight ? `0 0 28px ${T.purple}55` : 'none' }}>
                 {isFree ? 'R$ 0' : `R$ ${fmt(plan.priceMonthly)}`}
               </span>
               <span className="text-xs mb-1.5" style={{ color: T.muted }}>/mês</span>
@@ -262,8 +253,7 @@ export default function AssinaturaPage() {
   ]
 
   return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+    <PageBackground>
       <div className="flex flex-col gap-8 pb-10">
 
         {/* Banner sucesso */}
@@ -294,7 +284,7 @@ export default function AssinaturaPage() {
 
         {/* Header */}
         <motion.div variants={vContainer} initial="hidden" animate="show" className="flex flex-col gap-1.5">
-          <motion.h1 variants={vFadeUp} className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>
+          <motion.h1 variants={vFadeUp} className="text-2xl font-bold tracking-tight" style={{ fontFamily: SYNE, color: T.text }}>
             Assinatura
           </motion.h1>
           <motion.div variants={vFadeUp} className="flex items-center gap-2 flex-wrap">
@@ -335,7 +325,7 @@ export default function AssinaturaPage() {
                     <span className="text-xs font-bold px-2 py-0.5 rounded-md"
                       style={{ background: `${section.accent}18`, color: section.accent }}>{section.badge}</span>
                   )}
-                  <h2 className="text-base font-bold" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>{section.title}</h2>
+                  <h2 className="text-base font-bold" style={{ fontFamily: SYNE, color: T.text }}>{section.title}</h2>
                 </motion.div>
                 <p className="text-xs mb-4" style={{ color: T.muted }}>{section.sub}</p>
                 <motion.div variants={vFadeUp} className="grid sm:grid-cols-3 gap-3">
@@ -361,7 +351,7 @@ export default function AssinaturaPage() {
         {/* Tabela comparativa */}
         <motion.div variants={vContainer} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.1 }} className="flex flex-col gap-4">
           <motion.div variants={vFadeUp}>
-            <h2 className="text-base font-bold" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Comparação completa</h2>
+            <h2 className="text-base font-bold" style={{ fontFamily: SYNE, color: T.text }}>Comparação completa</h2>
             <p className="text-sm mt-0.5" style={{ color: T.muted }}>O Pro é o sweet spot para a maioria das operações.</p>
           </motion.div>
           <motion.div variants={vFadeUp}>
@@ -417,6 +407,6 @@ export default function AssinaturaPage() {
           ))}
         </motion.div>
       </div>
-    </BackgroundGrid>
+    </PageBackground>
   )
 }

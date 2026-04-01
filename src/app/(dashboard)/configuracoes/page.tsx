@@ -8,27 +8,13 @@ import {
   BellOff, BellRing, Key, LogOut, Trash2, ChevronRight, Smartphone
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SpotlightCard, ShimmerButton, BackgroundGrid, FloatingOrbs } from '@/components/ui/bossflow-ui'
+import { SpotlightCard, ShimmerButton, Skeleton } from '@/components/ui/bossflow-ui'
 
-// ─── Tokens ────────────────────────────────────────────────────
-const T = {
-  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
-  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
-  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
-  green: '#34d399', red: '#f87171', amber: '#fbbf24',
-  purple: '#7c6ef7', violet: '#a78bfa', cyan: '#22d3ee',
-}
-const card = {
-  background: T.bg, border: `1px solid ${T.border}`,
-  backdropFilter: 'blur(20px)',
-  boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
-}
-const inp: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`,
-  color: T.text, borderRadius: 12, padding: '12px 14px',
-  fontSize: 14, outline: 'none', width: '100%', transition: 'border-color 0.15s',
-}
+// ── Design System ──────────────────────────────────────────────────────────
+import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
 
+import { PageBackground } from '@/components/core'
 const DEFAULT_AVATARS = ['👤','😎','🧑‍💼','👩‍💼','🧑‍💻','👩‍💻','🦸','🧙','🤴','👸','🧑‍🎨','🥷']
 
 type NotifKey = 'tasks' | 'payments' | 'weekly' | 'events'
@@ -76,52 +62,30 @@ function PasswordModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <motion.div initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.93, opacity: 0 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] as const }}
-        className="w-full max-w-sm rounded-2xl p-6 flex flex-col gap-4"
-        style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: `${T.purple}14`, border: `1px solid ${T.purple}28` }}>
-              <Key size={14} style={{ color: T.violet }} />
-            </div>
-            <h2 className="font-bold" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Alterar senha</h2>
+    <FormModal open title="Alterar senha" onClose={onClose} size="sm">
+      {sent ? (
+        <div className="flex flex-col items-center gap-3 py-4 text-center">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+            style={{ background: `${T.green}10`, border: `1px solid ${T.green}25` }}>
+            <Check size={22} style={{ color: T.green }} />
           </div>
-          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 10, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.border}`,
-            color: T.sub, cursor: 'pointer' }}><X size={13} /></button>
+          <p className="font-semibold" style={{ color: T.text }}>Email enviado!</p>
+          <p className="text-sm" style={{ color: T.muted }}>
+            Link enviado para <strong style={{ color: T.violet }}>{email}</strong>
+          </p>
+          <ModalSubmitButton onClick={onClose}>Fechar</ModalSubmitButton>
         </div>
-        {sent ? (
-          <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-              style={{ background: `${T.green}10`, border: `1px solid ${T.green}25` }}>
-              <Check size={22} style={{ color: T.green }} />
-            </div>
-            <p className="font-semibold" style={{ color: T.text }}>Email enviado!</p>
-            <p className="text-sm" style={{ color: T.muted }}>Link enviado para <strong style={{ color: T.violet }}>{email}</strong></p>
-            <ShimmerButton onClick={onClose} className="w-full py-2.5 rounded-xl text-sm font-semibold mt-2"
-              style={{ background: `linear-gradient(135deg, ${T.purple}, #a06ef7)`, color: 'white', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-              Fechar
-            </ShimmerButton>
-          </div>
-        ) : (
-          <>
-            <p className="text-sm" style={{ color: T.muted }}>Vamos enviar um link para <strong style={{ color: T.violet }}>{email}</strong></p>
-            <ShimmerButton onClick={handleReset} disabled={loading}
-              className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
-              style={{ background: `linear-gradient(135deg, ${T.purple}, #a06ef7)`, color: 'white',
-                border: '1px solid rgba(255,255,255,0.1)', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
-              {loading ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <><Key size={14} /> Enviar link</>}
-            </ShimmerButton>
-          </>
-        )}
-      </motion.div>
-    </motion.div>
+      ) : (
+        <>
+          <p className="text-sm mb-4" style={{ color: T.muted }}>
+            Vamos enviar um link para <strong style={{ color: T.violet }}>{email}</strong>
+          </p>
+          <ModalSubmitButton loading={loading} loadingLabel="Enviando..." onClick={handleReset}>
+            <Key size={14} /> Enviar link
+          </ModalSubmitButton>
+        </>
+      )}
+    </FormModal>
   )
 }
 
@@ -230,20 +194,48 @@ export default function ConfiguracoesPage() {
   ]
 
   if (loading) return (
-    <div className="flex h-64 items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
-        style={{ borderColor: T.purple, borderTopColor: 'transparent' }} />
-    </div>
+    <PageBackground>
+      <div className="flex flex-col gap-6 max-w-2xl">
+        {/* Header */}
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-8 w-40 rounded-xl" />
+          <Skeleton className="h-4 w-56 rounded-lg" />
+        </div>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 16, background: 'rgba(255,255,255,0.025)', border: `1px solid ${T.border}` }}>
+          {[1,2,3].map(i => <Skeleton key={i} className="flex-1 h-9 rounded-xl" />)}
+        </div>
+        {/* Card perfil skeleton */}
+        <div style={{ ...card, borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Avatar */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, paddingBottom: 24, borderBottom: `1px solid ${T.border}` }}>
+            <Skeleton className="w-24 h-24 rounded-2xl" />
+            <Skeleton className="h-5 w-32 rounded-lg" />
+            <Skeleton className="h-8 w-28 rounded-xl" />
+          </div>
+          {/* Campos */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {[1,2].map(i => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Skeleton className="h-4 w-24 rounded-lg" />
+                <Skeleton className="h-11 w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+          {/* Botão */}
+          <Skeleton className="h-11 w-36 rounded-xl" />
+        </div>
+      </div>
+    </PageBackground>
   )
 
   return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+    <PageBackground>
       <div className="flex flex-col gap-6 max-w-2xl">
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Configurações</h1>
+          <h1 className="text-2xl font-bold" style={{ fontFamily: SYNE, color: T.text }}>Configurações</h1>
           <p className="text-sm mt-1" style={{ color: T.muted }}>Gerencie sua conta e preferências</p>
         </motion.div>
 
@@ -268,7 +260,7 @@ export default function ConfiguracoesPage() {
                     boxShadow: active ? `0 0 16px rgba(124,110,247,0.12)` : 'none',
                   }}>
                   <Icon size={13} />
-                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Syne, sans-serif' }}>{label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: SYNE }}>{label}</span>
                 </motion.button>
               )
             })}
@@ -312,7 +304,7 @@ export default function ConfiguracoesPage() {
                         <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                       </label>
                     </div>
-                    <p style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: 'Syne, sans-serif' }}>{userName}</p>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: SYNE }}>{userName}</p>
 
                     {/* Mode switcher */}
                     <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 12,
@@ -376,15 +368,7 @@ export default function ConfiguracoesPage() {
                         style={{ ...inp, opacity: 0.4, cursor: 'not-allowed' }} />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
-                      <ShimmerButton type="submit" disabled={saving}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm"
-                        style={{
-                          background: `linear-gradient(135deg, ${T.purple}, #a06ef7)`, color: 'white',
-                          boxShadow: saving ? 'none' : `0 0 24px ${T.purple}35`,
-                          border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
-                        }}>
-                        {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : 'Salvar alterações'}
-                      </ShimmerButton>
+                      <ModalSubmitButton loading={saving}>Salvar alterações</ModalSubmitButton>
                       <AnimatePresence>
                         {saved && (
                           <motion.span initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
@@ -563,9 +547,7 @@ export default function ConfiguracoesPage() {
         </AnimatePresence>
       </div>
 
-      <AnimatePresence>
-        {showPasswordModal && <PasswordModal onClose={() => setShowPasswordModal(false)} />}
-      </AnimatePresence>
-    </BackgroundGrid>
+      {showPasswordModal && <PasswordModal onClose={() => setShowPasswordModal(false)} />}
+    </PageBackground>
   )
 }

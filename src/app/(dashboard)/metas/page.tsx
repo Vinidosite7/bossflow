@@ -10,49 +10,13 @@ import { TourTooltip } from "@/components/TourTooltip"
 import { PlanGate } from '@/components/PlanGate'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Target, Zap, Trophy, CheckCircle2, TrendingUp, X, Save } from 'lucide-react'
-import {
-  SpotlightCard,
-  ShimmerButton,
-  Skeleton,
-  BackgroundGrid,
-  FloatingOrbs,
-  GlowCorner,
-} from '@/components/ui/bossflow-ui'
+import { SpotlightCard, ShimmerButton, Skeleton, GlowCorner } from '@/components/ui/bossflow-ui'
 
-// ─── Design tokens ────────────────────────────────────────────
-const T = {
-  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
-  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
-  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
-  green: '#34d399', red: '#f87171', amber: '#fbbf24',
-  purple: '#7c6ef7', violet: '#a78bfa', cyan: '#22d3ee',
-  orange: '#f97316',
-  blur: 'blur(20px)',
-}
-const card = {
-  background: T.bg,
-  border: `1px solid ${T.border}`,
-  backdropFilter: T.blur,
-  boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
-}
-const inp: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.03)',
-  border: `1px solid ${T.border}`,
-  color: T.text,
-  borderRadius: 12,
-  padding: '10px 14px',
-  fontSize: 13,
-  outline: 'none',
-  width: '100%',
-  transition: 'border-color 0.15s',
-}
+// ── Design System ──────────────────────────────────────────────────────────
+import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 16, filter: 'blur(4px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-  transition: { duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
-
+import { PageBackground, SectionHeader, FormModal, ModalSubmitButton } from '@/components/core'
 const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const MONTH_FULL  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
@@ -140,42 +104,21 @@ export default function MetasPage() {
   const annualColor   = annualPct >= 100 ? T.green : annualPct >= 60 ? T.amber : T.orange
 
   if (loadingBiz || loading) return (
-    <BackgroundGrid><FloatingOrbs /><MetasSkeleton /></BackgroundGrid>
+    <PageBackground><MetasSkeleton /></PageBackground>
   )
 
   return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+    <PageBackground>
       <div className="flex flex-col gap-5">
 
         <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
         {/* ── Header ─────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0)} className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>
-              Metas & Conquistas
-            </h1>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <div className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
-                  style={{ background: T.orange, animationDuration: '1.4s' }} />
-                <span className="relative inline-flex rounded-full h-2 w-2"
-                  style={{ background: T.orange, boxShadow: `0 0 6px ${T.orange}` }} />
-              </div>
-              <p className="text-sm" style={{ color: T.muted }}>
-                {currentYear} · {monthsHit} {monthsHit === 1 ? 'mês batido' : 'meses batidos'}
-                {streak > 0 && <span style={{ color: T.orange }}> · 🔥 {streak} em sequência</span>}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl shrink-0"
-            style={{ background: `${T.orange}10`, border: `1px solid ${T.orange}25` }}>
-            <Trophy size={13} style={{ color: T.orange }} />
-            <span className="text-xs font-bold" style={{ color: T.orange }}>{unlockedCount}/{badges.length} conquistas</span>
-          </div>
-        </motion.div>
+        <SectionHeader
+          title="Metas & Conquistas"
+          subtitle={`${currentYear} · ${monthsHit} ${monthsHit === 1 ? 'mês batido' : 'meses batidos'}${streak > 0 ? ` · 🔥 ${streak} em sequência` : ''}`}
+          live liveColor={T.orange}
+        />
 
         {/* ── Meta Anual ─────────────────────────────────────── */}
         <motion.div {...fadeUp(0.06)} data-tour="metas-anual">
@@ -192,11 +135,11 @@ export default function MetasPage() {
                       <Target size={12} style={{ color: T.orange }} />
                     </div>
                     <span className="text-xs font-semibold uppercase tracking-widest"
-                      style={{ color: T.orange, fontFamily: 'Syne, sans-serif', letterSpacing: '0.1em' }}>
+                      style={{ color: T.orange, fontFamily: SYNE, letterSpacing: '0.1em' }}>
                       Meta Anual {currentYear}
                     </span>
                   </div>
-                  <p className="text-3xl font-bold" style={{ fontFamily: 'Syne, sans-serif', color: annualColor, textShadow: `0 0 28px ${annualColor}55` }}>
+                  <p className="text-3xl font-bold" style={{ fontFamily: SYNE, color: annualColor, textShadow: `0 0 28px ${annualColor}55` }}>
                     {Math.round(annualPct)}%
                   </p>
                   <p className="text-sm mt-1" style={{ color: T.sub }}>
@@ -235,7 +178,7 @@ export default function MetasPage() {
         {/* ── Grade Mensal ────────────────────────────────────── */}
         <motion.div {...fadeUp(0.1)} data-tour="metas-mensal">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Metas mensais</h2>
+            <h2 className="font-bold text-sm" style={{ fontFamily: SYNE, color: T.text }}>Metas mensais</h2>
             <p className="text-xs" style={{ color: T.muted }}>Clique para editar</p>
           </div>
 
@@ -275,7 +218,7 @@ export default function MetasPage() {
                   )}
 
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold" style={{ color: isCurrent ? T.orange : T.muted, fontFamily: 'Syne, sans-serif' }}>
+                    <span className="text-xs font-bold" style={{ color: isCurrent ? T.orange : T.muted, fontFamily: SYNE }}>
                       {MONTH_NAMES[g.month - 1]}
                     </span>
                     {g.superHit  && <span className="text-xs">⚡</span>}
@@ -285,7 +228,7 @@ export default function MetasPage() {
 
                   {hasGoal ? (
                     <>
-                      <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: isFuture ? T.muted : color }}>
+                      <p className="text-sm font-bold" style={{ fontFamily: SYNE, color: isFuture ? T.muted : color }}>
                         {Math.round(g.pct)}%
                       </p>
                       <p className="text-xs mt-0.5 truncate" style={{ color: T.muted }}>
@@ -320,7 +263,7 @@ export default function MetasPage() {
         {/* ── Conquistas ──────────────────────────────────────── */}
         <motion.div {...fadeUp(0.14)} data-tour="metas-conquistas">
           <div className="flex items-center gap-2 mb-3">
-            <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Conquistas</h2>
+            <h2 className="font-bold text-sm" style={{ fontFamily: SYNE, color: T.text }}>Conquistas</h2>
             <span className="text-xs px-2 py-0.5 rounded-full font-bold"
               style={{ background: `${T.amber}10`, color: T.amber, border: `1px solid ${T.amber}22` }}>
               {unlockedCount}/{badges.length}
@@ -368,100 +311,76 @@ export default function MetasPage() {
         </motion.div>
 
         {/* ── Modal: Edição de meta ───────────────────────────── */}
-        <AnimatePresence>
-          {editingMonth !== null && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-              onClick={e => { if (e.target === e.currentTarget) setEditingMonth(null) }}>
+                <FormModal
+          open={editingMonth !== null}
+          onClose={() => setEditingMonth(null)}
+          title={editingMonth !== null ? `Meta de ${MONTH_FULL[editingMonth - 1]}` : ''}
+          size="sm"
+        >
+          {/* Custom header extra: subtitle e ícone */}
+          <div className="flex items-center gap-3 mb-5 -mt-1">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: `${T.orange}14`, border: `1px solid ${T.orange}28` }}>
+              <Target size={14} style={{ color: T.orange }} />
+            </div>
+            <p className="text-xs" style={{ color: T.muted }}>{currentYear}</p>
+          </div>
 
-              <motion.div
-                initial={{ y: 60, opacity: 0, scale: 0.97 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                exit={{ y: 60, opacity: 0 }}
-                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
-                style={{ background: T.bgDeep, border: `1px solid rgba(249,115,22,0.22)`, boxShadow: '0 0 0 1px rgba(249,115,22,0.06), 0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
+<div className="flex flex-col gap-4">
+          {/* Meta principal */}
+          <div>
+            <label className="flex items-center gap-1.5 text-xs font-semibold mb-2"
+              style={{ color: T.orange, fontFamily: SYNE, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              <Target size={11} /> Meta de receita (R$)
+            </label>
+            <input type="number" step="0.01" placeholder="Ex: 10000" value={editTarget}
+              onChange={e => setEditTarget(e.target.value)}
+              style={inp}
+              onFocus={e => e.currentTarget.style.borderColor = T.orange}
+              onBlur={e => e.currentTarget.style.borderColor = T.border} />
+          </div>
 
-                <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
+          {/* Super Cota — Starter+ */}
+          <PlanGate currentPlan={plan} requiredPlan="starter" feature="Super Cota"
+            description="Defina uma meta bônus extra ambiciosa. Disponível no plano Starter." mode="hide">
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold mb-2"
+                style={{ color: T.violet, fontFamily: SYNE, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <Zap size={11} /> Super Cota (R$)
+                <span className="font-normal normal-case tracking-normal" style={{ color: T.muted }}>— opcional</span>
+              </label>
+              <input type="number" step="0.01" placeholder="Ex: 15000" value={editSuper}
+                onChange={e => setEditSuper(e.target.value)}
+                style={inp}
+                onFocus={e => e.currentTarget.style.borderColor = T.violet}
+                onBlur={e => e.currentTarget.style.borderColor = T.border} />
+              <p className="text-xs mt-1.5" style={{ color: T.muted }}>
+                Meta bônus — desbloqueie o badge ⚡ ao atingir
+              </p>
+            </div>
+          </PlanGate>
+          </div>
 
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ background: `${T.orange}14`, border: `1px solid ${T.orange}28` }}>
-                      <Target size={14} style={{ color: T.orange }} />
-                    </div>
-                    <div>
-                      <h2 className="font-bold text-lg leading-none" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>
-                        Meta de {MONTH_FULL[editingMonth - 1]}
-                      </h2>
-                      <p className="text-xs mt-0.5" style={{ color: T.muted }}>{currentYear}</p>
-                    </div>
-                  </div>
-                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => setEditingMonth(null)}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>
-                    <X size={14} />
-                  </motion.button>
-                </div>
+          <div className="flex gap-3 mt-1">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={() => setEditingMonth(null)}
+              className="flex-1 py-3 rounded-xl text-sm font-semibold"
+              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer' }}>
+              Cancelar
+            </motion.button>
 
-                <div className="flex flex-col gap-4">
-                  {/* Meta principal */}
-                  <div>
-                    <label className="flex items-center gap-1.5 text-xs font-semibold mb-2"
-                      style={{ color: T.orange, fontFamily: 'Syne, sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                      <Target size={11} /> Meta de receita (R$)
-                    </label>
-                    <input type="number" step="0.01" placeholder="Ex: 10000" value={editTarget}
-                      onChange={e => setEditTarget(e.target.value)}
-                      style={inp}
-                      onFocus={e => e.currentTarget.style.borderColor = T.orange}
-                      onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                  </div>
-
-                  {/* Super Cota — Starter+ */}
-                  <PlanGate currentPlan={plan} requiredPlan="starter" feature="Super Cota"
-                    description="Defina uma meta bônus extra ambiciosa. Disponível no plano Starter." mode="hide">
-                    <div>
-                      <label className="flex items-center gap-1.5 text-xs font-semibold mb-2"
-                        style={{ color: T.violet, fontFamily: 'Syne, sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                        <Zap size={11} /> Super Cota (R$)
-                        <span className="font-normal normal-case tracking-normal" style={{ color: T.muted }}>— opcional</span>
-                      </label>
-                      <input type="number" step="0.01" placeholder="Ex: 15000" value={editSuper}
-                        onChange={e => setEditSuper(e.target.value)}
-                        style={inp}
-                        onFocus={e => e.currentTarget.style.borderColor = T.violet}
-                        onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                      <p className="text-xs mt-1.5" style={{ color: T.muted }}>
-                        Meta bônus — desbloqueie o badge ⚡ ao atingir
-                      </p>
-                    </div>
-                  </PlanGate>
-
-                  <div className="flex gap-3 mt-1">
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                      onClick={() => setEditingMonth(null)}
-                      className="flex-1 py-3 rounded-xl text-sm font-semibold"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer' }}>
-                      Cancelar
-                    </motion.button>
-
-                    <ShimmerButton onClick={handleSave} disabled={saving}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold"
-                      style={{ background: `linear-gradient(135deg, ${T.orange}, #fb923c)`, color: 'white', boxShadow: saving ? 'none' : `0 0 24px ${T.orange}40`, border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                      {saving
-                        ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                        : <><Save size={14} /> Salvar meta</>}
-                    </ShimmerButton>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            <ShimmerButton onClick={handleSave} disabled={saving}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold"
+              style={{ background: `linear-gradient(135deg, ${T.orange}, #fb923c)`, color: 'white', boxShadow: saving ? 'none' : `0 0 24px ${T.orange}40`, border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving
+                ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                : <><Save size={14} /> Salvar meta</>}
+            </ShimmerButton>
+          </div>
+        </div>
+        </FormModal>
 
       </div>
-    </BackgroundGrid>
+    </PageBackground>
   )
 }

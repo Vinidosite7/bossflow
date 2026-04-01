@@ -7,48 +7,13 @@ import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from "@/components/TourTooltip"
 import { Users, Plus, Loader2, X, Pencil, Trash2, Search, UserCheck, Phone, Mail, FileText } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  SpotlightCard,
-  ShimmerButton,
-  Skeleton,
-  BackgroundGrid,
-  FloatingOrbs,
-  GlowCorner,
-} from '@/components/ui/bossflow-ui'
+import { SpotlightCard, ShimmerButton, Skeleton, GlowCorner } from '@/components/ui/bossflow-ui'
 
-// ─── Design tokens (mesmo padrão da dash) ─────────────────────
-const T = {
-  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
-  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
-  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
-  green: '#34d399', red: '#f87171', amber: '#fbbf24',
-  purple: '#7c6ef7', violet: '#a78bfa', cyan: '#22d3ee',
-  blur: 'blur(20px)',
-}
-const card = {
-  background: T.bg,
-  border: `1px solid ${T.border}`,
-  backdropFilter: T.blur,
-  boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
-}
-const inp: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.03)',
-  border: `1px solid ${T.border}`,
-  color: T.text,
-  borderRadius: 12,
-  padding: '13px 16px',
-  fontSize: 13,
-  outline: 'none',
-  width: '100%',
-  transition: 'border-color 0.15s',
-}
+// ── Design System ──────────────────────────────────────────────────────────
+import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 16, filter: 'blur(4px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-  transition: { duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
-
+import { PageBackground, SectionHeader, FilterBar, FormModal, ModalSubmitButton } from '@/components/core'
 const TOUR_STEPS = [
   { target: '[data-tour="clientes-header"]', title: 'Cadastro de clientes', description: 'Mantenha seu cadastro atualizado. Eles ficarão disponíveis ao registrar vendas.', position: 'bottom' as const },
   { target: '[data-tour="clientes-busca"]', title: 'Busca de clientes', description: 'Pesquise por nome ou email. O resultado aparece instantaneamente.', position: 'bottom' as const },
@@ -153,70 +118,31 @@ export default function ClientesPage() {
   )
 
   if (loading || bizLoading) return (
-    <BackgroundGrid><FloatingOrbs /><ClientesSkeleton /></BackgroundGrid>
+    <PageBackground><ClientesSkeleton /></PageBackground>
   )
 
   return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+    <PageBackground>
       <div className="flex flex-col gap-5">
 
         <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
         {/* ── Header ─────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0)} className="flex items-start justify-between gap-4" data-tour="clientes-header">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>
-              Clientes
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
-                  style={{ background: T.purple, animationDuration: '1.4s' }} />
-                <span className="relative inline-flex rounded-full h-2 w-2"
-                  style={{ background: T.purple, boxShadow: `0 0 6px ${T.purple}` }} />
-              </div>
-              <p className="text-sm" style={{ color: T.muted }}>
-                {clients.length} cliente{clients.length !== 1 ? 's' : ''} cadastrado{clients.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
-
-          <ShimmerButton
-            onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shrink-0"
-            style={{ background: 'linear-gradient(135deg, #7c6ef7 0%, #a06ef7 100%)', color: 'white', boxShadow: '0 0 28px rgba(124,110,247,0.45), inset 0 1px 0 rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-            <Plus size={15} />
-            <span className="hidden sm:inline">Novo cliente</span>
-            <span className="sm:hidden">Novo</span>
-          </ShimmerButton>
-        </motion.div>
+        <SectionHeader
+          title="Clientes"
+          subtitle={`${clients.length} cliente${clients.length !== 1 ? 's' : ''} cadastrado${clients.length !== 1 ? 's' : ''}`}
+          live liveColor={T.purple}
+          cta={{ label: 'Novo cliente', labelMobile: 'Novo', icon: Plus, onClick: openCreate }}
+          tourId="clientes-header"
+        />
 
         {/* ── Busca ──────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.06)} data-tour="clientes-busca">
-          <SpotlightCard className="rounded-xl" spotlightColor="rgba(124,110,247,0.08)" style={{ ...card, padding: 0 }}>
-            <div className="flex items-center gap-3 px-4 py-3">
-              <Search size={14} style={{ color: T.muted, flexShrink: 0 }} />
-              <input
-                type="text"
-                placeholder="Buscar por nome ou email..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="flex-1 bg-transparent text-sm outline-none"
-                style={{ color: T.text }}
-              />
-              <AnimatePresence>
-                {search && (
-                  <motion.button initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
-                    onClick={() => setSearch('')}
-                    className="w-5 h-5 rounded-md flex items-center justify-center"
-                    style={{ color: T.muted, background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.border}`, cursor: 'pointer' }}>
-                    <X size={11} />
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </div>
-          </SpotlightCard>
+          <FilterBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar por nome ou email..."
+          />
         </motion.div>
 
         {/* ── Lista / Empty ───────────────────────────────────── */}
@@ -226,7 +152,7 @@ export default function ClientesPage() {
               style={{ background: 'rgba(124,110,247,0.08)', border: '1px solid rgba(124,110,247,0.18)', boxShadow: '0 0 32px rgba(124,110,247,0.1)' }}>
               <Users size={28} style={{ color: T.purple }} />
             </div>
-            <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>
+            <h2 className="text-xl font-bold" style={{ fontFamily: SYNE, color: T.text }}>
               {search ? 'Nenhum resultado' : 'Nenhum cliente ainda'}
             </h2>
             <p className="text-sm" style={{ color: T.muted }}>
@@ -247,7 +173,7 @@ export default function ClientesPage() {
               <div className="flex items-center gap-3 px-5 py-3 border-b"
                 style={{ borderColor: T.border }}>
                 <span className="text-xs font-semibold uppercase tracking-widest flex-1"
-                  style={{ color: T.muted, fontFamily: 'Syne, sans-serif', letterSpacing: '0.1em' }}>
+                  style={{ color: T.muted, fontFamily: SYNE, letterSpacing: '0.1em' }}>
                   {filtered.length} {filtered.length !== 1 ? 'clientes' : 'cliente'}{search ? ` para "${search}"` : ''}
                 </span>
               </div>
@@ -270,7 +196,7 @@ export default function ClientesPage() {
                       {/* Avatar */}
                       <motion.div whileHover={{ scale: 1.08 }}
                         className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
-                        style={{ background: `${color}18`, color, border: `1px solid ${color}28`, boxShadow: `0 0 12px ${color}14`, fontFamily: 'Syne, sans-serif' }}>
+                        style={{ background: `${color}18`, color, border: `1px solid ${color}28`, boxShadow: `0 0 12px ${color}14`, fontFamily: SYNE }}>
                         {initials(client.name)}
                       </motion.div>
 
@@ -329,125 +255,73 @@ export default function ClientesPage() {
         )}
 
         {/* ── Modal: Form ─────────────────────────────────────── */}
-        <AnimatePresence>
-          {showForm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-              onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditClient(null) } }}>
+                {/* ── Modal: Form ─────────────────────────────────────── */}
+        <FormModal
+          open={showForm}
+          onClose={() => { setShowForm(false); setEditClient(null) }}
+          title={editClient ? 'Editar cliente' : 'Novo cliente'}
+          size="sm"
+        >
+          <form onSubmit={handleSave} className="flex flex-col gap-4">
+            <input type="text" placeholder="Nome completo *" value={form.name} required
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              style={inp}
+              onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+              onBlur={e => e.currentTarget.style.borderColor = T.border} />
 
-              <motion.div
-                initial={{ y: 60, opacity: 0, scale: 0.97 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                exit={{ y: 60, opacity: 0 }}
-                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl px-5 pt-5 pb-8 sm:p-7 max-h-[92dvh] overflow-y-auto"
-                style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
+            <input type="email" placeholder="Email" value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              style={inp}
+              onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+              onBlur={e => e.currentTarget.style.borderColor = T.border} />
 
-                {/* Handle mobile */}
-                <div className="w-12 h-1 rounded-full mx-auto mb-6 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
+            <div className="grid grid-cols-2 gap-3">
+              <input type="text" placeholder="Telefone" value={form.phone}
+                onChange={e => setForm({ ...form, phone: e.target.value })}
+                style={inp}
+                onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+                onBlur={e => e.currentTarget.style.borderColor = T.border} />
+              <input type="text" placeholder="CPF/CNPJ" value={form.document}
+                onChange={e => setForm({ ...form, document: e.target.value })}
+                style={inp}
+                onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+                onBlur={e => e.currentTarget.style.borderColor = T.border} />
+            </div>
 
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ background: `${T.purple}14`, border: `1px solid ${T.purple}28` }}>
-                      <UserCheck size={14} style={{ color: T.purple }} />
-                    </div>
-                    <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>
-                      {editClient ? 'Editar cliente' : 'Novo cliente'}
-                    </h2>
-                  </div>
-                  <motion.button whileTap={{ scale: 0.9 }}
-                    onClick={() => { setShowForm(false); setEditClient(null) }}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>
-                    <X size={14} />
-                  </motion.button>
-                </div>
-
-                <form onSubmit={handleSave} className="flex flex-col gap-4">
-                  <input type="text" placeholder="Nome completo *" value={form.name} required
-                    onChange={e => setForm({ ...form, name: e.target.value })}
-                    style={inp}
-                    onFocus={e => e.currentTarget.style.borderColor = T.borderP}
-                    onBlur={e => e.currentTarget.style.borderColor = T.border} />
-
-                  <input type="email" placeholder="Email" value={form.email}
-                    onChange={e => setForm({ ...form, email: e.target.value })}
-                    style={inp}
-                    onFocus={e => e.currentTarget.style.borderColor = T.borderP}
-                    onBlur={e => e.currentTarget.style.borderColor = T.border} />
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" placeholder="Telefone" value={form.phone}
-                      onChange={e => setForm({ ...form, phone: e.target.value })}
-                      style={inp}
-                      onFocus={e => e.currentTarget.style.borderColor = T.borderP}
-                      onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                    <input type="text" placeholder="CPF/CNPJ" value={form.document}
-                      onChange={e => setForm({ ...form, document: e.target.value })}
-                      style={inp}
-                      onFocus={e => e.currentTarget.style.borderColor = T.borderP}
-                      onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                  </div>
-
-                  <ShimmerButton type="submit" disabled={saving}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full mt-1"
-                    style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: saving ? 'none' : '0 0 28px rgba(124,110,247,0.4)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                    {saving
-                      ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      : editClient ? 'Salvar alterações' : 'Criar cliente'}
-                  </ShimmerButton>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            <ModalSubmitButton loading={saving}>
+              {editClient ? 'Salvar alterações' : 'Criar cliente'}
+            </ModalSubmitButton>
+          </form>
+        </FormModal>
 
         {/* ── Modal: Confirmar exclusão ───────────────────────── */}
-        <AnimatePresence>
-          {showConfirm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}>
-              <motion.div
-                initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.92, opacity: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full max-w-sm rounded-2xl p-6"
-                style={{ background: T.bgDeep, border: `1px solid rgba(248,113,113,0.22)`, boxShadow: '0 0 0 1px rgba(248,113,113,0.06), 0 24px 64px rgba(0,0,0,0.8)' }}>
-
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                  style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)' }}>
-                  <Trash2 size={20} style={{ color: T.red }} />
-                </div>
-
-                <h2 className="font-bold text-lg text-center mb-2" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>
-                  Excluir cliente?
-                </h2>
-                <p className="text-sm text-center mb-6" style={{ color: T.muted }}>
-                  Esta ação não pode ser desfeita.
-                </p>
-
-                <div className="flex gap-3">
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                    onClick={() => setShowConfirm(null)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer' }}>
-                    Cancelar
-                  </motion.button>
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                    onClick={() => handleDelete(showConfirm!)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'rgba(248,113,113,0.12)', color: T.red, border: '1px solid rgba(248,113,113,0.28)', cursor: 'pointer' }}>
-                    Excluir
-                  </motion.button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                {/* ── Modal: Confirmar exclusão ─────────────────────── */}
+        <FormModal
+          open={!!showConfirm}
+          onClose={() => setShowConfirm(null)}
+          title="Excluir cliente?"
+          size="sm"
+        >
+          <p className="text-sm text-center mb-5" style={{ color: T.muted }}>
+            Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex gap-3">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={() => setShowConfirm(null)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer' }}>
+              Cancelar
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={() => handleDelete(showConfirm!)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: 'rgba(248,113,113,0.12)', color: T.red, border: '1px solid rgba(248,113,113,0.28)', cursor: 'pointer' }}>
+              Excluir
+            </motion.button>
+          </div>
+        </FormModal>
 
       </div>
-    </BackgroundGrid>
+    </PageBackground>
   )
 }

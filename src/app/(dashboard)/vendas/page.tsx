@@ -12,55 +12,13 @@ import {
   Search, AlertTriangle, TrendingUp, DollarSign, Clock,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  SpotlightCard, ShimmerButton, GlowCorner,
-  BackgroundGrid, FloatingOrbs, Skeleton,
-} from '@/components/ui/bossflow-ui'
+import { SpotlightCard, ShimmerButton, Skeleton } from '@/components/ui/bossflow-ui'
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
-const T = {
-  bg:      'rgba(8,8,14,0.92)',
-  bgDeep:  'rgba(6,6,10,0.97)',
-  surface: 'rgba(255,255,255,0.025)',
-  border:  'rgba(255,255,255,0.055)',
-  borderP: 'rgba(124,110,247,0.28)',
-  text:    '#dcdcf0',
-  sub:     '#8a8aaa',
-  muted:   '#4a4a6a',
-  green:   '#34d399',
-  red:     '#f87171',
-  amber:   '#fbbf24',
-  purple:  '#7c6ef7',
-  violet:  '#a78bfa',
-  cyan:    '#22d3ee',
-  blur:    'blur(20px)',
-}
-const SYNE = 'Syne, sans-serif'
-const card = {
-  background:     T.bg,
-  border:         `1px solid ${T.border}`,
-  backdropFilter: T.blur,
-  boxShadow:      '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
-}
-const inp: React.CSSProperties = {
-  background:   'rgba(255,255,255,0.03)',
-  border:       `1px solid ${T.border}`,
-  color:        T.text,
-  borderRadius: 12,
-  padding:      '13px 16px',
-  fontSize:     13,
-  outline:      'none',
-  width:        '100%',
-  fontFamily:   SYNE,
-}
-const inpSm: React.CSSProperties = { ...inp, padding: '11px 14px', fontSize: 13 }
+// ── Design System ──────────────────────────────────────────────────────────
+import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
 
-const fadeUp = (delay = 0) => ({
-  initial:    { opacity: 0, y: 20, filter: 'blur(4px)' },
-  animate:    { opacity: 1, y: 0,  filter: 'blur(0px)' },
-  transition: { duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
-
+import { PageBackground, SectionHeader, KPICard, FilterBar, FormModal, ModalSubmitButton } from '@/components/core'
 const STATUS: Record<string, { label: string; color: string }> = {
   pending:   { label: 'Pendente',   color: T.amber  },
   paid:      { label: 'Pago',       color: T.green  },
@@ -197,8 +155,7 @@ export default function VendasPage() {
   })
 
   if (loading || bizLoading) return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+    <PageBackground>
       <div className="flex flex-col gap-5">
         <div className="flex justify-between items-center">
           <Skeleton className="h-8 w-32 rounded-xl" />
@@ -208,94 +165,51 @@ export default function VendasPage() {
         <Skeleton className="h-12 rounded-xl" />
         <Skeleton className="h-64 rounded-2xl" />
       </div>
-    </BackgroundGrid>
+    </PageBackground>
   )
 
   return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+    <PageBackground>
       <div className="flex flex-col gap-5">
         <TourTooltip active={tour.active} step={tour.step} current={tour.current}
           total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
         {/* ── Header ── */}
-        <motion.div {...fadeUp(0)} className="flex items-start justify-between gap-4" data-tour="vendas-header">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: SYNE, color: T.text }}>Vendas</h1>
-            <p className="text-sm mt-1" style={{ color: T.muted, fontFamily: SYNE }}>
-              {sales.length} {sales.length === 1 ? 'venda registrada' : 'vendas registradas'}
-            </p>
-          </div>
-          <ShimmerButton onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shrink-0"
-            style={{ background: 'linear-gradient(135deg,#7c6ef7,#a06ef7)', color: 'white', boxShadow: '0 0 28px rgba(124,110,247,0.45),inset 0 1px 0 rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontFamily: SYNE }}>
-            <Plus size={15} />
-            <span className="hidden sm:inline">Nova venda</span>
-            <span className="sm:hidden">Novo</span>
-          </ShimmerButton>
-        </motion.div>
+        <SectionHeader
+          title="Vendas"
+          subtitle={`${sales.length} ${sales.length === 1 ? 'venda registrada' : 'vendas registradas'}`}
+          cta={{ label: 'Nova venda', labelMobile: 'Novo', icon: Plus, onClick: openCreate }}
+          tourId="vendas-header"
+        />
 
         {/* ── KPIs ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-tour="vendas-kpis">
-          {[
-            { label: 'Recebido',  value: fmtShort(totalPaid), color: T.green, icon: DollarSign,   sub: 'Vendas pagas'                         },
-            { label: 'Pagas',     value: String(countPaid),   color: T.green, icon: TrendingUp,   sub: `de ${sales.length} total`              },
-            { label: 'Pendentes', value: String(countPending),color: T.amber, icon: Clock,        sub: `${countPending > 0 ? 'a receber' : 'tudo em dia'}` },
-          ].map(({ label, value, color, icon: Icon, sub }, i) => (
-            <motion.div key={label} {...fadeUp(0.08 + i * 0.07)}>
-              <SpotlightCard className="rounded-2xl h-full" spotlightColor={`${color}16`} style={card}>
-                <div className="p-5 relative overflow-hidden">
-                  <GlowCorner color={`${color}22`} position="bottom-right" />
-                  <div className="flex items-center justify-between mb-4" style={{ position: 'relative', zIndex: 1 }}>
-                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>{label}</span>
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}14`, border: `1px solid ${color}25`, boxShadow: `0 0 14px ${color}20` }}>
-                      <Icon size={14} style={{ color }} strokeWidth={2} />
-                    </div>
-                  </div>
-                  <p className="text-2xl font-bold tabular-nums" style={{ fontFamily: SYNE, color, textShadow: `0 0 28px ${color}55`, letterSpacing: '-0.01em', position: 'relative', zIndex: 1 }}>{value}</p>
-                  <p className="text-xs mt-1.5" style={{ color: T.muted, fontFamily: SYNE, position: 'relative', zIndex: 1 }}>{sub}</p>
-                </div>
-              </SpotlightCard>
-            </motion.div>
-          ))}
+          <motion.div {...fadeUp(0.08)}>
+            <KPICard label="Recebido"  valueString={fmtShort(totalPaid)} color={T.green} icon={DollarSign} sub="Vendas pagas" />
+          </motion.div>
+          <motion.div {...fadeUp(0.15)}>
+            <KPICard label="Pagas"     valueString={String(countPaid)}   color={T.green} icon={TrendingUp} sub={`de ${sales.length} total`} />
+          </motion.div>
+          <motion.div {...fadeUp(0.22)}>
+            <KPICard label="Pendentes" valueString={String(countPending)} color={T.amber} icon={Clock} sub={countPending > 0 ? 'a receber' : 'tudo em dia'} />
+          </motion.div>
         </div>
 
         {/* ── Filtros ── */}
-        <motion.div {...fadeUp(0.22)} className="flex flex-col sm:flex-row gap-3" data-tour="vendas-busca">
-          <div className="flex items-center gap-2.5 flex-1 px-4 py-2.5 rounded-xl"
-            style={{ background: T.bg, border: `1px solid ${T.border}`, backdropFilter: T.blur }}>
-            <Search size={14} style={{ color: T.muted, flexShrink: 0 }} />
-            <input type="text" placeholder="Buscar por cliente ou status..." value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ background: 'transparent', border: 'none', outline: 'none', flex: 1, color: T.text, fontSize: 13, fontFamily: SYNE }} />
-            <AnimatePresence>
-              {search && (
-                <motion.button initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-                  onClick={() => setSearch('')} style={{ color: T.muted, cursor: 'pointer' }}>
-                  <X size={12} />
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div className="flex gap-1.5 p-1 rounded-xl" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
-            {([['all','Todos'],['paid','Pagas'],['pending','Pendentes'],['cancelled','Canceladas']] as const).map(([v,l]) => (
-              <motion.button key={v} whileTap={{ scale: 0.95 }} onClick={() => setStatusFilter(v)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={{
-                  background: statusFilter === v
-                    ? v === 'paid' ? `${T.green}12` : v === 'pending' ? `${T.amber}12` : v === 'cancelled' ? `${T.red}12` : `${T.purple}12`
-                    : 'transparent',
-                  color: statusFilter === v
-                    ? v === 'paid' ? T.green : v === 'pending' ? T.amber : v === 'cancelled' ? T.red : T.violet
-                    : T.muted,
-                  border: statusFilter === v
-                    ? `1px solid ${v === 'paid' ? `${T.green}30` : v === 'pending' ? `${T.amber}30` : v === 'cancelled' ? `${T.red}30` : `${T.purple}30`}`
-                    : '1px solid transparent',
-                  cursor: 'pointer', fontFamily: SYNE, whiteSpace: 'nowrap',
-                }}>{l}</motion.button>
-            ))}
-          </div>
+        <motion.div {...fadeUp(0.22)} data-tour="vendas-busca">
+          <FilterBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar por cliente ou status..."
+            tabs={[
+              { value: 'all',       label: 'Todos'      },
+              { value: 'paid',      label: 'Pagas',      color: T.green },
+              { value: 'pending',   label: 'Pendentes',  color: T.amber },
+              { value: 'cancelled', label: 'Canceladas', color: T.red   },
+            ]}
+            activeTab={statusFilter}
+            onTabChange={v => setStatusFilter(v as typeof statusFilter)}
+          />
         </motion.div>
 
         {/* ── Lista ── */}
@@ -406,177 +320,146 @@ export default function VendasPage() {
         )}
 
         {/* ── Modal venda ── */}
-        <AnimatePresence>
-          {showForm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-              onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditSale(null) } }}>
-              <motion.div
-                initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
-                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl px-5 pt-5 pb-8 sm:p-7 max-h-[92dvh] overflow-y-auto"
-                style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08),0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
-                <div className="w-12 h-1 rounded-full mx-auto mb-6 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-bold text-lg" style={{ fontFamily: SYNE, color: T.text }}>
-                    {editSale ? 'Editar venda' : 'Nova venda'}
-                  </h2>
-                  <motion.button whileTap={{ scale: 0.9 }}
-                    onClick={() => { setShowForm(false); setEditSale(null) }}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>
-                    <X size={14} />
-                  </motion.button>
-                </div>
+        <FormModal
+          open={showForm}
+          onClose={() => { setShowForm(false); setEditSale(null) }}
+          title={editSale ? 'Editar venda' : 'Nova venda'}
+          size="md"
+        >
+          <form onSubmit={handleSave} className="flex flex-col gap-4">
+            {/* Cliente + Data */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Cliente</label>
+                <select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })}
+                  style={{ ...inp, cursor: 'pointer' }}>
+                  <option value="">Sem cliente</option>
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Data</label>
+                <input type="date" value={form.date} required
+                  onChange={e => setForm({ ...form, date: e.target.value })} style={inp}
+                  onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+                  onBlur={e => e.currentTarget.style.borderColor = T.border} />
+              </div>
+            </div>
 
-                <form onSubmit={handleSave} className="flex flex-col gap-4">
-                  {/* Cliente + Data */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Cliente</label>
-                      <select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })}
-                        style={{ ...inp, cursor: 'pointer' }}>
-                        <option value="">Sem cliente</option>
-                        {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Data</label>
-                      <input type="date" value={form.date} required
-                        onChange={e => setForm({ ...form, date: e.target.value })} style={inp}
-                        onFocus={e => e.currentTarget.style.borderColor = T.borderP}
-                        onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                    </div>
-                  </div>
+            {/* Status */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Status</label>
+              <div className="flex gap-2">
+                {Object.entries(STATUS).map(([key, { label, color }]) => (
+                  <button key={key} type="button" onClick={() => setForm({ ...form, status: key })}
+                    className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
+                    style={{
+                      background: form.status === key ? `${color}14` : 'rgba(255,255,255,0.02)',
+                      color:      form.status === key ? color : T.muted,
+                      border:     `1px solid ${form.status === key ? `${color}35` : T.border}`,
+                      cursor: 'pointer', fontFamily: SYNE,
+                    }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                  {/* Status */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Status</label>
-                    <div className="flex gap-2">
-                      {Object.entries(STATUS).map(([key, { label, color }]) => (
-                        <button key={key} type="button" onClick={() => setForm({ ...form, status: key })}
-                          className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
-                          style={{
-                            background: form.status === key ? `${color}14` : 'rgba(255,255,255,0.02)',
-                            color:      form.status === key ? color : T.muted,
-                            border:     `1px solid ${form.status === key ? `${color}35` : T.border}`,
-                            cursor: 'pointer', fontFamily: SYNE,
-                          }}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+            {/* Itens */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Itens da venda</label>
+              <AnimatePresence initial={false}>
+                {items.map((item, i) => (
+                  <motion.div key={i} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
+                    className="flex gap-2 items-center">
+                    <select value={item.product_id} onChange={e => updateItem(i, 'product_id', e.target.value)}
+                      style={{ ...inpSm, flex: '1 1 0', cursor: 'pointer', minWidth: 0 }}>
+                      <option value="">Produto</option>
+                      {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    {!item.product_id && (
+                      <input type="text" placeholder="Nome" value={item.name}
+                        onChange={e => updateItem(i, 'name', e.target.value)}
+                        style={{ ...inpSm, flex: '1 1 0', minWidth: 0 }} />
+                    )}
+                    <input type="number" step="0.01" placeholder="R$" value={item.unit_price}
+                      onChange={e => updateItem(i, 'unit_price', e.target.value)}
+                      style={{ ...inpSm, width: 72, flexShrink: 0 }} />
+                    <input type="number" min="1" placeholder="Qtd" value={item.quantity}
+                      onChange={e => updateItem(i, 'quantity', e.target.value)}
+                      style={{ ...inpSm, width: 56, flexShrink: 0 }} />
+                    {items.length > 1 && (
+                      <motion.button whileTap={{ scale: 0.9 }} type="button" onClick={() => removeItem(i)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: `${T.red}10`, color: T.red, border: `1px solid ${T.red}22`, cursor: 'pointer' }}>
+                        <X size={11} />
+                      </motion.button>
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              <motion.button type="button" onClick={addItem} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                className="flex items-center gap-1.5 text-xs font-semibold py-2 px-3 rounded-lg w-fit"
+                style={{ background: `${T.purple}10`, color: T.violet, border: `1px solid ${T.purple}22`, cursor: 'pointer', fontFamily: SYNE }}>
+                <Plus size={11} /> Adicionar item
+              </motion.button>
+            </div>
 
-                  {/* Itens */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Itens da venda</label>
-                    <AnimatePresence initial={false}>
-                      {items.map((item, i) => (
-                        <motion.div key={i} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
-                          className="flex gap-2 items-center">
-                          <select value={item.product_id} onChange={e => updateItem(i, 'product_id', e.target.value)}
-                            style={{ ...inpSm, flex: '1 1 0', cursor: 'pointer', minWidth: 0 }}>
-                            <option value="">Produto</option>
-                            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
-                          {!item.product_id && (
-                            <input type="text" placeholder="Nome" value={item.name}
-                              onChange={e => updateItem(i, 'name', e.target.value)}
-                              style={{ ...inpSm, flex: '1 1 0', minWidth: 0 }} />
-                          )}
-                          <input type="number" step="0.01" placeholder="R$" value={item.unit_price}
-                            onChange={e => updateItem(i, 'unit_price', e.target.value)}
-                            style={{ ...inpSm, width: 72, flexShrink: 0 }} />
-                          <input type="number" min="1" placeholder="Qtd" value={item.quantity}
-                            onChange={e => updateItem(i, 'quantity', e.target.value)}
-                            style={{ ...inpSm, width: 56, flexShrink: 0 }} />
-                          {items.length > 1 && (
-                            <motion.button whileTap={{ scale: 0.9 }} type="button" onClick={() => removeItem(i)}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                              style={{ background: `${T.red}10`, color: T.red, border: `1px solid ${T.red}22`, cursor: 'pointer' }}>
-                              <X size={11} />
-                            </motion.button>
-                          )}
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                    <motion.button type="button" onClick={addItem} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      className="flex items-center gap-1.5 text-xs font-semibold py-2 px-3 rounded-lg w-fit"
-                      style={{ background: `${T.purple}10`, color: T.violet, border: `1px solid ${T.purple}22`, cursor: 'pointer', fontFamily: SYNE }}>
-                      <Plus size={11} /> Adicionar item
-                    </motion.button>
-                  </div>
+            {/* Observações */}
+            <textarea placeholder="Observações (opcional)" value={form.notes}
+              onChange={e => setForm({ ...form, notes: e.target.value })} rows={2}
+              style={{ ...inp, resize: 'none' }}
+              onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+              onBlur={e => e.currentTarget.style.borderColor = T.border} />
 
-                  {/* Observações */}
-                  <textarea placeholder="Observações (opcional)" value={form.notes}
-                    onChange={e => setForm({ ...form, notes: e.target.value })} rows={2}
-                    style={{ ...inp, resize: 'none' }}
-                    onFocus={e => e.currentTarget.style.borderColor = T.borderP}
-                    onBlur={e => e.currentTarget.style.borderColor = T.border} />
+            {/* Total */}
+            <div className="flex items-center justify-between py-3 border-t" style={{ borderColor: T.border }}>
+              <span className="text-sm font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Total</span>
+              <motion.span key={total}
+                initial={{ scale: 1.08 }} animate={{ scale: 1 }}
+                className="text-2xl font-bold tabular-nums"
+                style={{ fontFamily: SYNE, color: T.green, textShadow: `0 0 20px ${T.green}50` }}>
+                {fmt(total)}
+              </motion.span>
+            </div>
 
-                  {/* Total */}
-                  <div className="flex items-center justify-between py-3 border-t" style={{ borderColor: T.border }}>
-                    <span className="text-sm font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE }}>Total</span>
-                    <motion.span key={total}
-                      initial={{ scale: 1.08 }} animate={{ scale: 1 }}
-                      className="text-2xl font-bold tabular-nums"
-                      style={{ fontFamily: SYNE, color: T.green, textShadow: `0 0 20px ${T.green}50` }}>
-                      {fmt(total)}
-                    </motion.span>
-                  </div>
-
-                  <ShimmerButton type="submit" disabled={saving}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full"
-                    style={{ background: 'linear-gradient(135deg,#7c6ef7,#a06ef7)', color: 'white', boxShadow: saving ? 'none' : '0 0 28px rgba(124,110,247,0.4)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: SYNE }}>
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : editSale ? 'Salvar alterações' : 'Registrar venda'}
-                  </ShimmerButton>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            <ModalSubmitButton loading={saving}>
+              {editSale ? 'Salvar alterações' : 'Registrar venda'}
+            </ModalSubmitButton>
+          </form>
+        </FormModal>
 
         {/* ── Modal confirmar exclusão ── */}
-        <AnimatePresence>
-          {showConfirm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}>
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full max-w-sm rounded-2xl p-6"
-                style={{ background: T.bgDeep, border: `1px solid rgba(248,113,113,0.25)`, boxShadow: '0 0 0 1px rgba(248,113,113,0.08),0 8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: `${T.red}12`, border: `1px solid ${T.red}25` }}>
-                    <AlertTriangle size={18} style={{ color: T.red }} />
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-base" style={{ fontFamily: SYNE, color: T.text }}>Excluir venda?</h2>
-                    <p className="text-xs mt-0.5" style={{ color: T.muted, fontFamily: SYNE }}>Esta ação não pode ser desfeita.</p>
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-6">
-                  <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowConfirm(null)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: T.surface, border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer', fontFamily: SYNE }}>
-                    Cancelar
-                  </motion.button>
-                  <ShimmerButton onClick={() => handleDelete(showConfirm!)} disabled={deleting}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: `${T.red}15`, color: T.red, border: `1px solid ${T.red}30`, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: SYNE }}>
-                    {deleting ? <Loader2 size={14} className="animate-spin" /> : 'Excluir'}
-                  </ShimmerButton>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <FormModal
+          open={!!showConfirm}
+          onClose={() => setShowConfirm(null)}
+          title="Excluir venda?"
+          size="sm"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `${T.red}12`, border: `1px solid ${T.red}25` }}>
+              <AlertTriangle size={18} style={{ color: T.red }} />
+            </div>
+            <div>
+              <p className="font-semibold text-sm" style={{ color: T.text }}>Esta ação não pode ser desfeita.</p>
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowConfirm(null)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: T.surface, border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer', fontFamily: SYNE }}>
+              Cancelar
+            </motion.button>
+            <ShimmerButton onClick={() => handleDelete(showConfirm!)} disabled={deleting}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: `${T.red}15`, color: T.red, border: `1px solid ${T.red}30`, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: SYNE }}>
+              {deleting ? <Loader2 size={14} className="animate-spin" /> : 'Excluir'}
+            </ShimmerButton>
+          </div>
+        </FormModal>
 
       </div>
-    </BackgroundGrid>
+    </PageBackground>
   )
 }

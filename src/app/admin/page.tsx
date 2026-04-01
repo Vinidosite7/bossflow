@@ -9,18 +9,9 @@ import {
 } from 'lucide-react'
 import { SpotlightCard, ShimmerButton, Skeleton } from '@/components/ui/bossflow-ui'
 
-// ─── Design tokens (standalone — sem BackgroundGrid pra não conflitar) ──
-const T = {
-  bg: '#0a0a12', card: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
-  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
-  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
-  green: '#34d399', red: '#f87171', amber: '#fbbf24',
-  purple: '#7c6ef7', violet: '#a78bfa', cyan: '#22d3ee',
-  blur: 'blur(20px)',
-}
-const cardStyle = { background: T.card, border: `1px solid ${T.border}`, backdropFilter: T.blur, boxShadow: '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)' }
-const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '10px 14px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s' }
-
+// ── Design System ──────────────────────────────────────────────────────────
+import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
 // ─── Types ────────────────────────────────────────────────────
 type AdminUser = {
   id: string; email: string; created_at: string; last_sign_in_at: string | null
@@ -52,7 +43,7 @@ function KPI({ icon: Icon, label, value, color, sub }: any) {
               <Icon size={13} style={{ color }} />
             </div>
           </div>
-          <div className="text-2xl font-extrabold" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>{value}</div>
+          <div className="text-2xl font-extrabold" style={{ fontFamily: SYNE, color: T.text }}>{value}</div>
           {sub && <p className="text-xs" style={{ color: T.muted }}>{sub}</p>}
         </div>
       </SpotlightCard>
@@ -130,7 +121,7 @@ export default function AdminPage() {
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
         className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight" style={{ fontFamily: 'Syne, sans-serif' }}>
+          <h1 className="text-2xl font-extrabold tracking-tight" style={{ fontFamily: SYNE }}>
             Admin <span style={{ color: T.violet, textShadow: `0 0 24px ${T.purple}60` }}>BossFlow</span>
           </h1>
           <div className="flex items-center gap-2 mt-1">
@@ -158,7 +149,7 @@ export default function AdminPage() {
       {/* ── Distribuição ── */}
       <SpotlightCard className="rounded-2xl" spotlightColor={`${T.purple}08`} style={{ ...cardStyle, padding: 0 }}>
         <div className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: T.muted, fontFamily: 'Syne, sans-serif', letterSpacing: '0.1em' }}>Distribuição por plano</p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: T.muted, fontFamily: SYNE, letterSpacing: '0.1em' }}>Distribuição por plano</p>
           <div className="flex gap-2.5 flex-wrap">
             {PLANS.map(plan => {
               const count = users.filter(u => u.plan === plan).length
@@ -170,7 +161,7 @@ export default function AdminPage() {
                   style={{ background: `${color}08`, border: `1px solid ${color}18` }}>
                   <Icon size={12} style={{ color }} />
                   <span className="text-xs font-semibold" style={{ color }}>{PLAN_LABELS[plan]}</span>
-                  <span className="text-sm font-extrabold" style={{ color: T.text, fontFamily: 'Syne, sans-serif' }}>{count}</span>
+                  <span className="text-sm font-extrabold" style={{ color: T.text, fontFamily: SYNE }}>{count}</span>
                   <span className="text-xs" style={{ color: T.muted }}>{pct}%</span>
                 </div>
               )
@@ -218,7 +209,7 @@ export default function AdminPage() {
               <thead>
                 <tr style={{ borderBottom: `1px solid ${T.border}` }}>
                   {['Usuário', 'Plano', 'Ativado em', 'Expira em', 'Último acesso', 'Ações'].map(h => (
-                    <th key={h} className="py-3 px-4 text-left text-xs font-semibold" style={{ color: T.muted, fontFamily: 'Syne, sans-serif', letterSpacing: '0.05em' }}>{h}</th>
+                    <th key={h} className="py-3 px-4 text-left text-xs font-semibold" style={{ color: T.muted, fontFamily: SYNE, letterSpacing: '0.05em' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -236,7 +227,7 @@ export default function AdminPage() {
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                            style={{ background: `${color}14`, color, fontFamily: 'Syne, sans-serif' }}>
+                            style={{ background: `${color}14`, color, fontFamily: SYNE }}>
                             {u.email[0].toUpperCase()}
                           </div>
                           <div>
@@ -297,95 +288,73 @@ export default function AdminPage() {
       </SpotlightCard>
 
       {/* ── Modal Setar Plano ── */}
-      <AnimatePresence>
-        {setPlanModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-            onClick={e => { if (e.target === e.currentTarget) setSetPlanModal(null) }}>
-            <motion.div initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.93, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] as const }}
-              className="w-full max-w-sm rounded-2xl p-6 flex flex-col gap-5"
-              style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 24px 64px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
+              <FormModal
+          open={setPlanModal}
+          onClose={() => {setPlanModal && setSetPlanModal(false)}}
+          title={Setar plano}
+          size="sm"
+        >
+<div className="px-3 py-2.5 rounded-xl text-xs font-mono" style={{ background: 'rgba(255,255,255,0.03)', color: T.sub, border: `1px solid ${T.border}` }}>
+        {setPlanModal.email}
+        </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${T.purple}14`, border: `1px solid ${T.purple}28` }}>
-                    <Crown size={14} style={{ color: T.violet }} />
-                  </div>
-                  <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Setar plano</h2>
-                </div>
-                <motion.button whileTap={{ scale: 0.9 }} onClick={() => setSetPlanModal(null)}
-                  className="w-7 h-7 rounded-xl flex items-center justify-center"
-                  style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>
-                  <X size={13} />
-                </motion.button>
-              </div>
+        {/* Plano */}
+        <div className="flex flex-col gap-2">
+        <label style={{ fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: SYNE, textTransform: 'uppercase' }}>Plano</label>
+        <div className="grid grid-cols-2 gap-2">
+          {PLANS.map(p => {
+            const Icon  = PLAN_ICONS[p]
+            const color = PLAN_COLORS[p]
+            const sel   = newPlan === p
+            return (
+              <motion.button key={p} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                onClick={() => setNewPlan(p)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                style={{ background: sel ? `${color}14` : 'rgba(255,255,255,0.03)', color: sel ? color : T.muted, border: `1px solid ${sel ? `${color}35` : T.border}`, cursor: 'pointer' }}>
+                <Icon size={12} /> {PLAN_LABELS[p]}
+                {sel && <Check size={10} className="ml-auto" />}
+              </motion.button>
+            )
+          })}
+        </div>
+        </div>
 
-              <div className="px-3 py-2.5 rounded-xl text-xs font-mono" style={{ background: 'rgba(255,255,255,0.03)', color: T.sub, border: `1px solid ${T.border}` }}>
-                {setPlanModal.email}
-              </div>
+        {/* Dias */}
+        <div className="flex flex-col gap-2">
+        <label style={{ fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: SYNE, textTransform: 'uppercase' }}>
+          Duração <span style={{ color: T.muted, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(vazio = sem expiração)</span>
+        </label>
+        <div className="flex gap-1.5 flex-wrap items-center">
+          {QUICK_DAYS.map(d => (
+            <motion.button key={d} whileTap={{ scale: 0.95 }} onClick={() => setDays(d)}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: days === d ? `${T.purple}14` : 'rgba(255,255,255,0.03)', color: days === d ? T.violet : T.muted, border: `1px solid ${days === d ? `${T.purple}30` : T.border}`, cursor: 'pointer' }}>
+              {d}d
+            </motion.button>
+          ))}
+          <input type="number" placeholder="Outro" value={days} onChange={e => setDays(e.target.value ? Number(e.target.value) : '')}
+            className="w-16 px-2 py-1.5 rounded-lg text-xs outline-none"
+            style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text }}
+            onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+            onBlur={e => e.currentTarget.style.borderColor = T.border} />
+        </div>
+        </div>
 
-              {/* Plano */}
-              <div className="flex flex-col gap-2">
-                <label style={{ fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Plano</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {PLANS.map(p => {
-                    const Icon  = PLAN_ICONS[p]
-                    const color = PLAN_COLORS[p]
-                    const sel   = newPlan === p
-                    return (
-                      <motion.button key={p} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                        onClick={() => setNewPlan(p)}
-                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
-                        style={{ background: sel ? `${color}14` : 'rgba(255,255,255,0.03)', color: sel ? color : T.muted, border: `1px solid ${sel ? `${color}35` : T.border}`, cursor: 'pointer' }}>
-                        <Icon size={12} /> {PLAN_LABELS[p]}
-                        {sel && <Check size={10} className="ml-auto" />}
-                      </motion.button>
-                    )
-                  })}
-                </div>
-              </div>
+        {/* Nota */}
+        <div className="flex flex-col gap-2">
+        <label style={{ fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: SYNE, textTransform: 'uppercase' }}>Observação</label>
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: teste grátis, parceria..."
+          style={inp}
+          onFocus={e => e.currentTarget.style.borderColor = T.borderP}
+          onBlur={e => e.currentTarget.style.borderColor = T.border} />
+        </div>
 
-              {/* Dias */}
-              <div className="flex flex-col gap-2">
-                <label style={{ fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
-                  Duração <span style={{ color: T.muted, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(vazio = sem expiração)</span>
-                </label>
-                <div className="flex gap-1.5 flex-wrap items-center">
-                  {QUICK_DAYS.map(d => (
-                    <motion.button key={d} whileTap={{ scale: 0.95 }} onClick={() => setDays(d)}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold"
-                      style={{ background: days === d ? `${T.purple}14` : 'rgba(255,255,255,0.03)', color: days === d ? T.violet : T.muted, border: `1px solid ${days === d ? `${T.purple}30` : T.border}`, cursor: 'pointer' }}>
-                      {d}d
-                    </motion.button>
-                  ))}
-                  <input type="number" placeholder="Outro" value={days} onChange={e => setDays(e.target.value ? Number(e.target.value) : '')}
-                    className="w-16 px-2 py-1.5 rounded-lg text-xs outline-none"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text }}
-                    onFocus={e => e.currentTarget.style.borderColor = T.borderP}
-                    onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                </div>
-              </div>
-
-              {/* Nota */}
-              <div className="flex flex-col gap-2">
-                <label style={{ fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Observação</label>
-                <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: teste grátis, parceria..."
-                  style={inp}
-                  onFocus={e => e.currentTarget.style.borderColor = T.borderP}
-                  onBlur={e => e.currentTarget.style.borderColor = T.border} />
-              </div>
-
-              <ShimmerButton onClick={handleSetPlan} disabled={saving}
-                className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold w-full"
-                style={{ background: saveOk ? `${T.green}18` : `linear-gradient(135deg, ${T.purple}, #a06ef7)`, color: saveOk ? T.green : 'white', boxShadow: saving || saveOk ? 'none' : `0 0 28px ${T.purple}40`, border: saveOk ? `1px solid ${T.green}30` : '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : saveOk ? <><Check size={15} /> Salvo!</> : 'Confirmar'}
-              </ShimmerButton>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <ShimmerButton onClick={handleSetPlan} disabled={saving}
+        className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold w-full"
+        style={{ background: saveOk ? `${T.green}18` : `linear-gradient(135deg, ${T.purple}, #a06ef7)`, color: saveOk ? T.green : 'white', boxShadow: saving || saveOk ? 'none' : `0 0 28px ${T.purple}40`, border: saveOk ? `1px solid ${T.green}30` : '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+        {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : saveOk ? <><Check size={15} /> Salvo!</> : 'Confirmar'}
+        </ShimmerButton>
+        </FormModal>
     </div>
   )
 }

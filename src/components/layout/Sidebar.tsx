@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, TrendingUp, CreditCard, ShoppingCart,
   Users, Package, CheckSquare, Calendar, Building2,
-  Settings, Target, ShieldCheck,
+  Settings, Target, ShieldCheck, Sparkles,
 } from 'lucide-react'
 import { useState, useEffect, createContext, useContext } from 'react'
 import Image from 'next/image'
@@ -23,6 +23,7 @@ const useSidebar = () => useContext(SidebarContext)
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
 const navMain = [
+  { label: 'Estagiário IA', href: '/estagiario', icon: Sparkles, color: '#c084fc' },
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, color: '#9d8fff' },
   { label: 'Financeiro', href: '/financeiro', icon: TrendingUp,     color: '#34d399' },
   { label: 'Despesas',   href: '/despesas',   icon: CreditCard,     color: '#f87171' },

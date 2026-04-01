@@ -7,27 +7,13 @@ import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { TourTooltip } from "@/components/TourTooltip"
 import { Building2, Plus, X, Pencil, Trash2, Upload, Check, Users, Crown, Shield, Eye, UserMinus, Lock, Copy, Link2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  SpotlightCard, ShimmerButton, Skeleton, BackgroundGrid, FloatingOrbs, GlowCorner,
-} from '@/components/ui/bossflow-ui'
+import { SpotlightCard, ShimmerButton, Skeleton, GlowCorner } from '@/components/ui/bossflow-ui'
 
-const T = {
-  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
-  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
-  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
-  green: '#34d399', red: '#f87171', amber: '#fbbf24',
-  purple: '#7c6ef7', violet: '#a78bfa', cyan: '#22d3ee',
-  blur: 'blur(20px)',
-}
-const card = { background: T.bg, border: `1px solid ${T.border}`, backdropFilter: T.blur, boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)' }
-const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '10px 14px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s' }
+// ── Design System ──────────────────────────────────────────────────────────
+import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 16, filter: 'blur(4px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-  transition: { duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
-
+import { PageBackground, SectionHeader, FormModal, ModalSubmitButton } from '@/components/core'
 const ROLE_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   owner:  { label: 'Dono',         color: T.amber,  icon: Crown  },
   admin:  { label: 'Admin',        color: T.purple, icon: Shield },
@@ -173,41 +159,21 @@ export default function EmpresasPage() {
   const planLimit  = limits.businesses
   const atLimit    = ownedCount >= planLimit
 
-  if (loading) return <BackgroundGrid><FloatingOrbs /><EmpresasSkeleton /></BackgroundGrid>
+  if (loading) return <PageBackground><EmpresasSkeleton /></PageBackground>
 
   return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+    <PageBackground>
       <div className="flex flex-col gap-5">
         <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
         {/* Header */}
-        <motion.div {...fadeUp(0)} className="flex items-start justify-between gap-4" data-tour="empresas-header">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Empresas</h1>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <div className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: T.purple, animationDuration: '1.4s' }} />
-                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: T.purple, boxShadow: `0 0 6px ${T.purple}` }} />
-              </div>
-              <p className="text-sm" style={{ color: T.muted }}>
-                {businesses.length} {businesses.length === 1 ? 'empresa cadastrada' : 'empresas cadastradas'}
-                {planLimit !== Infinity && <span style={{ color: T.muted }}> · máx {planLimit} no plano atual</span>}
-              </p>
-            </div>
-          </div>
-          {atLimit ? (
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shrink-0"
-              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.muted, cursor: 'not-allowed' }}>
-              <Lock size={13} /> Limite atingido
-            </div>
-          ) : (
-            <ShimmerButton onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shrink-0"
-              style={{ background: 'linear-gradient(135deg, #7c6ef7 0%, #a06ef7 100%)', color: 'white', boxShadow: '0 0 28px rgba(124,110,247,0.45), inset 0 1px 0 rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-              <Plus size={15} /><span className="hidden sm:inline">Nova empresa</span><span className="sm:hidden">Nova</span>
-            </ShimmerButton>
-          )}
-        </motion.div>
+        <SectionHeader
+          title="Empresas"
+          subtitle={`${businesses.length} ${businesses.length === 1 ? 'empresa cadastrada' : 'empresas cadastradas'}${planLimit !== Infinity ? ` · máx ${planLimit} no plano atual` : ''}`}
+          live liveColor={T.purple}
+          cta={atLimit ? undefined : { label: 'Nova empresa', labelMobile: 'Nova', icon: Plus, onClick: () => setShowModal(true) }}
+          tourId="empresas-header"
+        />
 
         {/* Alerta de limite */}
         {atLimit && (
@@ -233,7 +199,7 @@ export default function EmpresasPage() {
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: `${T.purple}08`, border: `1px solid ${T.purple}18`, boxShadow: `0 0 32px ${T.purple}10` }}>
               <Building2 size={28} style={{ color: T.purple }} />
             </div>
-            <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Nenhuma empresa ainda</h2>
+            <h2 className="text-xl font-bold" style={{ fontFamily: SYNE, color: T.text }}>Nenhuma empresa ainda</h2>
             <p className="text-sm" style={{ color: T.muted }}>Crie sua primeira empresa para começar</p>
             <ShimmerButton onClick={openCreate} className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm mt-2"
               style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: '0 0 24px rgba(124,110,247,0.4)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
@@ -267,7 +233,7 @@ export default function EmpresasPage() {
                           </motion.div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-semibold truncate" style={{ color: T.text, fontFamily: 'Syne, sans-serif' }}>{biz.name}</p>
+                              <p className="font-semibold truncate" style={{ color: T.text, fontFamily: SYNE }}>{biz.name}</p>
                               <AnimatePresence>
                                 {isActive && (
                                   <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
@@ -334,146 +300,53 @@ export default function EmpresasPage() {
         )}
 
         {/* Modal Form empresa */}
-        <AnimatePresence>
-          {showForm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-              onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditBiz(null) } }}>
-              <motion.div initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
-                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
-                style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
-                <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${T.purple}14`, border: `1px solid ${T.purple}28` }}>
-                      <Building2 size={14} style={{ color: T.purple }} />
-                    </div>
-                    <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>{editBiz ? 'Editar empresa' : 'Nova empresa'}</h2>
-                  </div>
-                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowForm(false); setEditBiz(null) }}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>
-                    <X size={14} />
-                  </motion.button>
-                </div>
-                <form onSubmit={handleSave} className="flex flex-col gap-5">
-                  <div className="flex flex-col items-center gap-3">
-                    <motion.div whileHover={{ scale: 1.04 }}
-                      className="w-24 h-24 rounded-2xl flex items-center justify-center overflow-hidden"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: `2px dashed ${T.border}` }}>
-                      {logoPreview ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" /> : <Building2 size={32} style={{ color: T.muted }} />}
-                    </motion.div>
-                    <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
-                      style={{ background: `${T.purple}10`, color: T.violet, border: `1px solid ${T.purple}22` }}>
-                      <Upload size={11} /> {logoPreview ? 'Trocar logo' : 'Enviar logo'}
-                      <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
-                    </label>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
-                      Nome da empresa
-                    </label>
-                    <input type="text" placeholder="Ex: Minha Loja" value={name} onChange={e => setName(e.target.value)} required
-                      style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                  </div>
-                  <ShimmerButton type="submit" disabled={saving}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full"
-                    style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: saving ? 'none' : '0 0 28px rgba(124,110,247,0.4)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                    {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : editBiz ? 'Salvar alterações' : 'Criar empresa'}
-                  </ShimmerButton>
-                </form>
+                <FormModal
+          open={showForm}
+          onClose={() => { setShowForm(false); setEditBiz(null) }}
+          title=editBiz ? 'Editar empresa' : 'Nova empresa'
+          size="sm"
+        >
+          <form onSubmit={handleSave} className="flex flex-col gap-5">
+            <div className="flex flex-col items-center gap-3">
+              <motion.div whileHover={{ scale: 1.04 }}
+                className="w-24 h-24 rounded-2xl flex items-center justify-center overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.03)', border: `2px dashed ${T.border}` }}>
+                {logoPreview ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" /> : <Building2 size={32} style={{ color: T.muted }} />}
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
+                style={{ background: `${T.purple}10`, color: T.violet, border: `1px solid ${T.purple}22` }}>
+                <Upload size={11} /> {logoPreview ? 'Trocar logo' : 'Enviar logo'}
+                <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+              </label>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: SYNE, textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
+                Nome da empresa
+              </label>
+              <input type="text" placeholder="Ex: Minha Loja" value={name} onChange={e => setName(e.target.value)} required
+                style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
+            </div>
+            <ModalSubmitButton loading={saving}>Salvar</ModalSubmitButton>
+          </form>
+        </FormModal>
 
         {/* Modal Membros */}
-        <AnimatePresence>
-          {membersModal && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-              onClick={e => { if (e.target === e.currentTarget) setMembersModal(null) }}>
-              <motion.div initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
-                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl flex flex-col"
-                style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)', maxHeight: '90vh' }}>
-
-                {/* Header */}
-                <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: T.border }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}` }}>
-                      {membersModal.logo_url ? <img src={membersModal.logo_url} alt="" className="w-full h-full object-cover" /> : <Building2 size={15} style={{ color: T.muted }} />}
-                    </div>
-                    <div>
-                      <h2 className="font-bold text-base leading-none" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>{membersModal.name}</h2>
-                      <p className="text-xs mt-0.5" style={{ color: T.muted }}>
-                        {members.filter(m => m.status === 'accepted' || m.status === 'active').length} membros ativos
-                      </p>
-                    </div>
-                  </div>
-                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => setMembersModal(null)}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>
-                    <X size={14} />
-                  </motion.button>
-                </div>
-
-                <div className="overflow-y-auto flex-1 p-5 flex flex-col gap-5">
-                  {/* Convidar */}
-                  <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }}>
-                    <h3 className="text-sm font-bold mb-3" style={{ color: T.text, fontFamily: 'Syne, sans-serif' }}>Convidar membro</h3>
-                    <div className="flex flex-col gap-3">
-                      <input type="email" placeholder="email@exemplo.com" value={inviteEmail}
-                        onChange={e => { setInviteEmail(e.target.value); setInviteSuccess(false); setInviteUrl('') }}
-                        style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                      <div className="flex gap-2 flex-wrap">
-                        <div className="flex gap-1.5 flex-1 flex-wrap">
-                          {(['admin', 'member', 'viewer'] as const).map(r => {
-                            const cfg  = ROLE_CONFIG[r]
-                            const Icon = cfg.icon
-                            return (
-                              <button key={r} type="button" onClick={() => setInviteRole(r)}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                                style={{ background: inviteRole === r ? `${cfg.color}14` : 'transparent', color: inviteRole === r ? cfg.color : T.muted, border: `1px solid ${inviteRole === r ? `${cfg.color}35` : T.border}`, cursor: 'pointer' }}>
-                                <Icon size={10} /> {cfg.label}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} type="button" onClick={handleInvite} disabled={sendingInvite || !inviteEmail}
-                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold shrink-0"
-                          style={{ background: T.purple, color: 'white', opacity: !inviteEmail ? 0.5 : 1, cursor: !inviteEmail ? 'not-allowed' : 'pointer' }}>
-                          {sendingInvite ? <div className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <><Link2 size={11} /> Gerar link</>}
-                        </motion.button>
-                      </div>
-
-                      <AnimatePresence>
-                        {inviteSuccess && inviteUrl && (
-                          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                            className="flex flex-col gap-2 p-3 rounded-xl"
-                            style={{ background: `${T.green}06`, border: `1px solid ${T.green}20` }}>
-                            <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.green }}>
-                              <Check size={11} /> Link gerado! Válido por 48h
-                            </p>
-                            <p className="text-xs font-mono break-all" style={{ color: T.violet }}>{inviteUrl}</p>
-                            <motion.button whileHover={{ scale: 1.02 }} type="button" onClick={handleCopy}
-                              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg w-fit"
-                              style={{ background: copied ? `${T.green}15` : `${T.purple}15`, color: copied ? T.green : T.violet, cursor: 'pointer' }}>
-                              {copied ? <><Check size={10} /> Copiado!</> : <><Copy size={10} /> Copiar link</>}
-                            </motion.button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                <FormModal
+          open={!!membersModal}
+          onClose={() => setMembersModal(null)}
+          title="Membros da empresa"
+          size="md"
+        >
+</motion.div>
+                  )}
+                </AnimatePresence
+        </FormModal>
                     </div>
                   </div>
 
                   {/* Lista membros */}
                   <div className="flex flex-col gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: 'Syne, sans-serif', letterSpacing: '0.1em' }}>Membros</h3>
+                    <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE, letterSpacing: '0.1em' }}>Membros</h3>
                     {loadingMembers ? (
                       <div className="flex justify-center py-8"><div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: T.purple, borderTopColor: 'transparent' }} /></div>
                     ) : members.length === 0 ? (
@@ -488,7 +361,7 @@ export default function EmpresasPage() {
                           className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
                           style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }}>
                           <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
-                            style={{ background: `${cfg.color}14`, color: cfg.color, fontFamily: 'Syne, sans-serif' }}>
+                            style={{ background: `${cfg.color}14`, color: cfg.color, fontFamily: SYNE }}>
                             {(m.email?.[0] ?? '?').toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -533,33 +406,31 @@ export default function EmpresasPage() {
         </AnimatePresence>
 
         {/* Modal Confirm */}
-        <AnimatePresence>
-          {showConfirm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}>
-              <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.92, opacity: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full max-w-sm rounded-2xl p-6"
-                style={{ background: T.bgDeep, border: 'rgba(248,113,113,0.22)', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)' }}>
-                  <Trash2 size={20} style={{ color: T.red }} />
-                </div>
-                <h2 className="font-bold text-lg text-center mb-2" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Excluir empresa?</h2>
-                <p className="text-sm text-center mb-6" style={{ color: T.muted }}>Todos os dados serão excluídos permanentemente.</p>
-                <div className="flex gap-3">
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={() => setShowConfirm(null)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer' }}>Cancelar</motion.button>
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={() => handleDelete(showConfirm!)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'rgba(248,113,113,0.12)', color: T.red, border: '1px solid rgba(248,113,113,0.28)', cursor: 'pointer' }}>Excluir</motion.button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <FormModal
+          open={!!showConfirm}
+          onClose={() => setShowConfirm(null)}
+          title="Excluir empresa?"
+          size="sm"
+        >
+          <p className="text-sm text-center mb-5" style={{ color: T.muted }}>
+            Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex gap-3">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={() => setShowConfirm(null)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer' }}>
+              Cancelar
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={() => handleDelete(showConfirm!)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: `${T.red}12`, color: T.red, border: `1px solid ${T.red}28`, cursor: 'pointer' }}>
+              Excluir
+            </motion.button>
+          </div>
+        </FormModal>
       </div>
-    </BackgroundGrid>
+    </PageBackground>
   )
 }

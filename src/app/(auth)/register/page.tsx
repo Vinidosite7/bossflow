@@ -218,11 +218,12 @@ fetch('/api/auth/welcome', {
 
           <p style={{ textAlign: 'center', fontSize: 12, color: '#2a2a3e', margin: 0 }}>
             Ao criar uma conta, você concorda com os{' '}
-            <Link href="/terms" style={{ color: '#4a4a6a', textDecoration: 'none' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#7c6ef7'}
-              onMouseLeave={e => e.currentTarget.style.color = '#4a4a6a'}>
-              Termos de Uso
-            </Link>
+            <a href="https://bossflow.pro/termos" target="_blank" rel="noopener noreferrer"
+  style={{ color: '#4a4a6a', textDecoration: 'none' }}
+  onMouseEnter={e => e.currentTarget.style.color = '#7c6ef7'}
+  onMouseLeave={e => e.currentTarget.style.color = '#4a4a6a'}>
+  Termos de Uso
+</a>
           </p>
         </form>
 

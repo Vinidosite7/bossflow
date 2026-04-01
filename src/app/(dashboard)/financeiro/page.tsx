@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useBusinessContext } from '@/lib/business-context'
 import { useTour } from '@/hooks/useTour'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { sendPush, fmt as fmtPush } from '@/lib/push'
@@ -13,59 +14,14 @@ import {
   Building2, Zap, ChevronRight,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  SpotlightCard, ShimmerButton, GlowCorner,
-  BackgroundGrid, FloatingOrbs, Skeleton,
-} from '@/components/ui/bossflow-ui'
+import { SpotlightCard, ShimmerButton, GlowCorner, Skeleton } from '@/components/ui/bossflow-ui'
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
-const T = {
-  bg:      'rgba(8,8,14,0.92)',
-  bgDeep:  'rgba(6,6,10,0.97)',
-  surface: 'rgba(255,255,255,0.025)',
-  border:  'rgba(255,255,255,0.055)',
-  borderP: 'rgba(124,110,247,0.28)',
-  text:    '#dcdcf0',
-  sub:     '#8a8aaa',
-  muted:   '#4a4a6a',
-  green:   '#34d399',
-  red:     '#f87171',
-  amber:   '#fbbf24',
-  purple:  '#7c6ef7',
-  violet:  '#a78bfa',
-  cyan:    '#22d3ee',
-  blur:    'blur(20px)',
-}
-const SYNE = 'Syne, sans-serif'
-const card = {
-  background:     T.bg,
-  border:         `1px solid ${T.border}`,
-  backdropFilter: T.blur,
-  boxShadow:      '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
-}
-const inp: React.CSSProperties = {
-  background:   'rgba(255,255,255,0.03)',
-  border:       `1px solid ${T.border}`,
-  color:        T.text,
-  borderRadius: 12,
-  padding:      '10px 14px',
-  fontSize:     13,
-  outline:      'none',
-  width:        '100%',
-  fontFamily:   SYNE,
-}
+// ── Design System ──────────────────────────────────────────────────────────
+import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
 
+import { PageBackground, FilterBar, FormModal, ModalSubmitButton } from '@/components/core'
 // ─── Animações ────────────────────────────────────────────────────────────────
-const fadeUp = (delay = 0) => ({
-  initial:    { opacity: 0, y: 20, filter: 'blur(4px)' },
-  animate:    { opacity: 1, y: 0,  filter: 'blur(0px)' },
-  transition: { duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
-const scaleIn = (delay = 0) => ({
-  initial:    { opacity: 0, scale: 0.96 },
-  animate:    { opacity: 1, scale: 1 },
-  transition: { duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
 
 const TOUR_STEPS = [
   { target: '[data-tour="fin-header"]',  title: 'Painel financeiro',  description: 'Registre entradas e saídas. Clique em "Novo lançamento" para começar.', position: 'bottom' as const },
@@ -92,7 +48,7 @@ export default function FinanceiroPage() {
 
   const [tab, setTab]               = useState<Tab>('visao')
   const [loading, setLoading]       = useState(true)
-  const [businessId, setBusinessId] = useState('')
+  const { businessId, loading: bizLoading } = useBusinessContext()
   const [transactions, setTransactions] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [period, setPeriod]         = useState('30')
@@ -117,30 +73,14 @@ export default function FinanceiroPage() {
 
   async function load() {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      const savedBizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') || '' : ''
-      const { data: owned } = await supabase.from('businesses').select('id').eq('owner_id', user.id)
-      const { data: memberships } = await supabase.from('business_members').select('business_id')
-        .eq('user_id', user.id).in('status', ['accepted', 'active'])
-      const memberBizIds = (memberships || []).map((m: any) => m.business_id)
-        .filter((id: string) => !(owned || []).find((o: any) => o.id === id))
-      let memberBizzes: any[] = []
-      if (memberBizIds.length > 0) {
-        const { data: bizData } = await supabase.from('businesses').select('id').in('id', memberBizIds)
-        memberBizzes = bizData || []
-      }
-      const bizList = [...(owned || []), ...memberBizzes]
-      if (!bizList.length) { setLoading(false); return }
-      const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
-      setBusinessId(biz.id)
+      if (!businessId) return
       const from = new Date()
       from.setDate(from.getDate() - parseInt(period))
       const fromStr = from.toISOString().split('T')[0]
       const [{ data: txs }, { data: cats }] = await Promise.all([
         supabase.from('transactions').select('*, categories(name, color)')
-          .eq('business_id', biz.id).gte('date', fromStr).order('date', { ascending: false }),
-        supabase.from('categories').select('*').eq('business_id', biz.id).order('name'),
+          .eq('business_id', businessId).gte('date', fromStr).order('date', { ascending: false }),
+        supabase.from('categories').select('*').eq('business_id', businessId).order('name'),
       ])
       setTransactions(txs || [])
       setCategories(cats || [])
@@ -148,7 +88,7 @@ export default function FinanceiroPage() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [period])
+  useEffect(() => { if (businessId) load() }, [businessId, period])
 
   const income  = transactions.filter(t => t.type === 'income').reduce((a, t) => a + Number(t.amount), 0)
   const expense = transactions.filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
@@ -313,9 +253,8 @@ export default function FinanceiroPage() {
     )
   }
 
-  if (loading) return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+  if (loading || bizLoading) return (
+    <PageBackground>
       <div className="flex flex-col gap-5">
         <div className="flex justify-between items-center">
           <Skeleton className="h-8 w-36 rounded-xl" />
@@ -325,12 +264,11 @@ export default function FinanceiroPage() {
         <div className="grid grid-cols-3 gap-3">{[0,1,2].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div>
         <Skeleton className="h-56 rounded-2xl" />
       </div>
-    </BackgroundGrid>
+    </PageBackground>
   )
 
   return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+    <PageBackground>
       <div className="flex flex-col gap-5">
         <TourTooltip active={tour.active} step={tour.step} current={tour.current}
           total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
@@ -511,34 +449,29 @@ export default function FinanceiroPage() {
               {/* Filtros */}
               <motion.div {...fadeUp(0.05)}>
                 <SpotlightCard className="rounded-2xl" style={card}>
-                  <div className="p-4 flex flex-col sm:flex-row gap-3">
-                    <div className="flex items-center gap-2 flex-1 rounded-xl px-3 py-2.5" style={{ background:T.surface, border:`1px solid ${T.border}` }}>
-                      <Search size={14} style={{ color:T.muted, flexShrink:0 }} />
-                      <input placeholder="Buscar lançamento..." value={txSearch} onChange={e => setTxSearch(e.target.value)}
-                        style={{ background:'transparent', border:'none', outline:'none', color:T.text, fontSize:13, fontFamily:SYNE, width:'100%' }} />
-                      {txSearch && (
-                        <motion.button whileTap={{ scale:0.9 }} onClick={() => setTxSearch('')} style={{ color:T.muted, cursor:'pointer', flexShrink:0 }}>
-                          <X size={12} />
-                        </motion.button>
-                      )}
-                    </div>
-                    <div className="flex gap-1.5">
-                      {([['all','Todos'],['income','Entradas'],['expense','Saídas']] as const).map(([v,l]) => (
-                        <motion.button key={v} whileTap={{ scale:0.95 }} onClick={() => setTxTypeF(v)}
-                          className="px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-                          style={{
-                            background: txTypeF===v ? (v==='income'?`${T.green}12`:v==='expense'?`${T.red}12`:`${T.purple}12`) : T.surface,
-                            color:      txTypeF===v ? (v==='income'?T.green:v==='expense'?T.red:T.violet) : T.muted,
-                            border:     `1px solid ${txTypeF===v?(v==='income'?`${T.green}30`:v==='expense'?`${T.red}30`:`${T.purple}30`):T.border}`,
-                            cursor:'pointer', fontFamily:SYNE,
-                          }}>{l}</motion.button>
-                      ))}
-                    </div>
-                    <select value={txCategoryF} onChange={e => setTxCategoryF(e.target.value)}
-                      style={{ ...inp, padding:'9px 12px', width:'auto', minWidth:140, cursor:'pointer' }}>
-                      <option value="">Todas as categorias</option>
-                      {uniqueCatNames.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                  <div className="p-4">
+                    <FilterBar
+                      value={txSearch}
+                      onChange={setTxSearch}
+                      placeholder="Buscar lançamento..."
+                      tabs={[
+                        { value: 'all',     label: 'Todos',    color: T.purple },
+                        { value: 'income',  label: 'Entradas', color: T.green  },
+                        { value: 'expense', label: 'Saídas',   color: T.red    },
+                      ]}
+                      activeTab={txTypeF}
+                      onTabChange={v => setTxTypeF(v as 'all' | 'income' | 'expense')}
+                      extra={
+                        <select
+                          value={txCategoryF}
+                          onChange={e => setTxCategoryF(e.target.value)}
+                          style={{ ...inp, padding: '9px 12px', width: 'auto', minWidth: 140, cursor: 'pointer' }}
+                        >
+                          <option value="">Todas as categorias</option>
+                          {uniqueCatNames.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      }
+                    />
                   </div>
                 </SpotlightCard>
               </motion.div>
@@ -736,121 +669,82 @@ export default function FinanceiroPage() {
         </AnimatePresence>
 
         {/* ── Modal lançamento ── */}
-        <AnimatePresence>
-          {showTxForm && (
-            <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-              style={{ background:'rgba(0,0,0,0.88)', backdropFilter:'blur(12px)' }}
-              onClick={e => { if(e.target===e.currentTarget){setShowTxForm(false);setEditTx(null)} }}>
-              <motion.div initial={{ y:60,opacity:0,scale:0.97 }} animate={{ y:0,opacity:1,scale:1 }} exit={{ y:60,opacity:0 }}
-                transition={{ duration:0.32, ease:[0.16,1,0.3,1] as const }}
-                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
-                style={{ background:T.bgDeep, border:`1px solid ${T.borderP}`, boxShadow:'0 0 0 1px rgba(124,110,247,0.08),0 -8px 48px rgba(0,0,0,0.8)', backdropFilter:'blur(28px)' }}>
-                <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background:'rgba(255,255,255,0.1)' }} />
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="font-bold text-lg" style={{ fontFamily:SYNE, color:T.text }}>{editTx?'Editar lançamento':'Novo lançamento'}</h2>
-                  <motion.button whileTap={{ scale:0.9 }} onClick={() => { setShowTxForm(false); setEditTx(null) }}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background:'rgba(255,255,255,0.05)', color:T.sub, border:`1px solid ${T.border}`, cursor:'pointer' }}>
-                    <X size={14} />
-                  </motion.button>
-                </div>
-                <form onSubmit={handleSaveTx} className="flex flex-col gap-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    {['expense','income'].map(t => (
-                      <button key={t} type="button" onClick={() => setTxForm({ ...txForm, type:t })}
-                        className="py-2.5 rounded-xl text-sm font-semibold"
-                        style={{ background:txForm.type===t?(t==='income'?`${T.green}12`:`${T.red}12`):'rgba(255,255,255,0.02)', color:txForm.type===t?(t==='income'?T.green:T.red):T.muted, border:`1px solid ${txForm.type===t?(t==='income'?`${T.green}30`:`${T.red}30`):T.border}`, cursor:'pointer', fontFamily:SYNE }}>
-                        {t==='income'?'↑ Entrada':'↓ Saída'}
-                      </button>
-                    ))}
-                  </div>
-                  <input type="text" placeholder="Título *" value={txForm.title} required
-                    onChange={e => setTxForm({ ...txForm, title:e.target.value })} style={inp}
-                    onFocus={e => e.currentTarget.style.borderColor=T.borderP} onBlur={e => e.currentTarget.style.borderColor=T.border} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="number" step="0.01" placeholder="Valor *" value={txForm.amount} required
-                      onChange={e => setTxForm({ ...txForm, amount:e.target.value })} style={inp}
-                      onFocus={e => e.currentTarget.style.borderColor=T.borderP} onBlur={e => e.currentTarget.style.borderColor=T.border} />
-                    <input type="date" value={txForm.date} required
-                      onChange={e => setTxForm({ ...txForm, date:e.target.value })} style={inp}
-                      onFocus={e => e.currentTarget.style.borderColor=T.borderP} onBlur={e => e.currentTarget.style.borderColor=T.border} />
-                  </div>
-                  <select value={txForm.category_id} onChange={e => setTxForm({ ...txForm, category_id:e.target.value })}
-                    style={{ ...inp, cursor:'pointer' }}>
-                    <option value="">Sem categoria</option>
-                    {categories.filter(c => c.type===txForm.type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input type="checkbox" checked={txForm.paid} onChange={e => setTxForm({ ...txForm, paid:e.target.checked })} style={{ accentColor:T.purple }} />
-                    <span className="text-sm" style={{ color:T.sub, fontFamily:SYNE }}>Já foi pago/recebido</span>
-                  </label>
-                  <ShimmerButton type="submit" disabled={savingTx}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full"
-                    style={{ background:'linear-gradient(135deg,#7c6ef7,#a06ef7)', color:'white', boxShadow:savingTx?'none':'0 0 28px rgba(124,110,247,0.4)', border:'1px solid rgba(255,255,255,0.1)', cursor:savingTx?'not-allowed':'pointer', opacity:savingTx?0.7:1, fontFamily:SYNE }}>
-                    {savingTx ? <Loader2 size={16} className="animate-spin" /> : editTx?'Salvar alterações':'Salvar lançamento'}
-                  </ShimmerButton>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <FormModal
+          open={showTxForm}
+          onClose={() => { setShowTxForm(false); setEditTx(null) }}
+          title={editTx?'Editar lançamento':'Novo lançamento'}
+        >
+          <form onSubmit={handleSaveTx} className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-2">
+              {['expense','income'].map(t => (
+                <button key={t} type="button" onClick={() => setTxForm({ ...txForm, type:t })}
+                  className="py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background:txForm.type===t?(t==='income'?`${T.green}12`:`${T.red}12`):'rgba(255,255,255,0.02)', color:txForm.type===t?(t==='income'?T.green:T.red):T.muted, border:`1px solid ${txForm.type===t?(t==='income'?`${T.green}30`:`${T.red}30`):T.border}`, cursor:'pointer', fontFamily:SYNE }}>
+                  {t==='income'?'↑ Entrada':'↓ Saída'}
+                </button>
+              ))}
+            </div>
+            <input type="text" placeholder="Título *" value={txForm.title} required
+              onChange={e => setTxForm({ ...txForm, title:e.target.value })} style={inp}
+              onFocus={e => e.currentTarget.style.borderColor=T.borderP} onBlur={e => e.currentTarget.style.borderColor=T.border} />
+            <div className="grid grid-cols-2 gap-3">
+              <input type="number" step="0.01" placeholder="Valor *" value={txForm.amount} required
+                onChange={e => setTxForm({ ...txForm, amount:e.target.value })} style={inp}
+                onFocus={e => e.currentTarget.style.borderColor=T.borderP} onBlur={e => e.currentTarget.style.borderColor=T.border} />
+              <input type="date" value={txForm.date} required
+                onChange={e => setTxForm({ ...txForm, date:e.target.value })} style={inp}
+                onFocus={e => e.currentTarget.style.borderColor=T.borderP} onBlur={e => e.currentTarget.style.borderColor=T.border} />
+            </div>
+            <select value={txForm.category_id} onChange={e => setTxForm({ ...txForm, category_id:e.target.value })}
+              style={{ ...inp, cursor:'pointer' }}>
+              <option value="">Sem categoria</option>
+              {categories.filter(c => c.type===txForm.type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={txForm.paid} onChange={e => setTxForm({ ...txForm, paid:e.target.checked })} style={{ accentColor:T.purple }} />
+              <span className="text-sm" style={{ color:T.sub, fontFamily:SYNE }}>Já foi pago/recebido</span>
+            </label>
+            <ModalSubmitButton loading={savingTx}>{editTx ? 'Salvar alterações' : 'Salvar lançamento'}</ModalSubmitButton>
+          </form>
+        </FormModal>
 
         {/* ── Modal categoria ── */}
-        <AnimatePresence>
-          {showCatForm && (
-            <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-              style={{ background:'rgba(0,0,0,0.88)', backdropFilter:'blur(12px)' }}
-              onClick={e => { if(e.target===e.currentTarget){setShowCatForm(false);setEditCat(null)} }}>
-              <motion.div initial={{ y:60,opacity:0,scale:0.97 }} animate={{ y:0,opacity:1,scale:1 }} exit={{ y:60,opacity:0 }}
-                transition={{ duration:0.32, ease:[0.16,1,0.3,1] as const }}
-                className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl p-6"
-                style={{ background:T.bgDeep, border:`1px solid ${T.borderP}`, boxShadow:'0 0 0 1px rgba(124,110,247,0.08),0 -8px 48px rgba(0,0,0,0.8)', backdropFilter:'blur(28px)' }}>
-                <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background:'rgba(255,255,255,0.1)' }} />
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="font-bold text-lg" style={{ fontFamily:SYNE, color:T.text }}>{editCat?'Editar categoria':'Nova categoria'}</h2>
-                  <motion.button whileTap={{ scale:0.9 }} onClick={() => { setShowCatForm(false); setEditCat(null) }}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background:'rgba(255,255,255,0.05)', color:T.sub, border:`1px solid ${T.border}`, cursor:'pointer' }}>
-                    <X size={14} />
-                  </motion.button>
+        <FormModal
+          open={showCatForm}
+          onClose={() => { setShowCatForm(false); setEditCat(null) }}
+          title={editCat ? 'Editar categoria' : 'Nova categoria'}
+          size="sm"
+        >
+            <form onSubmit={handleSaveCat} className="flex flex-col gap-4">
+              <input type="text" placeholder="Nome da categoria *" value={catForm.name} required
+                onChange={e => setCatForm({ ...catForm, name:e.target.value })} style={inp}
+                onFocus={e => e.currentTarget.style.borderColor=T.borderP} onBlur={e => e.currentTarget.style.borderColor=T.border} />
+              <div className="grid grid-cols-2 gap-2">
+                {(['income','expense'] as const).map(t => (
+                  <button key={t} type="button" onClick={() => setCatForm({ ...catForm, type:t })}
+                    className="py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background:catForm.type===t?(t==='income'?`${T.green}12`:`${T.red}12`):'rgba(255,255,255,0.02)', color:catForm.type===t?(t==='income'?T.green:T.red):T.muted, border:`1px solid ${catForm.type===t?(t==='income'?`${T.green}30`:`${T.red}30`):T.border}`, cursor:'pointer', fontFamily:SYNE }}>
+                    {t==='income'?'↑ Receita':'↓ Despesa'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-widest" style={{ color:T.muted, fontFamily:SYNE }}>Cor</label>
+                <div className="flex gap-2 flex-wrap">
+                  {CAT_COLORS.map(c => (
+                    <motion.button key={c} type="button" whileTap={{ scale:0.85 }} onClick={() => setCatForm({ ...catForm, color:c })}
+                      className="w-7 h-7 rounded-full" animate={{ scale:catForm.color===c?1.2:1 }}
+                      style={{ background:c, cursor:'pointer', outline:catForm.color===c?`2px solid ${c}`:'none', outlineOffset:'2px', boxShadow:catForm.color===c?`0 0 12px ${c}80`:'none' }} />
+                  ))}
                 </div>
-                <form onSubmit={handleSaveCat} className="flex flex-col gap-4">
-                  <input type="text" placeholder="Nome da categoria *" value={catForm.name} required
-                    onChange={e => setCatForm({ ...catForm, name:e.target.value })} style={inp}
-                    onFocus={e => e.currentTarget.style.borderColor=T.borderP} onBlur={e => e.currentTarget.style.borderColor=T.border} />
-                  <div className="grid grid-cols-2 gap-2">
-                    {['income','expense'].map(t => (
-                      <button key={t} type="button" onClick={() => setCatForm({ ...catForm, type:t })}
-                        className="py-2.5 rounded-xl text-sm font-semibold"
-                        style={{ background:catForm.type===t?(t==='income'?`${T.green}12`:`${T.red}12`):'rgba(255,255,255,0.02)', color:catForm.type===t?(t==='income'?T.green:T.red):T.muted, border:`1px solid ${catForm.type===t?(t==='income'?`${T.green}30`:`${T.red}30`):T.border}`, cursor:'pointer', fontFamily:SYNE }}>
-                        {t==='income'?'↑ Receita':'↓ Despesa'}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-widest" style={{ color:T.muted, fontFamily:SYNE }}>Cor</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {CAT_COLORS.map(c => (
-                        <motion.button key={c} type="button" whileTap={{ scale:0.85 }} onClick={() => setCatForm({ ...catForm, color:c })}
-                          className="w-7 h-7 rounded-full" animate={{ scale:catForm.color===c?1.2:1 }}
-                          style={{ background:c, cursor:'pointer', outline:catForm.color===c?`2px solid ${c}`:'none', outlineOffset:'2px', boxShadow:catForm.color===c?`0 0 12px ${c}80`:'none' }} />
-                      ))}
-                    </div>
-                  </div>
-                  <ShimmerButton type="submit" disabled={savingCat}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full mt-1"
-                    style={{ background:'linear-gradient(135deg,#7c6ef7,#a06ef7)', color:'white', boxShadow:savingCat?'none':'0 0 28px rgba(124,110,247,0.4)', border:'1px solid rgba(255,255,255,0.1)', cursor:savingCat?'not-allowed':'pointer', opacity:savingCat?0.7:1, fontFamily:SYNE }}>
-                    {savingCat ? <Loader2 size={16} className="animate-spin" /> : editCat?'Salvar alterações':'Criar categoria'}
-                  </ShimmerButton>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              </div>
+              <ModalSubmitButton loading={savingCat}>
+                {editCat ? 'Salvar alterações' : 'Criar categoria'}
+              </ModalSubmitButton>
+            </form>
+          </FormModal>
 
       </div>
-    </BackgroundGrid>
+    </PageBackground>
   )
 }

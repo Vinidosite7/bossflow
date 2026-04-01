@@ -8,27 +8,14 @@ import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from "@/components/TourTooltip"
 import { CheckSquare, Plus, X, Pencil, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  SpotlightCard, ShimmerButton, Skeleton, BackgroundGrid, FloatingOrbs,
-} from '@/components/ui/bossflow-ui'
+import { SpotlightCard, ShimmerButton, Skeleton } from '@/components/ui/bossflow-ui'
 
-const T = {
-  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
-  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
-  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
-  green: '#34d399', red: '#f87171', amber: '#fbbf24',
-  purple: '#7c6ef7', violet: '#a78bfa', cyan: '#22d3ee',
-  blur: 'blur(20px)',
-}
-const card = { background: T.bg, border: `1px solid ${T.border}`, backdropFilter: T.blur, boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)' }
-const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '13px 16px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s' }
-const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', marginBottom: 6, display: 'block' }
+// ── Design System ──────────────────────────────────────────────────────────
+import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { fadeUp, scaleIn } from '@/lib/animations'
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 16, filter: 'blur(4px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-  transition: { duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
+import { PageBackground, SectionHeader, FormModal, ModalSubmitButton } from '@/components/core'
+const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.06em', fontFamily: SYNE, textTransform: 'uppercase', marginBottom: 6, display: 'block' }
 
 const statusConfig = {
   todo:        { label: 'A fazer',       color: T.sub,   bg: 'rgba(138,138,170,0.1)',  border: 'rgba(138,138,170,0.2)'  },
@@ -142,31 +129,21 @@ export default function TarefasPage() {
     { key: 'done',        label: 'Concluídas' },
   ]
 
-  if (loading || bizLoading) return <BackgroundGrid><FloatingOrbs /><TarefasSkeleton /></BackgroundGrid>
+  if (loading || bizLoading) return <PageBackground><TarefasSkeleton /></PageBackground>
 
   return (
-    <BackgroundGrid>
-      <FloatingOrbs />
+    <PageBackground>
       <div className="flex flex-col gap-5">
         <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
         {/* Header */}
-        <motion.div {...fadeUp(0)} className="flex items-start justify-between gap-4" data-tour="tarefas-header">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Tarefas</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: T.amber, animationDuration: '1.4s' }} />
-                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: T.amber, boxShadow: `0 0 6px ${T.amber}` }} />
-              </div>
-              <p className="text-sm" style={{ color: T.muted }}>{tasks.filter(t => t.status !== 'done').length} pendentes</p>
-            </div>
-          </div>
-          <ShimmerButton onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shrink-0"
-            style={{ background: 'linear-gradient(135deg, #7c6ef7 0%, #a06ef7 100%)', color: 'white', boxShadow: '0 0 28px rgba(124,110,247,0.45), inset 0 1px 0 rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-            <Plus size={15} /><span className="hidden sm:inline">Nova tarefa</span><span className="sm:hidden">Nova</span>
-          </ShimmerButton>
-        </motion.div>
+        <SectionHeader
+          title="Tarefas"
+          subtitle={`${tasks.filter(t => t.status !== 'done').length} pendentes`}
+          live liveColor={T.amber}
+          cta={{ label: 'Nova tarefa', labelMobile: 'Nova', icon: Plus, onClick: openCreate }}
+          tourId="tarefas-header"
+        />
 
         {/* Filtros */}
         <motion.div {...fadeUp(0.06)} className="flex gap-2 overflow-x-auto pb-1" data-tour="tarefas-filtros">
@@ -194,7 +171,7 @@ export default function TarefasPage() {
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: `${T.purple}08`, border: `1px solid ${T.purple}18`, boxShadow: `0 0 32px ${T.purple}10` }}>
               <CheckSquare size={28} style={{ color: T.purple }} />
             </div>
-            <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Nenhuma tarefa</h2>
+            <h2 className="text-xl font-bold" style={{ fontFamily: SYNE, color: T.text }}>Nenhuma tarefa</h2>
             <p className="text-sm" style={{ color: T.muted }}>Crie sua primeira tarefa</p>
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={openCreate}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold mt-2"
@@ -276,88 +253,63 @@ export default function TarefasPage() {
         )}
 
         {/* Modal Form */}
-        <AnimatePresence>
-          {showForm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-              onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditTask(null) } }}>
-              <motion.div initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
-                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl px-5 pt-5 pb-8 sm:p-7 max-h-[92dvh] overflow-y-auto"
-                style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.8)', backdropFilter: 'blur(28px)' }}>
-                <div className="w-12 h-1 rounded-full mx-auto mb-6 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${T.purple}14`, border: `1px solid ${T.purple}28` }}>
-                      <CheckSquare size={14} style={{ color: T.purple }} />
-                    </div>
-                    <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>{editTask ? 'Editar tarefa' : 'Nova tarefa'}</h2>
-                  </div>
-                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowForm(false); setEditTask(null) }}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>
-                    <X size={14} />
-                  </motion.button>
-                </div>
-                <form onSubmit={handleSave} className="flex flex-col gap-4">
-                  <input type="text" placeholder="Título da tarefa *" value={form.title} required onChange={e => setForm({ ...form, title: e.target.value })}
-                    style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                  <textarea placeholder="Descrição (opcional)" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2}
-                    style={{ ...inp, resize: 'none' }} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><label style={lbl}>Prazo</label>
-                      <input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })}
-                        style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
-                    </div>
-                    <div><label style={lbl}>Status</label>
-                      <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
-                        style={{ ...inp, cursor: 'pointer' }}>
-                        <option value="todo" style={{ background: '#0d0d14' }}>A fazer</option>
-                        <option value="in_progress" style={{ background: '#0d0d14' }}>Em andamento</option>
-                        <option value="done" style={{ background: '#0d0d14' }}>Concluída</option>
-                      </select>
-                    </div>
-                  </div>
-                  <ShimmerButton type="submit" disabled={saving}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full mt-1"
-                    style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: saving ? 'none' : '0 0 28px rgba(124,110,247,0.4)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                    {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : editTask ? 'Salvar alterações' : 'Criar tarefa'}
-                  </ShimmerButton>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <FormModal
+          open={showForm}
+          onClose={() => { setShowForm(false); setEditTask && setEditTask(null) }}
+          title={editTask ? 'Editar tarefa' : 'Nova tarefa'}
+          size="sm"
+        >
+          <form onSubmit={handleSave} className="flex flex-col gap-4">
+            <input type="text" placeholder="Título da tarefa *" value={form.title} required onChange={e => setForm({ ...form, title: e.target.value })}
+              style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
+            <textarea placeholder="Descrição (opcional)" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2}
+              style={{ ...inp, resize: 'none' }} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
+            <div className="grid grid-cols-2 gap-3">
+              <div><label style={lbl}>Prazo</label>
+                <input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })}
+                  style={inp} onFocus={e => e.currentTarget.style.borderColor = T.borderP} onBlur={e => e.currentTarget.style.borderColor = T.border} />
+              </div>
+              <div><label style={lbl}>Status</label>
+                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
+                  style={{ ...inp, cursor: 'pointer' }}>
+                  <option value="todo" style={{ background: '#0d0d14' }}>A fazer</option>
+                  <option value="in_progress" style={{ background: '#0d0d14' }}>Em andamento</option>
+                  <option value="done" style={{ background: '#0d0d14' }}>Concluída</option>
+                </select>
+              </div>
+            </div>
+            <ModalSubmitButton loading={saving}>
+              editTask ? 'Salvar alterações' : 'Criar tarefa'
+            </ModalSubmitButton>
+          </form>
+        </FormModal>
 
         {/* Modal Confirm */}
-        <AnimatePresence>
-          {showConfirm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}>
-              <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.92, opacity: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] as const }}
-                className="w-full max-w-sm rounded-2xl p-6"
-                style={{ background: T.bgDeep, border: 'rgba(248,113,113,0.22)', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)' }}>
-                  <Trash2 size={20} style={{ color: T.red }} />
-                </div>
-                <h2 className="font-bold text-lg text-center mb-2" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Excluir tarefa?</h2>
-                <p className="text-sm text-center mb-6" style={{ color: T.muted }}>Esta ação não pode ser desfeita.</p>
-                <div className="flex gap-3">
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={() => setShowConfirm(null)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer' }}>Cancelar</motion.button>
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={() => handleDelete(showConfirm!)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'rgba(248,113,113,0.12)', color: T.red, border: '1px solid rgba(248,113,113,0.28)', cursor: 'pointer' }}>Excluir</motion.button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <FormModal
+          open={!!showConfirm}
+          onClose={() => setShowConfirm(null)}
+          title="Excluir tarefa?"
+          size="sm"
+        >
+          <p className="text-sm text-center mb-5" style={{ color: T.muted }}>
+            Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex gap-3">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={() => setShowConfirm(null)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer' }}>
+              Cancelar
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={() => handleDelete(showConfirm!)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: `${T.red}12`, color: T.red, border: `1px solid ${T.red}28`, cursor: 'pointer' }}>
+              Excluir
+            </motion.button>
+          </div>
+        </FormModal>
       </div>
-    </BackgroundGrid>
+    </PageBackground>
   )
 }

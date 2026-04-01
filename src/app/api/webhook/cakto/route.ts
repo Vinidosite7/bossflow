@@ -78,7 +78,32 @@ export async function POST(req: NextRequest) {
 
     const userId = profile.id
 
-    // ── 7. Upsert na tabela subscriptions ─────────────────────────────
+    // ── 7. Calcula expires_at — +30 dias a partir de agora
+    //      Se o usuário já tem assinatura ativa do mesmo plano, renova a partir
+    //      do expires_at atual (não do momento do pagamento), evitando perda de dias.
+    let expiresAt: string
+
+    const { data: existing } = await supabase
+      .from('subscriptions')
+      .select('plan, status, expires_at')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    const isRenewal = existing?.status === 'active' && existing?.plan === plan && existing?.expires_at
+    if (isRenewal) {
+      // Renova a partir do expires_at atual (não perde dias já pagos)
+      const currentExpiry = new Date(existing.expires_at)
+      currentExpiry.setDate(currentExpiry.getDate() + 30)
+      expiresAt = currentExpiry.toISOString()
+      console.log('[cakto] renovação detectada — novo expires_at:', expiresAt)
+    } else {
+      // Primeira ativação ou mudança de plano
+      const d = new Date()
+      d.setDate(d.getDate() + 30)
+      expiresAt = d.toISOString()
+    }
+
+    // ── 8. Upsert na tabela subscriptions ─────────────────────────────
     const { error: upsertErr } = await supabase
       .from('subscriptions')
       .upsert(
@@ -89,6 +114,7 @@ export async function POST(req: NextRequest) {
           cakto_order_id: orderId,
           cakto_email:    email,
           activated_at:   new Date().toISOString(),
+          expires_at:     expiresAt,
           updated_at:     new Date().toISOString(),
         },
         { onConflict: 'user_id' }
@@ -99,7 +125,7 @@ export async function POST(req: NextRequest) {
       throw upsertErr
     }
 
-    console.log(`[cakto] ✅ plano "${plan}" ativado para ${email} (${userId})`)
+    console.log(`[cakto] ✅ plano "${plan}" ativado para ${email} (${userId}) | expira: ${expiresAt}`)
     return NextResponse.json({ ok: true })
 
   } catch (err: any) {
