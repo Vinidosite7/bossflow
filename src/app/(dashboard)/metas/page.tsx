@@ -9,7 +9,7 @@ import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { TourTooltip } from "@/components/TourTooltip"
 import { PlanGate } from '@/components/PlanGate'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Target, Zap, Trophy, CheckCircle2, TrendingUp, X, Save } from 'lucide-react'
+import { Target, Zap, CheckCircle2, TrendingUp, X, Save, Award, Calendar, BarChart2, Flame } from 'lucide-react'
 import { SpotlightCard, ShimmerButton, Skeleton, GlowCorner } from '@/components/ui/bossflow-ui'
 
 // ── Design System ──────────────────────────────────────────────────────────
@@ -23,7 +23,6 @@ const MONTH_FULL  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julh
 const TOUR_STEPS = [
   { target: '[data-tour="metas-anual"]',      title: 'Meta anual',      description: 'Acompanhe o progresso do seu objetivo anual. A barra mostra quantos % você já atingiu.', position: 'bottom' as const },
   { target: '[data-tour="metas-mensal"]',     title: 'Metas mensais',   description: 'Clique em qualquer mês para definir sua meta. Meses com ✓ significam meta batida!', position: 'top' as const },
-  { target: '[data-tour="metas-conquistas"]', title: 'Conquistas',      description: 'Desbloqueie badges conforme você bate metas. Quanto mais consistente, mais conquistas!', position: 'top' as const },
 ]
 
 // ─── Skeleton ─────────────────────────────────────────────────
@@ -89,18 +88,6 @@ export default function MetasPage() {
     setEditingMonth(null)
   }
 
-  const badges = [
-    { id: 'first_goal',   emoji: '🚀', label: 'Primeiro passo',      desc: 'Definiu sua primeira meta',               unlocked: goals.some(g => g.target > 0),   color: T.purple  },
-    { id: 'first_hit',    emoji: '🎯', label: 'Em cheio!',            desc: 'Bateu a meta pela primeira vez',           unlocked: goals.some(g => g.hit),           color: T.green   },
-    { id: 'super_hit',    emoji: '⚡', label: 'Super Cota',           desc: 'Atingiu a super cota',                    unlocked: goals.some(g => g.superHit),      color: T.violet  },
-    { id: 'streak_3',     emoji: '🔥', label: '3 meses seguidos',     desc: 'Bateu a meta 3 meses consecutivos',        unlocked: streak >= 3,                      color: T.orange  },
-    { id: 'streak_6',     emoji: '🌟', label: '6 meses seguidos',     desc: 'Bateu a meta 6 meses consecutivos',        unlocked: streak >= 6,                      color: T.amber   },
-    { id: 'annual_50',    emoji: '📈', label: 'Metade do caminho',    desc: '50% da meta anual atingida',               unlocked: annualPct >= 50,                  color: T.cyan    },
-    { id: 'annual_100',   emoji: '🏆', label: 'Ano batido!',          desc: 'Meta anual 100% atingida',                 unlocked: annualPct >= 100,                 color: T.amber   },
-    { id: 'perfect_year', emoji: '💎', label: 'Ano perfeito',         desc: 'Bateu todas as metas do ano',              unlocked: monthsHit === 12,                 color: T.violet  },
-  ]
-
-  const unlockedCount = badges.filter(b => b.unlocked).length
   const annualColor   = annualPct >= 100 ? T.green : annualPct >= 60 ? T.amber : T.orange
 
   if (loadingBiz || loading) return (
@@ -260,53 +247,81 @@ export default function MetasPage() {
           </div>
         </motion.div>
 
-        {/* ── Conquistas ──────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.14)} data-tour="metas-conquistas">
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="font-bold text-sm" style={{ fontFamily: SYNE, color: T.text }}>Conquistas</h2>
-            <span className="text-xs px-2 py-0.5 rounded-full font-bold"
-              style={{ background: `${T.amber}10`, color: T.amber, border: `1px solid ${T.amber}22` }}>
-              {unlockedCount}/{badges.length}
-            </span>
-          </div>
-
+        {/* ── Resumo Anual ─────────────────────────────────────── */}
+        <motion.div {...fadeUp(0.14)}>
+          <h2 className="font-bold text-sm mb-3" style={{ fontFamily: SYNE, color: T.text }}>
+            Resumo {currentYear}
+          </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {badges.map((b, i) => (
-              <motion.div key={b.id}
-                initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.14 + i * 0.04, ease: [0.16, 1, 0.3, 1] }}
-                className="rounded-2xl p-4 flex flex-col items-center text-center gap-2 relative overflow-hidden"
-                style={{
-                  background: b.unlocked ? `${b.color}07` : 'rgba(8,8,14,0.7)',
-                  border: `1px solid ${b.unlocked ? `${b.color}22` : T.border}`,
-                  backdropFilter: T.blur,
-                  boxShadow: b.unlocked ? `0 0 20px ${b.color}10` : 'none',
-                  opacity: b.unlocked ? 1 : 0.4,
-                }}>
+            {/* Faturamento total */}
+            <div className="rounded-2xl p-4 flex flex-col gap-2 relative overflow-hidden"
+              style={{ background: `${T.green}07`, border: `1px solid ${T.green}20` }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                style={{ background: `${T.green}12`, border: `1px solid ${T.green}25` }}>
+                <BarChart2 size={14} style={{ color: T.green }} />
+              </div>
+              <div>
+                <p className="text-xs font-medium" style={{ color: T.muted }}>Faturamento total</p>
+                <p className="text-base font-bold mt-0.5" style={{ fontFamily: SYNE, color: T.text }}>
+                  {fmtShort(annualRevenue)}
+                </p>
+              </div>
+            </div>
 
-                {b.unlocked && (
-                  <div className="absolute -top-5 -right-5 w-20 h-20 rounded-full blur-2xl pointer-events-none"
-                    style={{ background: `${b.color}18` }} />
-                )}
+            {/* Meses batidos */}
+            <div className="rounded-2xl p-4 flex flex-col gap-2 relative overflow-hidden"
+              style={{ background: `${T.orange}07`, border: `1px solid ${T.orange}20` }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                style={{ background: `${T.orange}12`, border: `1px solid ${T.orange}25` }}>
+                <Award size={14} style={{ color: T.orange }} />
+              </div>
+              <div>
+                <p className="text-xs font-medium" style={{ color: T.muted }}>Meses batidos</p>
+                <p className="text-base font-bold mt-0.5" style={{ fontFamily: SYNE, color: T.text }}>
+                  {monthsHit}<span className="text-sm font-normal" style={{ color: T.muted }}>/12</span>
+                </p>
+              </div>
+            </div>
 
-                <span className="text-3xl" style={{ filter: b.unlocked ? `drop-shadow(0 0 8px ${b.color}60)` : 'none' }}>
-                  {b.unlocked ? b.emoji : '🔒'}
-                </span>
-
-                <div>
-                  <p className="text-xs font-bold leading-tight" style={{ color: b.unlocked ? b.color : T.muted }}>
-                    {b.label}
-                  </p>
-                  <p className="text-xs mt-1 leading-relaxed" style={{ color: T.muted }}>{b.desc}</p>
-                </div>
-
-                {b.unlocked && (
-                  <div className="absolute top-2 right-2">
-                    <CheckCircle2 size={11} style={{ color: b.color }} />
+            {/* Melhor mês */}
+            {(() => {
+              const mesesComMeta = goals.filter(g => g.target > 0 && g.revenue > 0)
+              const melhor = mesesComMeta.reduce((a, b) => b.revenue > a.revenue ? b : a, mesesComMeta[0])
+              return (
+                <div className="rounded-2xl p-4 flex flex-col gap-2 relative overflow-hidden"
+                  style={{ background: `${T.violet}07`, border: `1px solid ${T.violet}20` }}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                    style={{ background: `${T.violet}12`, border: `1px solid ${T.violet}25` }}>
+                    <Calendar size={14} style={{ color: T.violet }} />
                   </div>
-                )}
-              </motion.div>
-            ))}
+                  <div>
+                    <p className="text-xs font-medium" style={{ color: T.muted }}>Melhor mês</p>
+                    <p className="text-base font-bold mt-0.5" style={{ fontFamily: SYNE, color: T.text }}>
+                      {melhor ? MONTH_NAMES[melhor.month - 1] : '—'}
+                    </p>
+                    {melhor && (
+                      <p className="text-xs" style={{ color: T.muted }}>{fmtShort(melhor.revenue)}</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Sequência */}
+            <div className="rounded-2xl p-4 flex flex-col gap-2 relative overflow-hidden"
+              style={{ background: streak > 0 ? `${T.amber}07` : 'rgba(255,255,255,0.02)', border: `1px solid ${streak > 0 ? `${T.amber}20` : T.border}` }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                style={{ background: streak > 0 ? `${T.amber}12` : 'rgba(255,255,255,0.04)', border: `1px solid ${streak > 0 ? `${T.amber}25` : T.border}` }}>
+                <Flame size={14} style={{ color: streak > 0 ? T.amber : T.muted }} />
+              </div>
+              <div>
+                <p className="text-xs font-medium" style={{ color: T.muted }}>Sequência atual</p>
+                <p className="text-base font-bold mt-0.5" style={{ fontFamily: SYNE, color: streak > 0 ? T.text : T.muted }}>
+                  {streak > 0 ? `${streak} ${streak === 1 ? 'mês' : 'meses'}` : '—'}
+                </p>
+                {streak > 0 && <p className="text-xs" style={{ color: T.muted }}>consecutivos 🔥</p>}
+              </div>
+            </div>
           </div>
         </motion.div>
 

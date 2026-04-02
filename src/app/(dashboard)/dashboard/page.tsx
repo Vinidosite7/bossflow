@@ -479,7 +479,7 @@ export default function DashboardPage() {
                   border: '2px solid rgba(124,110,247,0.4)',
                   boxShadow: '0 0 20px rgba(124,110,247,0.3)',
                 }}>
-                  <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+                  <img src="/bia-avatar.jpg" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
                 </div>
 
                 {/* Texto */}
