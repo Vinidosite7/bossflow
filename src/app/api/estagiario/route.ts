@@ -79,6 +79,20 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
     if (authErr || !user) return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
 
+    // ── Valida plano: aiAssistant = Starter+ ──────────────────────
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('plan')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    const userPlan   = sub?.plan ?? 'free'
+    const allowedPlans = ['starter', 'pro', 'scale']
+    if (!allowedPlans.includes(userPlan)) {
+      return NextResponse.json({ error: 'Plano insuficiente. Estagiário IA disponível no Starter+.' }, { status: 403 })
+    }
+
     // ── Body ──────────────────────────────────────────────────────
     const body = await req.json()
     const { message, image, imageType, businessId, history = [] } = body

@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { UpgradeModal } from '@/components/PlanGate'
 import { sendPush, fmt as fmtPush } from '@/lib/push'
 import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from '@/components/TourTooltip'
 import {
   TrendingUp, TrendingDown, Plus, Loader2, X,
-  Pencil, Trash2, Search, DollarSign, AlertTriangle,
+  Pencil, Trash2, Search, DollarSign, AlertTriangle, Lock,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SpotlightCard, ShimmerButton, GlowCorner, Skeleton } from '@/components/ui/bossflow-ui'
@@ -35,7 +37,9 @@ const fmtShort = (v: number) => {
 const supabase = createClient()
 
 export default function DespesasPage() {
-  const { businessId, loading: bizLoading } = useBusiness()
+  const { businessId, loading: bizLoading }      = useBusiness()
+  const { plan, features, loading: planLoading } = usePlanLimits()
+  const [upgradeOpen, setUpgradeOpen]            = useState(false)
   const tour = useTour('lancamentos', TOUR_STEPS)
 
   const [transactions, setTransactions] = useState<any[]>([])
@@ -112,13 +116,19 @@ export default function DespesasPage() {
   const expense = transactions.filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
   const saldo   = income - expense
 
-  const filtered = transactions.filter(t => {
+  // Free: mostra só últimos 30 dias · Starter+: histórico completo
+  const hasHistory   = features.extendedHistory
+  const cutoff       = !hasHistory ? new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0] : null
+  const visible      = cutoff ? transactions.filter(t => t.date >= cutoff) : transactions
+  const hiddenCount  = transactions.length - visible.length
+
+  const filtered = visible.filter(t => {
     const matchSearch = t.title.toLowerCase().includes(search.toLowerCase())
     const matchType   = typeFilter === 'all' || t.type === typeFilter
     return matchSearch && matchType
   })
 
-  if (loading || bizLoading) return (
+  if (loading || bizLoading || planLoading) return (
     <PageBackground>
       <div className="flex flex-col gap-5">
         <div className="flex justify-between items-center">
@@ -184,6 +194,23 @@ export default function DespesasPage() {
             onTabChange={v => setTypeFilter(v as typeof typeFilter)}
           />
         </motion.div>
+
+        <UpgradeModal isOpen={upgradeOpen} onClose={() => setUpgradeOpen(false)}
+          feature="Histórico completo"
+          description="Acesse todo o histórico financeiro sem limite de data. Disponível no Starter."
+          requiredPlan="starter" currentPlan={plan} />
+
+        {/* Banner histórico limitado — só free */}
+        {hiddenCount > 0 && (
+          <motion.div {...fadeUp(0.3)} className="flex items-center gap-3 px-4 py-3 rounded-xl"
+            style={{ background: `${T.amber}10`, border: `1px solid ${T.amber}25` }}>
+            <Lock size={13} style={{ color: T.amber, flexShrink: 0 }} />
+            <p className="text-xs flex-1" style={{ color: T.amber }}>
+              Mostrando só os <strong>últimos 30 dias</strong>. {hiddenCount} lançamento{hiddenCount !== 1 ? 's' : ''} anterior{hiddenCount !== 1 ? 'es' : ''} oculto{hiddenCount !== 1 ? 's' : ''}.{' '}
+              <span onClick={() => setUpgradeOpen(true)} style={{ color: T.purple, cursor: 'pointer', textDecoration: 'underline' }}>Ver histórico completo</span>
+            </p>
+          </motion.div>
+        )}
 
         {/* ── Lista ── */}
         {filtered.length === 0 ? (

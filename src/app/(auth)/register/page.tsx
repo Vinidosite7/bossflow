@@ -36,6 +36,12 @@ export default function RegisterPage() {
 
   // Aguarda sessão estar pronta
   if (data.session) {
+    // Dispara email de boas-vindas (sem await — não bloqueia o redirect)
+    fetch(`${window.location.origin}/api/auth/welcome`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email }),
+    })
     router.push('/dashboard')
   } else {
     // Tenta login automático
@@ -46,16 +52,15 @@ export default function RegisterPage() {
       router.push('/login')
       return
     }
+    // Dispara email de boas-vindas (sem await — não bloqueia o redirect)
+    fetch(`${window.location.origin}/api/auth/welcome`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email }),
+    })
     router.push('/dashboard')
   }
 }
-
-// Dispara email de boas-vindas (sem await — não bloqueia o redirect)
-fetch('/api/auth/welcome', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ name, email }),
-})
 
   async function handleGoogle() {
     setGoogleLoading(true)

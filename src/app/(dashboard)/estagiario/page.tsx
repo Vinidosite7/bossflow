@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusinessContext } from '@/lib/business-context'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { PlanGate } from '@/components/PlanGate'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Send, Paperclip, X, Check, FileText, Image as ImageIcon,
@@ -108,6 +110,7 @@ function TaskPreviewCard({ tasks, onToggle, onConfirm, saving }: { tasks: any[];
 
 export default function BiaPage() {
   const { businessId, user } = useBusinessContext()
+  const { plan, features, loading: planLoading } = usePlanLimits()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput]       = useState('')
   const [loading, setLoading]   = useState(false)
@@ -175,6 +178,33 @@ export default function BiaPage() {
   function handleKeyDown(e: React.KeyboardEvent) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
 
   const isEmpty = messages.length === 0
+
+  // Gate: aiAssistant disponível só no Starter+
+  if (!planLoading && !features.aiAssistant) {
+    return (
+      <PageBackground>
+        <div className="flex flex-col gap-5">
+          <div className="flex items-center gap-3 px-1 pt-1">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(192,132,252,0.12)', border: '1px solid rgba(192,132,252,0.2)' }}>
+              <span style={{ fontSize: 16 }}>🤖</span>
+            </div>
+            <div>
+              <h1 className="font-bold text-lg" style={{ color: '#e8e8f0', fontFamily: 'Syne, sans-serif' }}>Estagiário IA</h1>
+              <p className="text-xs" style={{ color: '#4a4a6a' }}>Assistente financeiro inteligente</p>
+            </div>
+          </div>
+          <PlanGate currentPlan={plan} requiredPlan="starter"
+            feature="Estagiário IA"
+            description="Analise notas fiscais, registre lançamentos por texto e consulte seus dados financeiros com IA. Disponível no plano Starter."
+            mode="hide">
+            <div className="flex flex-col gap-3">
+              {[0,1,2].map(i => <div key={i} className="h-16 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)' }} />)}
+            </div>
+          </PlanGate>
+        </div>
+      </PageBackground>
+    )
+  }
 
   return (
     <PageBackground>

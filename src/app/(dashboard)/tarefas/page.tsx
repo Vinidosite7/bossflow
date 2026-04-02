@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { PlanAction, UpgradeModal } from '@/components/PlanGate'
 import { sendPush } from '@/lib/push'
 import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from "@/components/TourTooltip"
-import { CheckSquare, Plus, X, Pencil, Trash2 } from 'lucide-react'
+import { CheckSquare, Plus, X, Pencil, Trash2, Lock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SpotlightCard, ShimmerButton, Skeleton } from '@/components/ui/bossflow-ui'
 
@@ -44,8 +46,12 @@ function TarefasSkeleton() {
   )
 }
 
+const FREE_TASK_LIMIT = 20
+
 export default function TarefasPage() {
   const { businessId, loading: bizLoading } = useBusiness()
+  const { plan, loading: planLoading }      = usePlanLimits()
+  const [upgradeOpen, setUpgradeOpen]       = useState(false)
   const tour = useTour('tarefas', TOUR_STEPS)
 
   const [tasks, setTasks]             = useState<any[]>([])
@@ -122,6 +128,12 @@ export default function TarefasPage() {
   const today    = new Date().toISOString().split('T')[0]
   const counts   = { all: tasks.length, todo: tasks.filter(t => t.status === 'todo').length, in_progress: tasks.filter(t => t.status === 'in_progress').length, done: tasks.filter(t => t.status === 'done').length }
 
+  const activeTasks   = tasks.filter(t => t.status !== 'done')
+  const isFree        = plan === 'free'
+  const atLimit       = isFree && activeTasks.length >= FREE_TASK_LIMIT
+  const nearLimit     = isFree && activeTasks.length >= FREE_TASK_LIMIT - 3 && !atLimit
+  const canCreate     = !atLimit
+
   const FILTERS = [
     { key: 'all',         label: 'Todas' },
     { key: 'todo',        label: 'A fazer' },
@@ -129,21 +141,51 @@ export default function TarefasPage() {
     { key: 'done',        label: 'Concluídas' },
   ]
 
-  if (loading || bizLoading) return <PageBackground><TarefasSkeleton /></PageBackground>
+  if (loading || bizLoading || planLoading) return <PageBackground><TarefasSkeleton /></PageBackground>
 
   return (
     <PageBackground>
       <div className="flex flex-col gap-5">
         <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
+        <UpgradeModal isOpen={upgradeOpen} onClose={() => setUpgradeOpen(false)}
+          feature="Tarefas ilimitadas"
+          description={`Plano Básico permite até ${FREE_TASK_LIMIT} tarefas ativas. Faça upgrade para criar ilimitadas.`}
+          requiredPlan="starter" currentPlan={plan} />
+
         {/* Header */}
         <SectionHeader
           title="Tarefas"
-          subtitle={`${tasks.filter(t => t.status !== 'done').length} pendentes`}
+          subtitle={`${activeTasks.length} pendentes`}
           live liveColor={T.amber}
-          cta={{ label: 'Nova tarefa', labelMobile: 'Nova', icon: Plus, onClick: openCreate }}
+          cta={canCreate
+            ? { label: 'Nova tarefa', labelMobile: 'Nova', icon: Plus, onClick: openCreate }
+            : { label: 'Upgrade', labelMobile: 'Upgrade', icon: Lock, onClick: () => setUpgradeOpen(true) }
+          }
           tourId="tarefas-header"
         />
+
+        {/* Banner aviso / bloqueio */}
+        {nearLimit && (
+          <motion.div {...fadeUp(0)} className="flex items-center gap-3 px-4 py-3 rounded-xl"
+            style={{ background: `${T.amber}10`, border: `1px solid ${T.amber}25` }}>
+            <Lock size={13} style={{ color: T.amber, flexShrink: 0 }} />
+            <p className="text-xs" style={{ color: T.amber }}>
+              <strong>{FREE_TASK_LIMIT - activeTasks.length} tarefa{FREE_TASK_LIMIT - activeTasks.length !== 1 ? 's' : ''}</strong> restante{FREE_TASK_LIMIT - activeTasks.length !== 1 ? 's' : ''} no plano Básico.{' '}
+              <span onClick={() => setUpgradeOpen(true)} style={{ color: T.purple, cursor: 'pointer', textDecoration: 'underline' }}>Fazer upgrade</span>
+            </p>
+          </motion.div>
+        )}
+        {atLimit && (
+          <motion.div {...fadeUp(0)} className="flex items-center gap-3 px-4 py-3 rounded-xl"
+            style={{ background: `${T.red}10`, border: `1px solid ${T.red}25` }}>
+            <Lock size={13} style={{ color: T.red, flexShrink: 0 }} />
+            <p className="text-xs" style={{ color: T.red }}>
+              Limite de <strong>{FREE_TASK_LIMIT} tarefas ativas</strong> atingido. Conclua tarefas ou{' '}
+              <span onClick={() => setUpgradeOpen(true)} style={{ color: T.purple, cursor: 'pointer', textDecoration: 'underline' }}>faça upgrade</span>.
+            </p>
+          </motion.div>
+        )}
 
         {/* Filtros */}
         <motion.div {...fadeUp(0.06)} className="flex gap-2 overflow-x-auto pb-1" data-tour="tarefas-filtros">

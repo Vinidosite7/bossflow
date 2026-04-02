@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { UpgradeModal } from '@/components/PlanGate'
 import { useTour } from '@/hooks/useTour'
 import { TourTooltip } from "@/components/TourTooltip"
-import { Users, Plus, Loader2, X, Pencil, Trash2, Search, UserCheck, Phone, Mail, FileText } from 'lucide-react'
+import { Users, Plus, Loader2, X, Pencil, Trash2, Search, UserCheck, Phone, Mail, FileText, Lock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SpotlightCard, ShimmerButton, Skeleton, GlowCorner } from '@/components/ui/bossflow-ui'
 
@@ -44,8 +46,12 @@ function ClientesSkeleton() {
 // ── FIX: supabase client criado fora do componente (evita recriação a cada render)
 const supabase = createClient()
 
+const FREE_CLIENT_LIMIT = 50
+
 export default function ClientesPage() {
   const { businessId, loading: bizLoading } = useBusiness()
+  const { plan, loading: planLoading }      = usePlanLimits()
+  const [upgradeOpen, setUpgradeOpen]       = useState(false)
   const tour = useTour('clientes', TOUR_STEPS)
 
   const [clients, setClients] = useState<any[]>([])
@@ -112,12 +118,17 @@ export default function ClientesPage() {
     setShowConfirm(null); load()
   }
 
+  const isFree     = plan === 'free'
+  const atLimit    = isFree && clients.length >= FREE_CLIENT_LIMIT
+  const nearLimit  = isFree && clients.length >= FREE_CLIENT_LIMIT - 5 && !atLimit
+  const canCreate  = !atLimit
+
   const filtered = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.email?.toLowerCase().includes(search.toLowerCase())
   )
 
-  if (loading || bizLoading) return (
+  if (loading || bizLoading || planLoading) return (
     <PageBackground><ClientesSkeleton /></PageBackground>
   )
 
@@ -127,14 +138,43 @@ export default function ClientesPage() {
 
         <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
 
+        <UpgradeModal isOpen={upgradeOpen} onClose={() => setUpgradeOpen(false)}
+          feature="Clientes ilimitados"
+          description={`Plano Básico permite até ${FREE_CLIENT_LIMIT} clientes. Faça upgrade para cadastrar ilimitados.`}
+          requiredPlan="starter" currentPlan={plan} />
+
         {/* ── Header ─────────────────────────────────────────── */}
         <SectionHeader
           title="Clientes"
-          subtitle={`${clients.length} cliente${clients.length !== 1 ? 's' : ''} cadastrado${clients.length !== 1 ? 's' : ''}`}
+          subtitle={`${clients.length} cadastrado${clients.length !== 1 ? 's' : ''}`}
           live liveColor={T.purple}
-          cta={{ label: 'Novo cliente', labelMobile: 'Novo', icon: Plus, onClick: openCreate }}
+          cta={canCreate
+            ? { label: 'Novo cliente', labelMobile: 'Novo', icon: Plus, onClick: openCreate }
+            : { label: 'Upgrade', labelMobile: 'Upgrade', icon: Lock, onClick: () => setUpgradeOpen(true) }
+          }
           tourId="clientes-header"
         />
+
+        {nearLimit && (
+          <motion.div {...fadeUp(0)} className="flex items-center gap-3 px-4 py-3 rounded-xl"
+            style={{ background: `${T.amber}10`, border: `1px solid ${T.amber}25` }}>
+            <Lock size={13} style={{ color: T.amber, flexShrink: 0 }} />
+            <p className="text-xs" style={{ color: T.amber }}>
+              <strong>{FREE_CLIENT_LIMIT - clients.length} vaga{FREE_CLIENT_LIMIT - clients.length !== 1 ? 's' : ''}</strong> restante{FREE_CLIENT_LIMIT - clients.length !== 1 ? 's' : ''} no plano Básico.{' '}
+              <span onClick={() => setUpgradeOpen(true)} style={{ color: T.purple, cursor: 'pointer', textDecoration: 'underline' }}>Fazer upgrade</span>
+            </p>
+          </motion.div>
+        )}
+        {atLimit && (
+          <motion.div {...fadeUp(0)} className="flex items-center gap-3 px-4 py-3 rounded-xl"
+            style={{ background: `${T.red}10`, border: `1px solid ${T.red}25` }}>
+            <Lock size={13} style={{ color: T.red, flexShrink: 0 }} />
+            <p className="text-xs" style={{ color: T.red }}>
+              Limite de <strong>{FREE_CLIENT_LIMIT} clientes</strong> atingido.{' '}
+              <span onClick={() => setUpgradeOpen(true)} style={{ color: T.purple, cursor: 'pointer', textDecoration: 'underline' }}>Faça upgrade</span> para adicionar mais.
+            </p>
+          </motion.div>
+        )}
 
         {/* ── Busca ──────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.06)} data-tour="clientes-busca">

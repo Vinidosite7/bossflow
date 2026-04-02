@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBusiness } from '@/hooks/useBusiness'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { PlanGate } from '@/components/PlanGate'
 import { sendPush } from '@/lib/push'
-import { Calendar, Plus, X, Clock, Pencil, Trash2, CalendarDays } from 'lucide-react'
+import { Calendar, Plus, X, Clock, Pencil, Trash2, CalendarDays, Lock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SpotlightCard, ShimmerButton, Skeleton } from '@/components/ui/bossflow-ui'
 
@@ -31,7 +33,9 @@ function AgendaSkeleton() {
 const supabase = createClient()
 
 export default function AgendaPage() {
-  const { businessId, loading: bizLoading } = useBusiness()
+  const { businessId, loading: bizLoading }      = useBusiness()
+  const { plan, features, loading: planLoading } = usePlanLimits()
+  const hasScheduling = features.scheduling
   const [events, setEvents]           = useState<any[]>([])
   const [loading, setLoading]         = useState(true)
   const [showForm, setShowForm]       = useState(false)
@@ -96,7 +100,25 @@ export default function AgendaPage() {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', ...(hasTime ? { hour: '2-digit', minute: '2-digit' } : {}) })
   }
 
-  if (loading || bizLoading) return <PageBackground><AgendaSkeleton /></PageBackground>
+  if (loading || bizLoading || planLoading) return <PageBackground><AgendaSkeleton /></PageBackground>
+
+  if (!hasScheduling) {
+    return (
+      <PageBackground>
+        <div className="flex flex-col gap-5">
+          <SectionHeader title="Agenda" subtitle="Agendamento de eventos" live liveColor={T.cyan} />
+          <PlanGate currentPlan={plan} requiredPlan="starter"
+            feature="Agendamento de eventos"
+            description="Organize compromissos, reuniões e eventos. Disponível no plano Starter."
+            mode="hide">
+            <div className="flex flex-col gap-3">
+              {[0,1,2].map(i => <div key={i} className="h-20 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)' }} />)}
+            </div>
+          </PlanGate>
+        </div>
+      </PageBackground>
+    )
+  }
 
   return (
     <PageBackground>
