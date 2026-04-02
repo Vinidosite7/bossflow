@@ -76,7 +76,17 @@ Para respostas em texto, análises ou quando não há ação.
 - Para notas: agrupe por estabelecimento
 - Tente encaixar nas categorias do usuário
 - Nunca invente valores
-- Seja direta e objetiva`
+- Seja direta e objetiva
+
+## COMPRAS PARCELADAS
+Quando o usuário mencionar parcelas (ex: "comprei 5x de R$ 200" ou "parcelei em 5x R$ 1000"):
+- Identifique o valor de CADA parcela (não o total)
+- Se disser "5x R$ 200": cada parcela = R$ 200 → crie 1 transação de R$ 200 para o mês atual com description "1/5"
+- Se disser "parcelei R$ 1000 em 5x": cada parcela = R$ 200 → mesmo acima
+- NUNCA cadastre o valor total. Sempre o valor de cada parcela
+- Cadastre apenas a parcela do mês atual (não todas as 5 de uma vez)
+- Na description, informe "Parcela 1/5" para deixar claro
+- No message para o usuário, explique que cadastrou só a parcela atual e que as próximas precisam ser lançadas nos meses seguintes`
 
 export async function POST(req: NextRequest) {
   try {
