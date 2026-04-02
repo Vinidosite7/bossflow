@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import {
   TrendingUp, TrendingDown, Users, ShoppingCart, Package,
   Plus, ArrowRight, CheckSquare, Calendar, Target, Activity,
-  BarChart2, DollarSign, ClipboardList, CalendarDays,
+  BarChart2, DollarSign, ClipboardList, CalendarDays, Sparkles,
 } from 'lucide-react'
 import { useGoals } from '@/hooks/useGoals'
 import { GoalCard } from '@/components/GoalCard'
@@ -443,6 +443,76 @@ export default function DashboardPage() {
                 </motion.div>
               ))}
             </SpotlightCard>
+          </motion.div>
+
+
+          {/* ── Estagiária Bia ──────────────────────────────────── */}
+          <motion.div {...fadeUp(0.44)}>
+            <div
+              onClick={() => router.push('/estagiario')}
+              style={{
+                borderRadius: 20, cursor: 'pointer', overflow: 'hidden', position: 'relative',
+                background: 'linear-gradient(135deg, rgba(124,110,247,0.1) 0%, rgba(157,143,255,0.05) 100%)',
+                border: '1px solid rgba(124,110,247,0.25)',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(124,110,247,0.5)'
+                ;(e.currentTarget as HTMLElement).style.boxShadow = '0 8px 32px rgba(124,110,247,0.15)'
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(124,110,247,0.25)'
+                ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
+              }}
+            >
+              {/* Glow fundo */}
+              <div style={{
+                position: 'absolute', top: -40, right: -40, width: 180, height: 180, borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(124,110,247,0.15), transparent 70%)',
+                pointerEvents: 'none',
+              }} />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
+                {/* Avatar Bia */}
+                <div style={{
+                  width: 52, height: 52, borderRadius: 14, flexShrink: 0, overflow: 'hidden',
+                  border: '2px solid rgba(124,110,247,0.4)',
+                  boxShadow: '0 0 20px rgba(124,110,247,0.3)',
+                }}>
+                  <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+                </div>
+
+                {/* Texto */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#e8e8f0', margin: 0, fontFamily: 'Syne, sans-serif' }}>
+                      Bia, sua estagiária IA
+                    </p>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
+                      background: 'rgba(124,110,247,0.15)', color: '#9d8fff',
+                      border: '1px solid rgba(124,110,247,0.3)', letterSpacing: '0.05em',
+                    }}>
+                      IA
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#5a5a7a', margin: 0, lineHeight: 1.5 }}>
+                    Manda nota, fatura ou boleto — ela cadastra na hora ✨
+                  </p>
+                </div>
+
+                {/* CTA */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 10, flexShrink: 0,
+                  background: 'rgba(124,110,247,0.15)', border: '1px solid rgba(124,110,247,0.3)',
+                  fontSize: 12, fontWeight: 700, color: '#9d8fff',
+                }}>
+                  <Sparkles size={12} />
+                  Falar com a Bia
+                </div>
+              </div>
+            </div>
           </motion.div>
 
           {/* ── Modal novo lançamento ───────────────────────────── */}
