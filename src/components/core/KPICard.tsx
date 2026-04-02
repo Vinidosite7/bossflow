@@ -134,7 +134,7 @@ export interface KPICardProps {
   /** Href: torna o card clicável */
   href?: string
 
-  glowPos?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  glowPos?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-right'
 
   /** data-tour para o sistema de tour guiado */
   tourId?: string

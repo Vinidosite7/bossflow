@@ -361,7 +361,7 @@ export default function DespesasPage() {
         {/* ── Modal confirmar exclusão ── */}
                 <FormModal
           open={!!showConfirm}
-          onClose={() => setShowConfirm(false)}
+          onClose={() => setShowConfirm(null)}
           title="Excluir lançamento?"
           size="sm"
         >
@@ -370,7 +370,7 @@ export default function DespesasPage() {
           </p>
           <div className="flex gap-3">
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-              onClick={() => setShowConfirm(false)}
+              onClick={() => setShowConfirm(null)}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
               style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, color: T.sub, cursor: 'pointer' }}>
               Cancelar

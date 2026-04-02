@@ -182,9 +182,7 @@ export default function DashboardPage() {
             title="Dashboard"
             subtitle={`${business?.name} · ${month}`}
             live
-            ctaLabel="Novo lançamento"
-            ctaIcon={Plus}
-            onCta={() => setShowModal(true)}
+            cta={{ label: 'Novo lançamento', icon: Plus, onClick: () => setShowModal(true) }}
           />
 
           {/* ── Alertas ────────────────────────────────────────── */}

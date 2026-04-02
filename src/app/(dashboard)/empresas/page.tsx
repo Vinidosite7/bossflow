@@ -171,7 +171,7 @@ export default function EmpresasPage() {
           title="Empresas"
           subtitle={`${businesses.length} ${businesses.length === 1 ? 'empresa cadastrada' : 'empresas cadastradas'}${planLimit !== Infinity ? ` · máx ${planLimit} no plano atual` : ''}`}
           live liveColor={T.purple}
-          cta={atLimit ? undefined : { label: 'Nova empresa', labelMobile: 'Nova', icon: Plus, onClick: () => setShowModal(true) }}
+          cta={atLimit ? undefined : { label: 'Nova empresa', labelMobile: 'Nova', icon: Plus, onClick: () => openCreate() }}
           tourId="empresas-header"
         />
 

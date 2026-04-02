@@ -11,6 +11,7 @@ import { SpotlightCard, ShimmerButton, Skeleton } from '@/components/ui/bossflow
 
 // ── Design System ──────────────────────────────────────────────────────────
 import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
+import { FormModal } from '@/components/core'
 import { fadeUp, scaleIn } from '@/lib/animations'
 // ─── Types ────────────────────────────────────────────────────
 type AdminUser = {
@@ -35,7 +36,7 @@ function KPI({ icon: Icon, label, value, color, sub }: any) {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
       <SpotlightCard className="rounded-2xl" spotlightColor={`${color}0c`}
-        style={{ ...cardStyle, padding: 0 }}>
+        style={{ ...card, padding: 0 }}>
         <div className="p-4 flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium" style={{ color: T.muted }}>{label}</span>
@@ -147,7 +148,7 @@ export default function AdminPage() {
       </div>
 
       {/* ── Distribuição ── */}
-      <SpotlightCard className="rounded-2xl" spotlightColor={`${T.purple}08`} style={{ ...cardStyle, padding: 0 }}>
+      <SpotlightCard className="rounded-2xl" spotlightColor={`${T.purple}08`} style={{ ...card, padding: 0 }}>
         <div className="p-4">
           <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: T.muted, fontFamily: SYNE, letterSpacing: '0.1em' }}>Distribuição por plano</p>
           <div className="flex gap-2.5 flex-wrap">
@@ -172,7 +173,7 @@ export default function AdminPage() {
 
       {/* ── Filtros ── */}
       <div className="flex gap-3 flex-wrap items-center">
-        <SpotlightCard className="rounded-xl flex-1 min-w-48" spotlightColor="rgba(124,110,247,0.06)" style={{ ...cardStyle, padding: 0 }}>
+        <SpotlightCard className="rounded-xl flex-1 min-w-48" spotlightColor="rgba(124,110,247,0.06)" style={{ ...card, padding: 0 }}>
           <div className="flex items-center gap-2 px-3 py-2.5">
             <Search size={13} style={{ color: T.muted }} />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por email ou nome..."
@@ -196,7 +197,7 @@ export default function AdminPage() {
       </div>
 
       {/* ── Tabela ── */}
-      <SpotlightCard className="rounded-2xl" spotlightColor="rgba(124,110,247,0.06)" style={{ ...cardStyle, padding: 0 }}>
+      <SpotlightCard className="rounded-2xl" spotlightColor="rgba(124,110,247,0.06)" style={{ ...card, padding: 0 }}>
         {loading ? (
           <div className="flex flex-col gap-3 p-5">
             {[0,1,2,3].map(i => <Skeleton key={i} className="h-14 rounded-xl" />)}
@@ -289,13 +290,13 @@ export default function AdminPage() {
 
       {/* ── Modal Setar Plano ── */}
               <FormModal
-          open={setPlanModal}
-          onClose={() => {setPlanModal && setSetPlanModal(false)}}
+          open={!!setPlanModal}
+          onClose={() => {setPlanModal && setSetPlanModal(null)}}
           title="Setar plano"
           size="sm"
         >
 <div className="px-3 py-2.5 rounded-xl text-xs font-mono" style={{ background: 'rgba(255,255,255,0.03)', color: T.sub, border: `1px solid ${T.border}` }}>
-        {setPlanModal.email}
+        {setPlanModal?.email}
         </div>
 
         {/* Plano */}
