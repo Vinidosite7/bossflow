@@ -149,7 +149,7 @@ export default function DashboardPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault(); setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('transactions').insert({ title: form.title, amount: parseFloat(form.amount), type: form.type, date: form.date, paid: form.paid, business_id: business.id, created_by: user?.id })
+    await supabase.from('transactions').insert({ title: form.title, amount: parseFloat(form.amount), type: form.type, date: form.date, paid: form.paid, business_id: business?.id ?? businessId, created_by: user?.id })
     setShowModal(false); setSaving(false)
     setForm({ title: '', amount: '', type: 'expense', date: new Date().toISOString().split('T')[0], paid: true })
     load()
