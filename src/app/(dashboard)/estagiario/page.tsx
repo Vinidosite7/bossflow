@@ -237,8 +237,8 @@ export default function BiaPage() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', flexShrink: 0, border: '2px solid rgba(124,110,247,0.4)', boxShadow: '0 0 20px rgba(124,110,247,0.25)' }}>
-              <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+            <div style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', flexShrink: 0, border: '2px solid rgba(124,110,247,0.4)', boxShadow: '0 0 20px rgba(124,110,247,0.25)', background: 'rgba(124,110,247,0.1)' }}>
+              <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -312,11 +312,11 @@ export default function BiaPage() {
                 style={{ marginBottom: 16, display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-start', gap: 10 }}>
                 <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, overflow: 'hidden', border: msg.role === 'assistant' ? '1.5px solid rgba(124,110,247,0.3)' : `1px solid ${T.border}`, background: msg.role === 'user' ? 'rgba(255,255,255,0.06)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {msg.role === 'assistant'
-                    ? <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+                    ? <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />
                     : userAvatar
-                      ? <img src={userAvatar} alt="você" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ? <img src={userAvatar} alt="você" style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: 8 }} />
                       : userEmoji
-                        ? <span style={{ fontSize: 16 }}>{userEmoji}</span>
+                        ? <span style={{ fontSize: 15, lineHeight: 1 }}>{userEmoji}</span>
                         : <User size={13} style={{ color: T.muted }} />}
                 </div>
                 <div style={{ flex: 1, maxWidth: '86%' }}>

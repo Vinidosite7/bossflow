@@ -112,11 +112,12 @@ export async function POST(req: NextRequest) {
     if (image && image.length > MAX_IMG_SIZE) return NextResponse.json({ error: 'Arquivo muito grande. Máximo 5MB.' }, { status: 400 })
 
     // ── Verificar que businessId pertence ao usuário ───────────────
-    const { data: bizCheck } = await supabase
-      .from('businesses').select('id').eq('id', businessId)
-      .or(`owner_id.eq.${user.id},id.in.(select business_id from business_members where user_id='${user.id}' and status='active')`)
-      .maybeSingle()
-    if (!bizCheck) return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 403 })
+    const { data: ownedBiz } = await supabase
+      .from('businesses').select('id').eq('id', businessId).eq('owner_id', user.id).maybeSingle()
+    const { data: memberBiz } = !ownedBiz ? await supabase
+      .from('business_members').select('business_id').eq('business_id', businessId).eq('user_id', user.id).in('status', ['active', 'accepted']).maybeSingle()
+      : { data: null }
+    if (!ownedBiz && !memberBiz) return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 403 })
 
     // ── Contexto financeiro ───────────────────────────────────────
     const today        = new Date().toISOString().split('T')[0]
