@@ -14,7 +14,7 @@ import { SpotlightCard, ShimmerButton, Skeleton } from '@/components/ui/bossflow
 import { T, card, inp, inpLg, inpSm, SYNE } from '@/lib/design'
 import { fadeUp, scaleIn } from '@/lib/animations'
 
-import { PageBackground, FormModal } from '@/components/core'
+import { PageBackground, FormModal, ModalSubmitButton } from '@/components/core'
 const DEFAULT_AVATARS = ['👤','😎','🧑‍💼','👩‍💼','🧑‍💻','👩‍💻','🦸','🧙','🤴','👸','🧑‍🎨','🥷']
 
 type NotifKey = 'tasks' | 'payments' | 'weekly' | 'events'
