@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useBusinessContext } from '@/lib/business-context'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Lock, Zap, Star, Rocket, Building2, PartyPopper, X, Bot, CalendarClock, Share2, BarChart3, Target, BellDot } from 'lucide-react'
+import { Check, Lock, Zap, Star, Rocket, Building2, PartyPopper, X, Bot, CalendarClock, Share2, BarChart3, Target, BellDot, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { PLAN_LABELS, PLAN_PRICES, PLAN_CHECKOUT_URLS, type PlanKey } from '@/lib/plans'
 import { SpotlightCard, ShimmerButton, Skeleton, GlowCorner } from '@/components/ui/bossflow-ui'
@@ -178,6 +179,8 @@ export default function AssinaturaPage() {
   const sucesso       = searchParams.get('sucesso') === 'true'
   const [showBanner, setShowBanner] = useState(sucesso)
   const { plan: currentPlan, loading } = useSubscription()
+  const { user } = useBusinessContext()
+  const userEmail = (user as any)?.email || ''
 
   const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -296,7 +299,24 @@ export default function AssinaturaPage() {
         </AnimatePresence>
 
         {/* Header */}
-        <motion.div variants={vContainer} initial="hidden" animate="show" className="flex flex-col gap-1.5">
+  
+      {/* ── Aviso de email ────────────────────────────────────── */}
+      {userEmail && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 16px', borderRadius: 14, marginBottom: 4,
+            background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)',
+          }}>
+          <AlertTriangle size={15} style={{ color: '#fbbf24', flexShrink: 0 }} />
+          <p style={{ fontSize: 13, color: '#7a7a5a', margin: 0, lineHeight: 1.5 }}>
+            Ao assinar, use o e-mail{' '}
+            <strong style={{ color: '#fbbf24' }}>{userEmail}</strong>{' '}
+            no checkout para ativar seu plano automaticamente.
+          </p>
+        </motion.div>
+      )}
+      <motion.div variants={vContainer} initial="hidden" animate="show" className="flex flex-col gap-1.5">
           <motion.h1 variants={vFadeUp} className="text-2xl font-bold tracking-tight" style={{ fontFamily: SYNE, color: T.text }}>
             Assinatura
           </motion.h1>

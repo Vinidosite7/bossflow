@@ -94,25 +94,33 @@ export function UpgradeModal({ isOpen, onClose, feature, description, requiredPl
 }
 
 // ─── Mapa de features → visual contextual ─────────────────────
-const FEATURE_VISUALS: Record<string, { emoji: string; color: string; preview: string[] }> = {
+// Tipo atualizado com suporte a imagem
+interface FeatureVisual {
+  emoji?: string
+  img?: string      // caminho da imagem em /public
+  color: string
+  preview: string[]
+}
+
+const FEATURE_VISUALS: Record<string, FeatureVisual> = {
   'Agendamento de eventos': {
-    emoji: '📅', color: '#22d3ee',
+    img: '/icon-512.png', color: '#22d3ee',
     preview: ['Agenda semanal e mensal', 'Lembretes automáticos', 'Sincronização com tarefas'],
   },
   'Estagiária Bia': {
-    emoji: '🤖', color: '#c084fc',
+    img: '/bia-avatar.png', color: '#c084fc',
     preview: ['Lê notas fiscais e cadastra', 'Responde sobre seu financeiro', 'Cria lançamentos por texto'],
   },
   'Módulo financeiro': {
-    emoji: '📊', color: '#34d399',
+    img: '/icon-512.png', color: '#34d399',
     preview: ['Fluxo de caixa detalhado', 'Categorias personalizadas', 'Histórico completo'],
   },
   'Metas mensais': {
-    emoji: '🎯', color: '#f97316',
+    img: '/icon-512.png', color: '#f97316',
     preview: ['Meta de faturamento mensal', 'Progresso em tempo real', 'Histórico de meses anteriores'],
   },
   'Compartilhamento de empresa': {
-    emoji: '👥', color: '#fbbf24',
+    img: '/icon-512.png', color: '#fbbf24',
     preview: ['Convide membros da equipe', 'Controle de permissões', 'Acesso simultâneo'],
   },
 }
@@ -133,7 +141,7 @@ export function PlanGate({ currentPlan, requiredPlan, feature, description, mode
 
   if (hasAccess) return <>{children}</>
 
-  const visual = FEATURE_VISUALS[feature] ?? { emoji: '✨', color: '#7c6ef7', preview: [] }
+  const visual = FEATURE_VISUALS[feature] ?? { img: '/icon-512.png', color: '#7c6ef7', preview: [] }
   const price   = PLAN_PRICES[requiredPlan]
   const fmt     = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
   const checkoutUrl = PLAN_CHECKOUT_URLS[requiredPlan]
@@ -149,21 +157,30 @@ export function PlanGate({ currentPlan, requiredPlan, feature, description, mode
         textAlign: 'center', padding: '48px 24px', maxWidth: 400, margin: '0 auto',
       }}>
         {/* Ícone contextual */}
-        <div style={{
-          width: 72, height: 72, borderRadius: 22, marginBottom: 20,
-          background: `rgba(${visual.color === '#22d3ee' ? '34,211,238' : visual.color === '#c084fc' ? '192,132,252' : visual.color === '#34d399' ? '52,211,153' : visual.color === '#f97316' ? '249,115,22' : visual.color === '#fbbf24' ? '251,191,36' : '124,110,247'},0.1)`,
-          border: `1px solid ${visual.color}28`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 32, position: 'relative',
-        }}>
-          {visual.emoji}
+        <div style={{ position: 'relative', marginBottom: 20 }}>
+          <div style={{
+            width: 80, height: 80, borderRadius: 22, overflow: 'hidden',
+            background: `rgba(124,110,247,0.08)`,
+            border: `1px solid ${visual.color}30`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 36,
+            boxShadow: `0 0 32px ${visual.color}18`,
+          }}>
+            {visual.img
+              ? <img src={visual.img} alt={feature}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover',
+                    objectPosition: feature === 'Estagiária Bia' ? 'center top' : 'center',
+                    filter: 'brightness(0.85)' }} />
+              : <span>{visual.emoji}</span>}
+          </div>
           <div style={{
             position: 'absolute', bottom: -8, right: -8,
-            width: 26, height: 26, borderRadius: 99,
+            width: 28, height: 28, borderRadius: 99,
             background: '#7c6ef7', border: '2px solid #0a0a0f',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(124,110,247,0.4)',
           }}>
-            <Lock size={11} color="white" />
+            <Lock size={12} color="white" />
           </div>
         </div>
 
