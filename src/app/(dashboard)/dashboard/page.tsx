@@ -152,7 +152,7 @@ export default function DashboardPage() {
     await supabase.from('transactions').insert({ title: form.title, amount: parseFloat(form.amount), type: form.type, date: form.date, paid: form.paid, business_id: business?.id ?? businessId, created_by: user?.id })
     setShowModal(false); setSaving(false)
     setForm({ title: '', amount: '', type: 'expense', date: new Date().toISOString().split('T')[0], paid: true })
-    load()
+    if (businessId) load(businessId)
   }
 
   const fmt      = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
