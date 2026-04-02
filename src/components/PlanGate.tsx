@@ -233,3 +233,7 @@ export function PlanGate({ currentPlan, requiredPlan, feature, description, mode
     </>
   )
 }
+
+
+// ── Alias para compatibilidade com imports antigos ────────────
+export const PlanAction = PlanGate
