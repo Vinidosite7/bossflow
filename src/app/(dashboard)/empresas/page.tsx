@@ -331,79 +331,70 @@ export default function EmpresasPage() {
         </FormModal>
 
         {/* Modal Membros */}
-                <FormModal
+        <FormModal
           open={!!membersModal}
           onClose={() => setMembersModal(null)}
           title="Membros da empresa"
           size="md"
         >
-</motion.div>
-                  )}
-                </AnimatePresence
-        </FormModal>
+          <div className="flex flex-col gap-4">
+            {/* Lista membros */}
+            <div className="flex flex-col gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE, letterSpacing: '0.1em' }}>Membros</h3>
+              {loadingMembers ? (
+                <div className="flex justify-center py-8"><div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: T.purple, borderTopColor: 'transparent' }} /></div>
+              ) : members.length === 0 ? (
+                <p className="text-sm py-4 text-center" style={{ color: T.muted }}>Nenhum membro ainda.</p>
+              ) : members.map((m, i) => {
+                const cfg   = ROLE_CONFIG[m.role] ?? ROLE_CONFIG.member
+                const Icon  = cfg.icon
+                const isMe  = m.user_id === currentUserId
+                const isActive = m.status === 'accepted' || m.status === 'active'
+                return (
+                  <motion.div key={m.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                    style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+                      style={{ background: `${cfg.color}14`, color: cfg.color, fontFamily: SYNE }}>
+                      {(m.email?.[0] ?? '?').toUpperCase()}
                     </div>
-                  </div>
-
-                  {/* Lista membros */}
-                  <div className="flex flex-col gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.muted, fontFamily: SYNE, letterSpacing: '0.1em' }}>Membros</h3>
-                    {loadingMembers ? (
-                      <div className="flex justify-center py-8"><div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: T.purple, borderTopColor: 'transparent' }} /></div>
-                    ) : members.length === 0 ? (
-                      <p className="text-sm py-4 text-center" style={{ color: T.muted }}>Nenhum membro ainda.</p>
-                    ) : members.map((m, i) => {
-                      const cfg   = ROLE_CONFIG[m.role] ?? ROLE_CONFIG.member
-                      const Icon  = cfg.icon
-                      const isMe  = m.user_id === currentUserId
-                      const isActive = m.status === 'accepted' || m.status === 'active'
-                      return (
-                        <motion.div key={m.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                          style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }}>
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
-                            style={{ background: `${cfg.color}14`, color: cfg.color, fontFamily: SYNE }}>
-                            {(m.email?.[0] ?? '?').toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate" style={{ color: T.text }}>
-                              {m.email} {isMe && <span style={{ color: T.muted }}>(você)</span>}
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              <span className="flex items-center gap-1 text-xs" style={{ color: cfg.color }}>
-                                <Icon size={9} /> {cfg.label}
-                              </span>
-                              <span className="text-xs px-1.5 py-0.5 rounded-md"
-                                style={{ background: isActive ? `${T.green}08` : m.status === 'pending' ? `${T.amber}08` : `${T.red}08`, color: isActive ? T.green : m.status === 'pending' ? T.amber : T.red }}>
-                                {isActive ? 'Ativo' : m.status === 'pending' ? 'Pendente' : 'Removido'}
-                              </span>
-                            </div>
-                          </div>
-                          {!isMe && m.role !== 'owner' && m.status !== 'removed' && (
-                            <div className="flex gap-1.5 shrink-0">
-                              <select value={m.role}
-                                onChange={async e => { await supabase.from('business_members').update({ role: e.target.value }).eq('id', m.id); loadMembers(membersModal) }}
-                                className="text-xs px-2 py-1 rounded-lg outline-none cursor-pointer"
-                                style={{ background: 'rgba(255,255,255,0.04)', color: T.violet, border: `1px solid ${T.border}` }}>
-                                <option value="admin" style={{ background: '#0d0d14' }}>Admin</option>
-                                <option value="member" style={{ background: '#0d0d14' }}>Membro</option>
-                                <option value="viewer" style={{ background: '#0d0d14' }}>Visualizador</option>
-                              </select>
-                              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleRemoveMember(m.id)}
-                                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                                style={{ background: `${T.red}10`, color: T.red, border: `1px solid ${T.red}22`, cursor: 'pointer' }}>
-                                <UserMinus size={12} />
-                              </motion.button>
-                            </div>
-                          )}
-                        </motion.div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: T.text }}>
+                        {m.email} {isMe && <span style={{ color: T.muted }}>(você)</span>}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="flex items-center gap-1 text-xs" style={{ color: cfg.color }}>
+                          <Icon size={9} /> {cfg.label}
+                        </span>
+                        <span className="text-xs px-1.5 py-0.5 rounded-md"
+                          style={{ background: isActive ? `${T.green}08` : m.status === 'pending' ? `${T.amber}08` : `${T.red}08`, color: isActive ? T.green : m.status === 'pending' ? T.amber : T.red }}>
+                          {isActive ? 'Ativo' : m.status === 'pending' ? 'Pendente' : 'Removido'}
+                        </span>
+                      </div>
+                    </div>
+                    {!isMe && m.role !== 'owner' && m.status !== 'removed' && (
+                      <div className="flex gap-1.5 shrink-0">
+                        <select value={m.role}
+                          onChange={async e => { await supabase.from('business_members').update({ role: e.target.value }).eq('id', m.id); loadMembers(membersModal) }}
+                          className="text-xs px-2 py-1 rounded-lg outline-none cursor-pointer"
+                          style={{ background: 'rgba(255,255,255,0.04)', color: T.violet, border: `1px solid ${T.border}` }}>
+                          <option value="admin" style={{ background: '#0d0d14' }}>Admin</option>
+                          <option value="member" style={{ background: '#0d0d14' }}>Membro</option>
+                          <option value="viewer" style={{ background: '#0d0d14' }}>Visualizador</option>
+                        </select>
+                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleRemoveMember(m.id)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ background: `${T.red}10`, color: T.red, border: `1px solid ${T.red}22`, cursor: 'pointer' }}>
+                          <UserMinus size={12} />
+                        </motion.button>
+                      </div>
+                    )}
+                  </motion.div>
+                )
+              })}
+            </div>
+          </div>
+        </FormModal>
 
         {/* Modal Confirm */}
                 <FormModal
