@@ -121,7 +121,9 @@ export default function BiaPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLTextAreaElement>(null)
 
-  const userName = (user as any)?.user_metadata?.full_name?.split(' ')[0] || 'você'
+  const userName   = (user as any)?.user_metadata?.full_name?.split(' ')[0] || 'você'
+  const userAvatar = (user as any)?.user_metadata?.avatar_url || null
+  const userEmoji  = (user as any)?.user_metadata?.emoji_avatar || null
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
 
@@ -143,9 +145,13 @@ export default function BiaPage() {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/estagiario', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` }, body: JSON.stringify({ message: text, image: image || undefined, imageType: imageType || undefined, businessId, history: historyForApi }) })
       const data = await res.json()
+      if (!res.ok || data.error) {
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: data.error || 'Ops, algo deu errado. Tenta de novo!' }])
+        return
+      }
       const result = data.result
       if (result?.data) result.data = result.data.map((item: any) => ({ ...item, confirmed: true }))
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: result?.message || '', result }])
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: result?.message || 'Pronto!', result }])
     } catch {
       setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: 'Ops, algo deu errado. Tenta de novo!' }])
     } finally { setLoading(false) }
@@ -232,7 +238,7 @@ export default function BiaPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', flexShrink: 0, border: '2px solid rgba(124,110,247,0.4)', boxShadow: '0 0 20px rgba(124,110,247,0.25)' }}>
-              <img src="/bia-avatar.jpg" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+              <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -262,7 +268,7 @@ export default function BiaPage() {
                 {/* Boas-vindas */}
                 <div style={{ ...card, borderRadius: 20, padding: '18px 20px', marginBottom: 20, background: 'linear-gradient(135deg, rgba(124,110,247,0.08), rgba(124,110,247,0.03))', border: '1px solid rgba(124,110,247,0.18)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                   <div style={{ width: 38, height: 38, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '2px solid rgba(124,110,247,0.3)' }}>
-                    <img src="/bia-avatar.jpg" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+                    <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
                   </div>
                   <div>
                     <p style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: '0 0 4px', fontFamily: SYNE }}>Oi, {userName}! 👋 Sou a Bia.</p>
@@ -306,8 +312,12 @@ export default function BiaPage() {
                 style={{ marginBottom: 16, display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-start', gap: 10 }}>
                 <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, overflow: 'hidden', border: msg.role === 'assistant' ? '1.5px solid rgba(124,110,247,0.3)' : `1px solid ${T.border}`, background: msg.role === 'user' ? 'rgba(255,255,255,0.06)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {msg.role === 'assistant'
-                    ? <img src="/bia-avatar.jpg" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
-                    : <User size={13} style={{ color: T.muted }} />}
+                    ? <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+                    : userAvatar
+                      ? <img src={userAvatar} alt="você" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : userEmoji
+                        ? <span style={{ fontSize: 16 }}>{userEmoji}</span>
+                        : <User size={13} style={{ color: T.muted }} />}
                 </div>
                 <div style={{ flex: 1, maxWidth: '86%' }}>
                   {msg.image && (
@@ -337,8 +347,8 @@ export default function BiaPage() {
 
             {loading && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, overflow: 'hidden', border: '1.5px solid rgba(124,110,247,0.3)', flexShrink: 0 }}>
-                  <img src="/bia-avatar.jpg" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+                <div style={{ width: 30, height: 30, borderRadius: 8, overflow: 'hidden', border: '1.5px solid rgba(124,110,247,0.3)', flexShrink: 0, flexBasis: 30 }}>
+                  <img src="/bia-avatar.png" alt="Bia" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
                 </div>
                 <div style={{ padding: '10px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, display: 'flex', gap: 4, alignItems: 'center' }}>
                   {[0,1,2].map(i => (
