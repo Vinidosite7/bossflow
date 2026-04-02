@@ -23,7 +23,7 @@ const useSidebar = () => useContext(SidebarContext)
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
 const navMain = [
-  { label: 'Estagiário IA', href: '/estagiario', icon: Sparkles, color: '#c084fc' },
+  { label: 'Estagiária Bia', href: '/estagiario', icon: Sparkles, color: '#c084fc' },
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, color: '#9d8fff' },
   { label: 'Financeiro', href: '/financeiro', icon: TrendingUp,     color: '#34d399' },
   { label: 'Despesas',   href: '/despesas',   icon: CreditCard,     color: '#f87171' },

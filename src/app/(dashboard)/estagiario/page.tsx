@@ -179,8 +179,26 @@ export default function BiaPage() {
 
   const isEmpty = messages.length === 0
 
-  // Gate: aiAssistant disponível só no Starter+
-  if (!planLoading && !features.aiAssistant) {
+  // Gate: mostra skeleton enquanto carrega, bloqueia se free
+  if (planLoading) {
+    return (
+      <PageBackground>
+        <div className="flex flex-col gap-4 max-w-2xl mx-auto">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }} />
+            <div className="flex flex-col gap-2">
+              <div className="h-5 w-32 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              <div className="h-3 w-48 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }} />
+            </div>
+          </div>
+          <div className="h-32 rounded-2xl" style={{ background: 'rgba(255,255,255,0.04)' }} />
+          <div className="h-32 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)' }} />
+        </div>
+      </PageBackground>
+    )
+  }
+
+  if (!features.aiAssistant) {
     return (
       <PageBackground>
         <div className="flex flex-col gap-5">
@@ -189,12 +207,12 @@ export default function BiaPage() {
               <span style={{ fontSize: 16 }}>🤖</span>
             </div>
             <div>
-              <h1 className="font-bold text-lg" style={{ color: '#e8e8f0', fontFamily: 'Syne, sans-serif' }}>Estagiário IA</h1>
+              <h1 className="font-bold text-lg" style={{ color: '#e8e8f0', fontFamily: 'Syne, sans-serif' }}>Estagiária Bia</h1>
               <p className="text-xs" style={{ color: '#4a4a6a' }}>Assistente financeiro inteligente</p>
             </div>
           </div>
           <PlanGate currentPlan={plan} requiredPlan="starter"
-            feature="Estagiário IA"
+            feature="Estagiária Bia"
             description="Analise notas fiscais, registre lançamentos por texto e consulte seus dados financeiros com IA. Disponível no plano Starter."
             mode="hide">
             <div className="flex flex-col gap-3">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -55,8 +56,10 @@ function KPI({ icon: Icon, label, value, color, sub }: any) {
 // ─── Page ────────────────────────────────────────────────────
 export default function AdminPage() {
   const supabase = createClient()
+  const router   = useRouter()
   const [users, setUsers]         = useState<AdminUser[]>([])
   const [loading, setLoading]     = useState(true)
+  const [authorized, setAuthorized] = useState(false)
   const [search, setSearch]       = useState('')
   const [filterPlan, setFilterPlan] = useState<string>('all')
   const [setPlanModal, setSetPlanModal] = useState<AdminUser | null>(null)
@@ -76,7 +79,17 @@ export default function AdminPage() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    async function checkAdmin() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.replace('/login'); return }
+      const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+      if (!profile?.is_admin) { router.replace('/dashboard'); return }
+      setAuthorized(true)
+      load()
+    }
+    checkAdmin()
+  }, [])
 
   const totalUsers = users.length
   const paidUsers  = users.filter(u => u.plan !== 'free').length
@@ -95,7 +108,8 @@ export default function AdminPage() {
     if (!setPlanModal) return
     setSaving(true)
     try {
-      const res = await fetch('/api/admin/set-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: setPlanModal.id, plan: newPlan, days: days || null, note }) })
+      const { data: { session: adminSession } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/set-plan', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminSession?.access_token}` }, body: JSON.stringify({ userId: setPlanModal.id, plan: newPlan, days: days || null, note }) })
       if (!res.ok) throw new Error()
       setSaveOk(true); await load(); setTimeout(() => setSetPlanModal(null), 1200)
     } catch { }
@@ -104,7 +118,8 @@ export default function AdminPage() {
 
   async function handleRevoke(userId: string) {
     if (!confirm('Revogar plano e voltar para Gratuito?')) return
-    await fetch('/api/admin/set-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, plan: 'free', days: null, note: 'Revogado pelo admin' }) })
+    const { data: { session: revokeSession } } = await supabase.auth.getSession()
+    await fetch('/api/admin/set-plan', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${revokeSession?.access_token}` }, body: JSON.stringify({ userId, plan: 'free', days: null, note: 'Revogado pelo admin' }) })
     load()
   }
 

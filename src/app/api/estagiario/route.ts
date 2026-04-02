@@ -3,13 +3,27 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+const supabase  = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// ── Rate limiting simples em memória (por userId) ─────────────
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT    = 30   // max requests
+const RATE_WINDOW   = 60_000 // por minuto
+const MAX_IMG_SIZE  = 5 * 1024 * 1024 // 5MB em base64 chars ≈ 6.7MB
 
-const SYSTEM_PROMPT = `Você é o Estagiário do BossFlow — um assistente financeiro inteligente para pequenos empresários brasileiros.
+function checkRateLimit(userId: string): boolean {
+  const now  = Date.now()
+  const data = rateLimitMap.get(userId)
+  if (!data || now > data.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_WINDOW })
+    return true
+  }
+  if (data.count >= RATE_LIMIT) return false
+  data.count++
+  return true
+}
+
+const SYSTEM_PROMPT = `Você é a Estagiária Bia do BossFlow — uma assistente financeira inteligente para pequenos empresários brasileiros.
 
 Você pode:
 1. Analisar fotos de notas fiscais, cupons, boletos e faturas de cartão
@@ -25,11 +39,11 @@ Sempre responda com JSON puro, sem markdown. Use este formato:
 {
   "type": "transactions" | "tasks" | "message" | "analysis",
   "message": "mensagem amigável para o usuário",
-  "data": [ ... ] // quando type for transactions ou tasks
+  "data": [ ... ]
 }
 
 ### type: "transactions"
-Use quando identificar lançamentos financeiros (notas, faturas, boletos, texto com valores).
+Use quando identificar lançamentos financeiros.
 "data" é um array de:
 {
   "title": "nome curto do lançamento",
@@ -43,7 +57,6 @@ Use quando identificar lançamentos financeiros (notas, faturas, boletos, texto 
 }
 
 ### type: "tasks"
-Use quando o usuário pedir para criar uma tarefa ou lembrete.
 "data" é um array de:
 {
   "title": "título da tarefa",
@@ -53,128 +66,112 @@ Use quando o usuário pedir para criar uma tarefa ou lembrete.
 }
 
 ### type: "message"
-Use para responder perguntas, dar análises em texto ou quando não há ação a tomar.
+Para respostas em texto, análises ou quando não há ação.
 
-### type: "analysis"
-Use para análises financeiras estruturadas com gráficos ou tabelas em markdown.
-
-## REGRAS IMPORTANTES
-
-- Sempre use o português brasileiro informal
-- Para datas, use a data de hoje se não especificada
-- Para faturas de cartão: crie uma transação por linha relevante
+## REGRAS
+- Português brasileiro informal
+- Para datas, use hoje se não especificada
+- Para faturas: uma transação por linha relevante
 - Para boletos: extraia valor, vencimento e favorecido
-- Para notas fiscais: agrupe itens similares ou crie uma transação por estabelecimento
-- Ao categorizar, tente encaixar nas categorias disponíveis do usuário
-- Se não tiver certeza do valor, pergunte antes de criar
-- Seja direto e objetivo — o usuário é um empreendedor ocupado
-- Nunca invente valores que não estão no documento`
+- Para notas: agrupe por estabelecimento
+- Tente encaixar nas categorias do usuário
+- Nunca invente valores
+- Seja direta e objetiva`
 
 export async function POST(req: NextRequest) {
   try {
     // ── Auth ──────────────────────────────────────────────────────
     const authHeader = req.headers.get('authorization')
-    if (!authHeader) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
     if (authErr || !user) return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
 
-    // ── Valida plano: aiAssistant = Starter+ ──────────────────────
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('plan')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle()
-
-    const userPlan   = sub?.plan ?? 'free'
-    const allowedPlans = ['starter', 'pro', 'scale']
-    if (!allowedPlans.includes(userPlan)) {
-      return NextResponse.json({ error: 'Plano insuficiente. Estagiário IA disponível no Starter+.' }, { status: 403 })
+    // ── Rate limit ────────────────────────────────────────────────
+    if (!checkRateLimit(user.id)) {
+      return NextResponse.json({ error: 'Muitas requisições. Aguarde um momento.' }, { status: 429 })
     }
 
-    // ── Body ──────────────────────────────────────────────────────
+    // ── Verificar plano ───────────────────────────────────────────
+    const { data: sub } = await supabase
+      .from('subscriptions').select('plan, status').eq('user_id', user.id).eq('status', 'active').maybeSingle()
+    const plan = sub?.plan ?? 'free'
+    if (plan === 'free') {
+      return NextResponse.json({ error: 'A Estagiária Bia está disponível nos planos Starter e Pro.' }, { status: 403 })
+    }
+
+    // ── Body + validação ──────────────────────────────────────────
     const body = await req.json()
     const { message, image, imageType, businessId, history = [] } = body
 
     if (!businessId) return NextResponse.json({ error: 'businessId obrigatório' }, { status: 400 })
+    if (!message?.trim() && !image) return NextResponse.json({ error: 'Mensagem ou imagem obrigatória' }, { status: 400 })
+    if (message && message.length > 2000) return NextResponse.json({ error: 'Mensagem muito longa' }, { status: 400 })
+    if (image && image.length > MAX_IMG_SIZE) return NextResponse.json({ error: 'Arquivo muito grande. Máximo 5MB.' }, { status: 400 })
 
-    // ── Contexto financeiro do usuário ────────────────────────────
-    const today = new Date().toISOString().split('T')[0]
+    // ── Verificar que businessId pertence ao usuário ───────────────
+    const { data: bizCheck } = await supabase
+      .from('businesses').select('id').eq('id', businessId)
+      .or(`owner_id.eq.${user.id},id.in.(select business_id from business_members where user_id='${user.id}' and status='active')`)
+      .maybeSingle()
+    if (!bizCheck) return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 403 })
+
+    // ── Contexto financeiro ───────────────────────────────────────
+    const today        = new Date().toISOString().split('T')[0]
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
 
     const [{ data: categories }, { data: recentTxs }, { data: pendingTasks }] = await Promise.all([
       supabase.from('categories').select('id, name, type').eq('business_id', businessId).order('name'),
-      supabase.from('transactions')
-        .select('title, amount, type, date, paid')
-        .eq('business_id', businessId)
-        .gte('date', startOfMonth)
-        .order('date', { ascending: false })
-        .limit(20),
-      supabase.from('tasks')
-        .select('title, due_date, status')
-        .eq('business_id', businessId)
-        .eq('status', 'todo')
-        .limit(10),
+      supabase.from('transactions').select('title, amount, type, date, paid').eq('business_id', businessId).gte('date', startOfMonth).order('date', { ascending: false }).limit(15),
+      supabase.from('tasks').select('title, due_date').eq('business_id', businessId).eq('status', 'todo').limit(8),
     ])
 
     const contextBlock = `
-## Contexto do usuário
+## Contexto
 Data de hoje: ${today}
 
 ### Categorias disponíveis:
-${(categories || []).map(c => `- ${c.name} (${c.type === 'income' ? 'receita' : 'despesa'}) | id: ${c.id}`).join('\n') || 'Nenhuma categoria criada ainda'}
+${(categories || []).map(c => `- ${c.name} (${c.type === 'income' ? 'receita' : 'despesa'}) | id: ${c.id}`).join('\n') || 'Nenhuma categoria criada'}
 
 ### Últimas transações do mês:
-${(recentTxs || []).slice(0, 10).map(t => `- ${t.date} | ${t.type === 'income' ? '+' : '-'}R$${t.amount} | ${t.title} | ${t.paid ? 'pago' : 'pendente'}`).join('\n') || 'Sem transações este mês'}
+${(recentTxs || []).map(t => `- ${t.date} | ${t.type === 'income' ? '+' : '-'}R$${t.amount} | ${t.title}`).join('\n') || 'Sem transações'}
 
 ### Tarefas pendentes:
-${(pendingTasks || []).map(t => `- ${t.title}${t.due_date ? ` (vence ${t.due_date})` : ''}`).join('\n') || 'Sem tarefas pendentes'}
-`
+${(pendingTasks || []).map(t => `- ${t.title}${t.due_date ? ` (vence ${t.due_date})` : ''}`).join('\n') || 'Nenhuma'}`
 
     // ── Monta mensagens ───────────────────────────────────────────
     const messages: any[] = [
-      // Histórico anterior (máx 10 mensagens)
-      ...history.slice(-10).map((h: any) => ({
-        role: h.role,
-        content: h.content,
-      })),
+      ...history.slice(-8).map((h: any) => ({ role: h.role, content: h.content })),
     ]
 
-    // Mensagem atual com imagem opcional
     const userContent: any[] = []
-
     if (image) {
-      // Detecta se é PDF ou imagem
-      const isPdf = imageType === 'application/pdf' || image.startsWith('JVBER')
-      userContent.push({
-        type: isPdf ? 'document' : 'image',
-        source: {
-          type: 'base64',
-          media_type: imageType || 'image/jpeg',
-          data: image,
-        },
-      })
+      const isPdf = imageType === 'application/pdf'
+      userContent.push({ type: isPdf ? 'document' : 'image', source: { type: 'base64', media_type: imageType || 'image/jpeg', data: image } })
     }
-
-    userContent.push({
-      type: 'text',
-      text: `${contextBlock}\n\n${message || (image ? 'Analise este documento e extraia os lançamentos financeiros.' : '')}`,
-    })
-
+    userContent.push({ type: 'text', text: `${contextBlock}\n\n${message || 'Analise este documento e extraia os lançamentos financeiros.'}` })
     messages.push({ role: 'user', content: userContent })
 
-    // ── Chamada à API ─────────────────────────────────────────────
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      messages,
-    })
+    // ── Chamada Anthropic com timeout ─────────────────────────────
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 25_000)
 
-    const raw = response.content[0].type === 'text' ? response.content[0].text : ''
+    let raw = ''
+    try {
+      const response = await anthropic.messages.create({
+        model:      'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        system:     SYSTEM_PROMPT,
+        messages,
+      })
+      raw = response.content[0].type === 'text' ? response.content[0].text : ''
+    } finally {
+      clearTimeout(timeout)
+    }
 
-    // ── Parse do JSON ──────────────────────────────────────────────
+    // ── Parse JSON ────────────────────────────────────────────────
     let parsed: any
     try {
       const clean = raw.replace(/```json|```/g, '').trim()
@@ -186,7 +183,10 @@ ${(pendingTasks || []).map(t => `- ${t.title}${t.due_date ? ` (vence ${t.due_dat
     return NextResponse.json({ ok: true, result: parsed })
 
   } catch (err: any) {
-    console.error('[estagiario]', err)
+    if (err.name === 'AbortError') {
+      return NextResponse.json({ error: 'A Bia demorou muito para responder. Tenta de novo!' }, { status: 504 })
+    }
+    console.error('[bia]', err?.message)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

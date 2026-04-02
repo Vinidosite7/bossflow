@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react'
+import { ArrowRight, Loader2, Eye, EyeOff, Mail, CheckCircle } from 'lucide-react'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -17,50 +17,39 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [focused, setFocused] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
 
   async function handleRegister(e: React.FormEvent) {
-  e.preventDefault()
-  setLoading(true)
-  setError('')
-  
-  const { data, error } = await supabase.auth.signUp({
-    email, password,
-    options: { data: { full_name: name } }
-  })
-  
-  if (error) { 
-    setError('Erro ao criar conta. Tente novamente.')
-    setLoading(false)
-    return 
-  }
+    e.preventDefault()
+    setLoading(true)
+    setError('')
 
-  // Aguarda sessão estar pronta
-  if (data.session) {
-    // Dispara email de boas-vindas (sem await — não bloqueia o redirect)
-    fetch(`${window.location.origin}/api/auth/welcome`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email }),
+    const { data, error } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { full_name: name } }
     })
-    router.push('/dashboard')
-  } else {
-    // Tenta login automático
-    const { error: loginError } = await supabase.auth.signInWithPassword({ email, password })
-    if (loginError) {
-      setError('Conta criada! Faça login para continuar.')
+
+    if (error) {
+      setError('Erro ao criar conta. Tente novamente.')
       setLoading(false)
-      router.push('/login')
       return
     }
-    // Dispara email de boas-vindas (sem await — não bloqueia o redirect)
+
+    // Dispara email de boas-vindas
     fetch(`${window.location.origin}/api/auth/welcome`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email }),
     })
-    router.push('/dashboard')
+
+    if (data.session) {
+      router.push('/dashboard')
+    } else {
+      // Email confirmation required
+      setEmailSent(true)
+      setLoading(false)
+    }
   }
-}
 
   async function handleGoogle() {
     setGoogleLoading(true)
@@ -85,6 +74,91 @@ export default function RegisterPage() {
   const strength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : password.length < 14 ? 3 : 4
   const strengthColor = ['#1e1e2e', '#f87171', '#fbbf24', '#34d399', '#7c6ef7'][strength]
   const strengthLabel = ['', 'Fraca', 'Regular', 'Boa', 'Forte'][strength]
+
+  // ── Tela de confirmação de email ──────────────────────────────
+  if (emailSent) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {/* Logo mobile */}
+        <div className="lg:hidden">
+          <img src="/bossflow.png" alt="BossFlow" style={{ height: 32, objectFit: 'contain' }} />
+        </div>
+
+        {/* Card de confirmação */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          textAlign: 'center', gap: 20, padding: '8px 0',
+        }}>
+          {/* Ícone animado */}
+          <div style={{
+            width: 72, height: 72, borderRadius: 20,
+            background: 'linear-gradient(135deg, rgba(124,110,247,0.15), rgba(124,110,247,0.05))',
+            border: '1px solid rgba(124,110,247,0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Mail size={30} style={{ color: '#9d8fff' }} />
+          </div>
+
+          <div>
+            <h1 style={{
+              fontFamily: 'Syne, sans-serif', fontSize: 24, fontWeight: 700,
+              letterSpacing: '-0.02em', color: '#e8e8f0', marginBottom: 8,
+            }}>
+              Confirme seu e-mail
+            </h1>
+            <p style={{ fontSize: 14, color: '#5a5a7a', lineHeight: 1.6, maxWidth: 320, margin: '0 auto' }}>
+              Enviamos um link de confirmação para{' '}
+              <strong style={{ color: '#9d8fff' }}>{email}</strong>.
+              Clique no link para ativar sua conta.
+            </p>
+          </div>
+
+          {/* Steps */}
+          <div style={{
+            width: '100%', padding: '16px 20px', borderRadius: 14,
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)',
+            display: 'flex', flexDirection: 'column', gap: 12,
+          }}>
+            {[
+              { n: '1', text: 'Abra seu e-mail', done: true },
+              { n: '2', text: 'Clique em "Confirmar email"', done: false },
+              { n: '3', text: 'Você será redirecionado ao app', done: false },
+            ].map(({ n, text, done }) => (
+              <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: 99, flexShrink: 0,
+                  background: done ? 'rgba(52,211,153,0.15)' : 'rgba(124,110,247,0.1)',
+                  border: `1px solid ${done ? 'rgba(52,211,153,0.3)' : 'rgba(124,110,247,0.2)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 700,
+                  color: done ? '#34d399' : '#9d8fff',
+                }}>
+                  {done ? <CheckCircle size={13} /> : n}
+                </div>
+                <span style={{ fontSize: 13, color: done ? '#6a9a8a' : '#5a5a7a' }}>{text}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Dica spam */}
+          <p style={{ fontSize: 12, color: '#3a3a5c', lineHeight: 1.5 }}>
+            Não recebeu? Verifique a pasta de spam ou{' '}
+            <button
+              onClick={() => { setEmailSent(false) }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7c6ef7', fontSize: 12, fontWeight: 600, padding: 0 }}>
+              tente outro e-mail
+            </button>
+          </p>
+
+          <Link href="/login" style={{ fontSize: 13, color: '#3a3a5c', textDecoration: 'none' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#7c6ef7'}
+            onMouseLeave={e => e.currentTarget.style.color = '#3a3a5c'}>
+            ← Voltar para o login
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -143,39 +217,29 @@ export default function RegisterPage() {
 
         {/* Form */}
         <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-          {/* Nome */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             <label style={{ fontSize: 13, color: '#5a5a7a', fontWeight: 500 }}>Nome completo</label>
             <input type="text" placeholder="Seu nome" value={name}
               onChange={e => setName(e.target.value)} required
               style={inputStyle('name')}
-              onFocus={() => setFocused('name')}
-              onBlur={() => setFocused('')}
-            />
+              onFocus={() => setFocused('name')} onBlur={() => setFocused('')} />
           </div>
 
-          {/* Email */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             <label style={{ fontSize: 13, color: '#5a5a7a', fontWeight: 500 }}>E-mail</label>
             <input type="email" placeholder="seu@email.com" value={email}
               onChange={e => setEmail(e.target.value)} required
               style={inputStyle('email')}
-              onFocus={() => setFocused('email')}
-              onBlur={() => setFocused('')}
-            />
+              onFocus={() => setFocused('email')} onBlur={() => setFocused('')} />
           </div>
 
-          {/* Senha */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             <label style={{ fontSize: 13, color: '#5a5a7a', fontWeight: 500 }}>Senha</label>
             <div style={{ position: 'relative' }}>
               <input type={showPassword ? 'text' : 'password'} placeholder="Mínimo 6 caracteres" value={password}
                 onChange={e => setPassword(e.target.value)} required minLength={6}
                 style={{ ...inputStyle('password'), paddingRight: 44 }}
-                onFocus={() => setFocused('password')}
-                onBlur={() => setFocused('')}
-              />
+                onFocus={() => setFocused('password')} onBlur={() => setFocused('')} />
               <button type="button" onClick={() => setShowPassword(!showPassword)}
                 style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
                   background: 'none', border: 'none', cursor: 'pointer', color: '#3a3a5c',
@@ -185,8 +249,6 @@ export default function RegisterPage() {
                 {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
-
-            {/* Força da senha */}
             {password.length > 0 && (
               <div>
                 <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
@@ -195,17 +257,15 @@ export default function RegisterPage() {
                       background: i <= strength ? strengthColor : 'rgba(255,255,255,0.06)' }} />
                   ))}
                 </div>
-                <p style={{ fontSize: 11, color: strengthColor, margin: 0, transition: 'color 0.3s' }}>
-                  {strengthLabel}
-                </p>
+                <p style={{ fontSize: 11, color: strengthColor, margin: 0 }}>{strengthLabel}</p>
               </div>
             )}
           </div>
 
           {error && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 14px', borderRadius: 10, fontSize: 13,
-              background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', color: '#f87171' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
+              borderRadius: 10, fontSize: 13, background: 'rgba(248,113,113,0.08)',
+              border: '1px solid rgba(248,113,113,0.15)', color: '#f87171' }}>
               ⚠ {error}
             </div>
           )}
@@ -224,24 +284,22 @@ export default function RegisterPage() {
           <p style={{ textAlign: 'center', fontSize: 12, color: '#2a2a3e', margin: 0 }}>
             Ao criar uma conta, você concorda com os{' '}
             <a href="https://bossflow.pro/termos" target="_blank" rel="noopener noreferrer"
-  style={{ color: '#4a4a6a', textDecoration: 'none' }}
-  onMouseEnter={e => e.currentTarget.style.color = '#7c6ef7'}
-  onMouseLeave={e => e.currentTarget.style.color = '#4a4a6a'}>
-  Termos de Uso
-</a>
+              style={{ color: '#4a4a6a', textDecoration: 'none' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#7c6ef7'}
+              onMouseLeave={e => e.currentTarget.style.color = '#4a4a6a'}>
+              Termos de Uso
+            </a>
           </p>
         </form>
 
         <p style={{ textAlign: 'center', fontSize: 13, color: '#3a3a5c' }}>
           Já tem uma conta?{' '}
-          <Link href="/login"
-            style={{ color: '#7c6ef7', fontWeight: 600, textDecoration: 'none' }}
+          <Link href="/login" style={{ color: '#7c6ef7', fontWeight: 600, textDecoration: 'none' }}
             onMouseEnter={e => e.currentTarget.style.color = '#9d8fff'}
             onMouseLeave={e => e.currentTarget.style.color = '#7c6ef7'}>
             Entrar
           </Link>
         </p>
-
       </div>
     </>
   )
