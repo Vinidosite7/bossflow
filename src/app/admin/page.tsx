@@ -291,7 +291,7 @@ export default function AdminPage() {
               <FormModal
           open={setPlanModal}
           onClose={() => {setPlanModal && setSetPlanModal(false)}}
-          title={Setar plano}
+          title="Setar plano"
           size="sm"
         >
 <div className="px-3 py-2.5 rounded-xl text-xs font-mono" style={{ background: 'rgba(255,255,255,0.03)', color: T.sub, border: `1px solid ${T.border}` }}>

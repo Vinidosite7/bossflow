@@ -303,7 +303,7 @@ export default function EmpresasPage() {
                 <FormModal
           open={showForm}
           onClose={() => { setShowForm(false); setEditBiz(null) }}
-          title=editBiz ? 'Editar empresa' : 'Nova empresa'
+          title={editBiz ? 'Editar empresa' : 'Nova empresa'}
           size="sm"
         >
           <form onSubmit={handleSave} className="flex flex-col gap-5">

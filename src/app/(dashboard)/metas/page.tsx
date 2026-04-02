@@ -377,7 +377,6 @@ export default function MetasPage() {
                 : <><Save size={14} /> Salvar meta</>}
             </ShimmerButton>
           </div>
-        </div>
         </FormModal>
 
       </div>
