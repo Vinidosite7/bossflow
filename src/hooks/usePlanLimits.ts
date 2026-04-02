@@ -2,10 +2,23 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getLimits, getFeatures, PlanKey } from '@/lib/plans'
 
+const PLAN_CACHE_KEY = 'bf_plan_cache'
+
+function getCachedPlan(): string {
+  if (typeof window === 'undefined') return 'free'
+  try { return localStorage.getItem(PLAN_CACHE_KEY) ?? 'free' } catch { return 'free' }
+}
+
+function setCachedPlan(plan: string) {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(PLAN_CACHE_KEY, plan) } catch {}
+}
+
 export function usePlanLimits() {
-  const [plan, setPlan] = useState<string>('free')
+  // Inicia com o cache — sem loading visual na maioria dos casos
+  const [plan, setPlan]               = useState<string>(getCachedPlan)
   const [businessCount, setBusinessCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]         = useState(true)
 
   const fetchCounts = useCallback(async (userId: string) => {
     const supabase = createClient()
@@ -22,7 +35,10 @@ export function usePlanLimits() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
-      // Busca plano ativo — mesma query que antes, não muda nada no fluxo Cakto
+      // Já temos o cache — desbloqueia o UI imediatamente
+      setLoading(false)
+
+      // Busca o plano real em background
       const { data: sub } = await supabase
         .from('subscriptions')
         .select('plan')
@@ -32,8 +48,8 @@ export function usePlanLimits() {
 
       const currentPlan = sub?.plan ?? 'free'
       setPlan(currentPlan)
-      await fetchCounts(user.id)
-      setLoading(false)
+      setCachedPlan(currentPlan)
+      fetchCounts(user.id)
     }
     load()
   }, [fetchCounts])
@@ -41,12 +57,8 @@ export function usePlanLimits() {
   const limits   = getLimits(plan)
   const features = getFeatures(plan)
 
-  // ── Compatibilidade total com uso atual (empresas/page, etc.) ──
   const canCreateBusiness = businessCount < limits.businesses
-
-  // "members" no hook antigo = contas/caixas na nomenclatura nova
-  // Mantendo o nome antigo pra não quebrar empresas/page.tsx
-  const canInviteMember = (memberCount: number) =>
+  const canInviteMember   = (memberCount: number) =>
     limits.members > 0 && memberCount < limits.members
 
   const businessLimitMsg = `Seu plano ${plan} permite até ${
@@ -57,13 +69,10 @@ export function usePlanLimits() {
     ? `Compartilhamento de empresa não está disponível no plano ${plan}.`
     : `Seu plano ${plan} permite até ${limits.members} membros por empresa. Faça upgrade para convidar mais.`
 
-  // ── Verificações novas ─────────────────────────────────────────
-  const canCreateAccount = (currentCount: number) => currentCount < limits.accounts
-
-  const isRevenueBlocked = (monthlyRevenue: number) =>
+  const canCreateAccount  = (currentCount: number) => currentCount < limits.accounts
+  const isRevenueBlocked  = (monthlyRevenue: number) =>
     limits.monthlyRevenue !== Infinity && monthlyRevenue > limits.monthlyRevenue
-
-  const hasFeature = (feature: keyof ReturnType<typeof getFeatures>) =>
+  const hasFeature        = (feature: keyof ReturnType<typeof getFeatures>) =>
     features[feature] ?? false
 
   const refreshCounts = async () => {
@@ -73,20 +82,9 @@ export function usePlanLimits() {
   }
 
   return {
-    // Originais — não muda nada pra quem já usa o hook
-    plan,
-    loading,
-    limits,
-    canCreateBusiness,
-    canInviteMember,
-    businessLimitMsg,
-    memberLimitMsg,
-    businessCount,
-    // Novos
-    features,
-    canCreateAccount,
-    isRevenueBlocked,
-    hasFeature,
-    refreshCounts,
+    plan, loading, limits,
+    canCreateBusiness, canInviteMember,
+    businessLimitMsg, memberLimitMsg, businessCount,
+    features, canCreateAccount, isRevenueBlocked, hasFeature, refreshCounts,
   }
 }
