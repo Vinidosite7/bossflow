@@ -5,126 +5,378 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, TrendingUp, CreditCard, ShoppingCart,
   Users, Package, CheckSquare, Calendar, Building2,
-  Settings, ChevronLeft, ChevronRight, Target, ShieldCheck,
+  Settings, Target, ShieldCheck, LogOut,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, createContext, useContext, useRef, useCallback } from 'react'
 import Image from 'next/image'
+import { motion, AnimatePresence } from 'framer-motion'
+import { GrainFilter } from '@/components/ui/bossflow-ui'
 import { createClient } from '@/lib/supabase'
-import { motion } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 
+// ─── Dimensões ─────────────────────────────────────────────────
+const W_COLLAPSED = 60
+const W_EXPANDED  = 228
+
+// ─── Design tokens — mesmos da Header para harmonia total ──────
+const S = {
+  bg:           'rgba(8,8,14,0.95)',
+  border:       'rgba(255,255,255,0.055)',
+  borderActive: 'rgba(124,110,247,0.22)',
+  purple:       '#7c6ef7',
+  purpleLight:  '#a06ef7',
+  purpleDim:    'rgba(124,110,247,0.10)',
+  text:         '#dcdcf0',
+  textSub:      '#9090b0',
+  textMuted:    '#50506a',
+}
+
+// ─── Context ───────────────────────────────────────────────────
+export const SidebarContext = createContext<{
+  collapsed: boolean
+  setCollapsed: (v: boolean) => void
+}>({ collapsed: true, setCollapsed: () => {} })
+
+export function useSidebar() { return useContext(SidebarContext) }
+
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState(true)
+  return (
+    <SidebarContext.Provider value={{ collapsed, setCollapsed }}>
+      {children}
+    </SidebarContext.Provider>
+  )
+}
+
+// ─── Nav items ─────────────────────────────────────────────────
 const navMain = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, color: '#9d8fff' },
-  { label: 'Financeiro', href: '/financeiro', icon: TrendingUp, color: '#34d399' },
-  { label: 'Despesas', href: '/despesas', icon: CreditCard, color: '#f87171' },
-  { label: 'Vendas', href: '/vendas', icon: ShoppingCart, color: '#22d3ee' },
-  { label: 'Clientes', href: '/clientes', icon: Users, color: '#fbbf24' },
-  { label: 'Produtos', href: '/produtos', icon: Package, color: '#a78bfa' },
-  { label: 'Metas', href: '/metas', icon: Target, color: '#f97316' },
+  { label: 'Dashboard',   href: '/dashboard',   icon: LayoutDashboard, color: '#34d399' },
+  { label: 'Financeiro',  href: '/financeiro',  icon: TrendingUp,      color: '#34d399' },
+  { label: 'Despesas',    href: '/despesas',    icon: CreditCard,      color: '#f87171' },
+  { label: 'Vendas',      href: '/vendas',      icon: ShoppingCart,    color: '#22d3ee' },
+  { label: 'Clientes',    href: '/clientes',    icon: Users,           color: '#fbbf24' },
+  { label: 'Produtos',    href: '/produtos',    icon: Package,         color: '#a78bfa' },
+  { label: 'Metas',       href: '/metas',       icon: Target,          color: '#fbbf24' },
+]
+const navOps = [
+  { label: 'Tarefas',       href: '/tarefas',       icon: CheckSquare, color: '#f87171' },
+  { label: 'Agenda',        href: '/agenda',         icon: Calendar,    color: '#22d3ee' },
+  { label: 'Empresas',      href: '/empresas',       icon: Building2,   color: '#fbbf24' },
+  { label: 'Assinatura',    href: '/assinatura',     icon: CreditCard,  color: '#a78bfa' },
+  { label: 'Configurações', href: '/configuracoes',  icon: Settings,    color: S.textMuted },
 ]
 
-const navOperacional = [
-  { label: 'Tarefas', href: '/tarefas', icon: CheckSquare, color: '#34d399' },
-  { label: 'Agenda', href: '/agenda', icon: Calendar, color: '#22d3ee' },
-  { label: 'Empresas', href: '/empresas', icon: Building2, color: '#fbbf24' },
-  { label: 'Assinatura', href: '/assinatura', icon: CreditCard, color: '#9d8fff' },
-  { label: 'Configurações', href: '/configuracoes', icon: Settings, color: '#6b6b8a' },
-]
+// ─── NavItem ───────────────────────────────────────────────────
+function NavItem({ href, icon: Icon, label, color, active, collapsed, onClick }: {
+  href: string; icon: any; label: string; color: string
+  active: boolean; collapsed: boolean; onClick?: () => void
+}) {
+  const [hov, setHov] = useState(false)
 
-function AnnualGoalWidget({ collapsed }: { collapsed: boolean }) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        height: 40,
+        borderRadius: 10,
+        padding: '0 10px',
+        gap: 10,
+        overflow: 'hidden',
+        background: active
+          ? `${color}15`
+          : hov ? 'rgba(255,255,255,0.035)' : 'transparent',
+        border: active
+          ? `1px solid ${color}20`
+          : `1px solid transparent`,
+        color: active ? color : hov ? S.text : S.textSub,
+        transition: 'all 0.15s ease',
+        textDecoration: 'none',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {/* Barra ativa lateral */}
+      <AnimatePresence>
+        {active && (
+          <motion.div
+            layoutId="nav-active-bar"
+            initial={{ opacity: 0, scaleY: 0 }}
+            animate={{ opacity: 1, scaleY: 1 }}
+            exit={{ opacity: 0, scaleY: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              position: 'absolute', left: 0,
+              top: '50%', transform: 'translateY(-50%)',
+              width: 3, height: 20, borderRadius: 99,
+              background: color,
+              boxShadow: `0 0 12px ${color}cc`,
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Glow radial no hover */}
+      {hov && !active && (
+        <div aria-hidden style={{
+          position: 'absolute', inset: 0,
+          background: `radial-gradient(ellipse 80% 60% at 18% 50%, ${color}0c, transparent)`,
+          borderRadius: 10, pointerEvents: 'none',
+        }} />
+      )}
+
+      {/* Ícone */}
+      <div style={{
+        width: 20, height: 20,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, position: 'relative', zIndex: 1,
+        filter: active ? `drop-shadow(0 0 5px ${color}99)` : 'none',
+        transition: 'filter 0.2s',
+      }}>
+        <Icon size={16} strokeWidth={active ? 2.2 : 1.8} />
+      </div>
+
+      {/* Label */}
+      <motion.span
+        animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? -8 : 0 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          fontSize: 13.5, fontWeight: active ? 600 : 500,
+          fontFamily: 'DM Sans, sans-serif',
+          letterSpacing: '-0.01em',
+          overflow: 'hidden', flex: 1,
+          position: 'relative', zIndex: 1,
+          pointerEvents: 'none',
+        }}
+      >
+        {label}
+      </motion.span>
+
+      {/* Ponto ativo */}
+      <AnimatePresence>
+        {active && !collapsed && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            style={{
+              width: 5, height: 5, borderRadius: '50%',
+              background: color, flexShrink: 0,
+              boxShadow: `0 0 7px ${color}`,
+              position: 'relative', zIndex: 1,
+            }}
+          />
+        )}
+      </AnimatePresence>
+    </Link>
+  )
+}
+
+// ─── Separador ─────────────────────────────────────────────────
+function Sep() {
+  return (
+    <div style={{
+      height: 1, margin: '6px 8px',
+      background: 'linear-gradient(90deg, transparent, rgba(124,110,247,0.15), transparent)',
+    }} />
+  )
+}
+
+// ─── Section label ─────────────────────────────────────────────
+function SectionLabel({ label, collapsed }: { label: string; collapsed: boolean }) {
+  return (
+    <motion.div
+      animate={{ opacity: collapsed ? 0 : 1, height: collapsed ? 0 : 'auto' }}
+      transition={{ duration: 0.2 }}
+      style={{ overflow: 'hidden' }}
+    >
+      <p style={{
+        fontSize: 10, fontWeight: 700,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        color: S.textMuted,
+        padding: '6px 10px 3px',
+        fontFamily: 'Syne, sans-serif',
+      }}>
+        {label}
+      </p>
+    </motion.div>
+  )
+}
+
+// ─── Goal Ring ─────────────────────────────────────────────────
+function GoalRing({ collapsed }: { collapsed: boolean }) {
   const supabase = createClient()
-  const [pct, setPct] = useState(0)
+  const [pct, setPct]         = useState(0)
   const [revenue, setRevenue] = useState(0)
-  const [target, setTarget] = useState(0)
+  const [target, setTarget]   = useState(0)
+  const [hov, setHov]         = useState(false)
+  const color = pct >= 100 ? '#34d399' : pct >= 60 ? '#fbbf24' : '#f87171'
+  const circ  = 2 * Math.PI * 10
 
   useEffect(() => {
     async function load() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
-        const bizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') : null
-        if (!bizId) return
-
-        const year = new Date().getFullYear()
-        const { data: goals } = await supabase
-          .from('goals').select('target').eq('business_id', bizId).eq('year', year)
-        const { data: txs } = await supabase
-          .from('transactions').select('amount')
-          .eq('business_id', bizId).eq('type', 'income')
-          .gte('date', `${year}-01-01`).lte('date', `${year}-12-31`)
-
-        const t = (goals || []).reduce((a, g) => a + Number(g.target), 0)
-        const r = (txs || []).reduce((a, tx) => a + Number(tx.amount), 0)
-        setTarget(t)
-        setRevenue(r)
-        setPct(t > 0 ? Math.min((r / t) * 100, 100) : 0)
+        const now   = new Date()
+        const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+        const [txRes, goalRes] = await Promise.all([
+          supabase.from('transactions').select('amount').eq('user_id', user.id).eq('type', 'income').gte('date', start),
+          supabase.from('goals').select('target_value').eq('user_id', user.id).eq('type', 'revenue').eq('period', 'monthly').limit(1).single(),
+        ])
+        const rev = (txRes.data || []).reduce((s: number, t: any) => s + Number(t.amount), 0)
+        const tgt = goalRes.data?.target_value || 0
+        setRevenue(rev); setTarget(tgt)
+        setPct(tgt > 0 ? Math.min((rev / tgt) * 100, 100) : 0)
       } catch {}
     }
     load()
   }, [])
 
-  const fmtShort = (v: number) => {
-    if (v >= 1000000) return `R$ ${(v / 1000000).toFixed(1)}M`
-    if (v >= 1000) return `R$ ${(v / 1000).toFixed(0)}k`
-    return `R$ ${v.toFixed(0)}`
+  function fmtShort(n: number) {
+    if (n >= 1000000) return `R$${(n / 1000000).toFixed(1)}M`
+    if (n >= 1000)    return `R$${(n / 1000).toFixed(0)}K`
+    return `R$${n.toFixed(0)}`
   }
 
-  const color = pct >= 100 ? '#34d399' : pct >= 60 ? '#fbbf24' : '#f97316'
-
-  if (collapsed) {
-    return (
-      <div className="px-3 py-3 border-t flex justify-center" style={{ borderColor: '#1a1a2e' }}>
-        <div className="relative w-8 h-8">
-          <svg viewBox="0 0 32 32" className="w-8 h-8 -rotate-90">
-            <circle cx="16" cy="16" r="12" fill="none" stroke="#1e1e2e" strokeWidth="3" />
-            <circle cx="16" cy="16" r="12" fill="none" stroke={color} strokeWidth="3"
-              strokeDasharray={`${2 * Math.PI * 12}`}
-              strokeDashoffset={`${2 * Math.PI * 12 * (1 - pct / 100)}`}
-              strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-          </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold" style={{ color }}>
+  return (
+    <Link
+      href="/metas"
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center',
+        height: 44, borderRadius: 10, padding: '0 10px',
+        gap: 10, overflow: 'hidden', textDecoration: 'none',
+        background: hov ? 'rgba(255,255,255,0.04)' : S.purpleDim,
+        border: `1px solid ${hov ? S.borderActive : 'rgba(124,110,247,0.08)'}`,
+        transition: 'all 0.15s',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <div style={{ flexShrink: 0, position: 'relative', width: 26, height: 26 }}>
+        <svg width={26} height={26} viewBox="0 0 26 26" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx={13} cy={13} r={10} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={2.5} />
+          <motion.circle
+            cx={13} cy={13} r={10}
+            fill="none" stroke={color}
+            strokeWidth={2.5} strokeLinecap="round"
+            strokeDasharray={circ}
+            initial={{ strokeDashoffset: circ }}
+            animate={{ strokeDashoffset: circ - (circ * pct) / 100 }}
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            style={{ filter: `drop-shadow(0 0 4px ${color}80)` }}
+          />
+        </svg>
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{ fontSize: 7, fontWeight: 700, color, fontFamily: 'Syne, sans-serif' }}>
             {Math.round(pct)}%
           </span>
         </div>
       </div>
-    )
-  }
 
-  return (
-    <Link href="/metas" className="block mx-3 mb-3 mt-1 p-3 rounded-xl border transition-all"
-      style={{ background: 'rgba(249,115,22,0.05)', borderColor: 'rgba(249,115,22,0.2)' }}
-      onMouseEnter={e => e.currentTarget.style.background = 'rgba(249,115,22,0.08)'}
-      onMouseLeave={e => e.currentTarget.style.background = 'rgba(249,115,22,0.05)'}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <Target size={11} style={{ color: '#f97316' }} />
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#f97316' }}>Meta Anual</span>
-        </div>
-        <span className="text-xs font-bold" style={{ color }}>{Math.round(pct)}%</span>
-      </div>
-      <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: '#1e1e2e' }}>
-        <motion.div
-          initial={{ width: 0 }} animate={{ width: `${pct}%` }}
-          transition={{ duration: 1, ease: 'easeOut' }}
-          className="h-full rounded-full"
-          style={{ background: `linear-gradient(90deg, ${color}, ${color}cc)` }}
-        />
-      </div>
-      {target > 0 ? (
-        <p className="text-xs" style={{ color: '#4a4a6a' }}>
-          {fmtShort(revenue)} <span style={{ color: '#3a3a5c' }}>/ {fmtShort(target)}</span>
+      <motion.div
+        animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? -8 : 0 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}
+      >
+        <p style={{ fontSize: 12, fontWeight: 600, color: S.text, fontFamily: 'Syne, sans-serif' }}>
+          Meta do mês
         </p>
-      ) : (
-        <p className="text-xs" style={{ color: '#3a3a5c' }}>Definir meta anual →</p>
-      )}
+        {target > 0 && (
+          <p style={{ fontSize: 10, color: S.textMuted, marginTop: 1, fontFamily: 'DM Sans, sans-serif' }}>
+            {fmtShort(revenue)} / {fmtShort(target)}
+          </p>
+        )}
+      </motion.div>
     </Link>
   )
 }
 
-export function Sidebar({ onClose }: { onClose?: () => void }) {
+// ─── Logout ────────────────────────────────────────────────────
+function LogoutButton({ collapsed }: { collapsed: boolean }) {
+  const router = useRouter()
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      onClick={async () => { const sb = createClient(); await sb.auth.signOut(); router.push('/login') }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center',
+        height: 40, width: '100%', cursor: 'pointer',
+        gap: 10, padding: '0 10px', borderRadius: 10,
+        color: hov ? '#f87171' : S.textMuted,
+        background: hov ? 'rgba(248,113,113,0.08)' : 'transparent',
+        border: hov ? '1px solid rgba(248,113,113,0.15)' : '1px solid transparent',
+        transition: 'all 0.15s', overflow: 'hidden', whiteSpace: 'nowrap',
+      }}>
+      <div style={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <LogOut size={16} strokeWidth={1.8} />
+      </div>
+      <motion.span
+        animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? -8 : 0 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        style={{ fontSize: 13.5, fontWeight: 500, fontFamily: 'DM Sans, sans-serif', overflow: 'hidden' }}>
+        Sair
+      </motion.span>
+    </button>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SEU LOGO QUADRADO — LEIA AQUI
+//  ────────────────────────────────────────────────────────────
+//  1. Coloque o arquivo do ícone em:  /public/logo-icon.png
+//     (PNG quadrado, idealmente 64×64 ou 128×128 px)
+//
+//  2. No componente <LogoMark /> abaixo, TROQUE as 3 linhas
+//     marcadas com "← TROQUE" por:
+//
+//     <Image
+//       src="/logo-icon.png"
+//       alt="Logo"
+//       width={28}
+//       height={28}
+//       style={{ borderRadius: 8, objectFit: 'cover' }}
+//     />
+//
+//  3. Salve — seu logo aparece collapsed (ícone) e expanded
+//     (ícone + wordmark bossflow.png lado a lado).
+// ══════════════════════════════════════════════════════════════
+function LogoMark({ glowing }: { glowing?: boolean }) {
+  return (
+    // ← TROQUE este bloco inteiro pelo <Image /> acima
+    <div style={{
+      width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+      background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: glowing ? '0 0 18px rgba(124,110,247,0.55)' : 'none',
+      transition: 'box-shadow 0.28s ease',
+    }}>
+      <span style={{
+        fontFamily: 'Syne, sans-serif', fontWeight: 800,
+        fontSize: 10, color: 'white', letterSpacing: '-0.01em',
+      }}>BF</span>
+    </div>
+    // ← fim do bloco a trocar
+  )
+}
+
+// ─── Sidebar Desktop ───────────────────────────────────────────
+export function SidebarDesktop() {
+  const { collapsed, setCollapsed } = useSidebar()
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
-  const isMobile = !!onClose
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     async function checkAdmin() {
@@ -132,116 +384,198 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
-        const { data } = await supabase
-          .from('profiles').select('is_admin').eq('id', user.id).single()
+        const { data } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
         setIsAdmin(!!data?.is_admin)
       } catch {}
     }
     checkAdmin()
   }, [])
 
-  const renderNavItem = (href: string, icon: any, label: string, color: string) => {
-    const Icon = icon
-    const active = pathname === href
-    return (
-      <Link key={href} href={href} onClick={onClose}
-        className={`flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 ${
-          collapsed && !isMobile ? 'justify-center py-3 px-0' : 'px-3 py-2.5'
-        }`}
-        style={{ background: active ? `${color}18` : 'transparent' }}>
-        <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-          style={{ background: active ? `${color}25` : 'transparent' }}>
-          <Icon size={15} style={{ color: active ? color : '#5a5a7a' }} />
-        </div>
-        {(!collapsed || isMobile) && (
-          <>
-            <span style={{ color: active ? color : '#6b6b8a' }}>{label}</span>
-            {active && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: color }} />}
-          </>
-        )}
-      </Link>
-    )
-  }
+  const handleEnter = useCallback(() => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setCollapsed(false)
+  }, [setCollapsed])
+
+  const handleLeave = useCallback(() => {
+    leaveTimer.current = setTimeout(() => setCollapsed(true), 150)
+  }, [setCollapsed])
+
+  useEffect(() => () => { if (leaveTimer.current) clearTimeout(leaveTimer.current) }, [])
 
   return (
-    <aside
-      style={{ background: '#0d0d14', borderColor: '#1a1a2e' }}
-      className={`relative flex flex-col h-screen border-r transition-all duration-300 ease-in-out shrink-0 ${
-        isMobile ? 'w-[240px]' : collapsed ? 'w-[64px]' : 'w-[224px]'
-      }`}>
+    <>
+      <GrainFilter />
+      <motion.aside
+        animate={{ width: collapsed ? W_COLLAPSED : W_EXPANDED }}
+        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        className="relative flex flex-col h-screen shrink-0"
+        style={{
+          background: S.bg,
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderRight: `1px solid ${collapsed ? S.border : S.borderActive}`,
+          boxShadow: collapsed
+            ? '1px 0 0 rgba(255,255,255,0.03)'
+            : '4px 0 40px rgba(0,0,0,0.4), 4px 0 32px rgba(124,110,247,0.08)',
+          transition: 'border-color 0.28s ease, box-shadow 0.28s ease',
+          zIndex: 30,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Linha gradiente inferior do logo — igual à Header */}
+        <div aria-hidden style={{
+          position: 'absolute', top: 47, left: 0, right: 0, height: 1,
+          background: collapsed
+            ? 'rgba(255,255,255,0.055)'
+            : 'linear-gradient(90deg, transparent, rgba(124,110,247,0.4), rgba(160,110,247,0.25), transparent)',
+          transition: 'background 0.28s ease',
+          zIndex: 1, pointerEvents: 'none',
+        }} />
 
-      {/* Logo */}
-      <div className={`flex items-center px-4 py-5 border-b ${collapsed && !isMobile ? 'justify-center' : ''}`}
-        style={{ borderColor: '#1a1a2e' }}>
-        <div className="relative w-full h-10">
-          <Image src="/bossflow.png" alt="BossFlow Logo" fill className="object-contain object-left" priority />
+        {/* ── Logo area ─────────────────────────────────────── */}
+        <div style={{
+          height: 48, display: 'flex', alignItems: 'center',
+          flexShrink: 0, padding: '0 14px',
+          overflow: 'hidden', gap: 10, position: 'relative',
+        }}>
+          <LogoMark glowing={!collapsed} />
+
+          <motion.div
+            animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? -10 : 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            style={{ overflow: 'hidden', flexShrink: 0 }}
+          >
+            <div style={{ position: 'relative', width: 90, height: 22 }}>
+              <Image
+                src="/bossflow.png"
+                alt="BossFlow"
+                fill
+                style={{ objectFit: 'contain', objectPosition: 'left' }}
+                priority
+              />
+            </div>
+          </motion.div>
+        </div>
+
+        {/* ── Nav ───────────────────────────────────────────── */}
+        <div style={{
+          flex: 1, overflowY: 'auto', overflowX: 'hidden',
+          padding: '10px 6px', scrollbarWidth: 'none',
+        }}>
+          <SectionLabel label="Principal" collapsed={collapsed} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {navMain.map(n => (
+              <NavItem key={n.href} {...n} active={pathname === n.href} collapsed={collapsed} />
+            ))}
+          </div>
+
+          <Sep />
+
+          <SectionLabel label="Operacional" collapsed={collapsed} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {navOps.map(n => (
+              <NavItem key={n.href} {...n} active={pathname === n.href} collapsed={collapsed} />
+            ))}
+          </div>
+
+          {isAdmin && (
+            <>
+              <Sep />
+              <SectionLabel label="Admin" collapsed={collapsed} />
+              <NavItem href="/admin" icon={ShieldCheck} label="Painel Admin" color="#a78bfa"
+                active={pathname === '/admin'} collapsed={collapsed} />
+            </>
+          )}
+        </div>
+
+        {/* ── Bottom ────────────────────────────────────────── */}
+        <div style={{
+          padding: '6px 6px 10px',
+          borderTop: `1px solid ${collapsed ? S.border : S.borderActive}`,
+          transition: 'border-color 0.28s ease',
+          flexShrink: 0,
+        }}>
+          <GoalRing collapsed={collapsed} />
+          <div style={{ height: 4 }} />
+          <LogoutButton collapsed={collapsed} />
+        </div>
+
+        {/* Dica visual de hover — linha roxa pulsando na borda */}
+        <AnimatePresence>
+          {collapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ delay: 0.7, duration: 0.6 }}
+              aria-hidden
+              style={{
+                position: 'absolute', right: 0, top: '50%',
+                transform: 'translateY(-50%)',
+                width: 3, height: 56, borderRadius: '3px 0 0 3px',
+                background: 'linear-gradient(180deg, transparent, rgba(124,110,247,0.55), transparent)',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </motion.aside>
+    </>
+  )
+}
+
+// ─── Sidebar Mobile ────────────────────────────────────────────
+export function SidebarMobile({ onClose }: { onClose: () => void }) {
+  const pathname = usePathname()
+  return (
+    <aside style={{
+      width: 240, height: '100%',
+      display: 'flex', flexDirection: 'column',
+      background: S.bg,
+      backdropFilter: 'blur(20px)',
+      borderRight: `1px solid ${S.borderActive}`,
+      boxShadow: '4px 0 40px rgba(0,0,0,0.5), 4px 0 32px rgba(124,110,247,0.08)',
+    }}>
+      <div style={{
+        height: 48, display: 'flex', alignItems: 'center',
+        padding: '0 16px', gap: 10,
+        borderBottom: '1px solid',
+        borderImage: 'linear-gradient(90deg, transparent, rgba(124,110,247,0.4), rgba(160,110,247,0.25), transparent) 1',
+      }}>
+        <LogoMark glowing />
+        <div style={{ position: 'relative', width: 90, height: 22 }}>
+          <Image src="/bossflow.png" alt="BossFlow" fill style={{ objectFit: 'contain', objectPosition: 'left' }} priority />
         </div>
       </div>
 
-      {/* Nav */}
-      <div className="flex flex-col gap-0.5 p-2 mt-2 flex-1 overflow-y-auto">
-        {(!collapsed || isMobile) && (
-          <span className="text-xs px-3 mb-1.5 font-semibold uppercase tracking-widest" style={{ color: '#3a3a5c' }}>
-            Principal
-          </span>
-        )}
-        {navMain.map(({ href, icon, label, color }) => renderNavItem(href, icon, label, color))}
-
-        <div className="mx-2 my-2" style={{ borderTop: '1px solid #1a1a2e' }} />
-
-        {(!collapsed || isMobile) && (
-          <span className="text-xs px-3 mb-1.5 font-semibold uppercase tracking-widest" style={{ color: '#3a3a5c' }}>
-            Operacional
-          </span>
-        )}
-        {navOperacional.map(({ href, icon, label, color }) => renderNavItem(href, icon, label, color))}
-
-        {/* Admin — só aparece se is_admin */}
-        {isAdmin && (
-          <>
-            <div className="mx-2 my-2" style={{ borderTop: '1px solid #1a1a2e' }} />
-            {(!collapsed || isMobile) && (
-              <span className="text-xs px-3 mb-1.5 font-semibold uppercase tracking-widest" style={{ color: '#3a3a5c' }}>
-                Admin
-              </span>
-            )}
-            <Link href="/admin" onClick={onClose}
-              className={`flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 ${
-                collapsed && !isMobile ? 'justify-center py-3 px-0' : 'px-3 py-2.5'
-              }`}
-              style={{ background: pathname === '/admin' ? 'rgba(124,110,247,0.12)' : 'transparent' }}>
-              <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: pathname === '/admin' ? 'rgba(124,110,247,0.2)' : 'transparent' }}>
-                <ShieldCheck size={15} style={{ color: pathname === '/admin' ? '#9d8fff' : '#5a5a7a' }} />
-              </div>
-              {(!collapsed || isMobile) && (
-                <>
-                  <span style={{ color: pathname === '/admin' ? '#9d8fff' : '#6b6b8a' }}>Painel Admin</span>
-                  {pathname === '/admin' && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#9d8fff' }} />}
-                </>
-              )}
-            </Link>
-          </>
-        )}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 6px', scrollbarWidth: 'none' }}>
+        <SectionLabel label="Principal" collapsed={false} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {navMain.map(n => <NavItem key={n.href} {...n} active={pathname === n.href} collapsed={false} onClick={onClose} />)}
+        </div>
+        <Sep />
+        <SectionLabel label="Operacional" collapsed={false} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {navOps.map(n => <NavItem key={n.href} {...n} active={pathname === n.href} collapsed={false} onClick={onClose} />)}
+        </div>
       </div>
 
-      {/* Meta anual widget */}
-      <AnnualGoalWidget collapsed={collapsed && !isMobile} />
-
-      {(!collapsed || isMobile) && (
-        <div className="px-5 py-2 border-t" style={{ borderColor: '#1a1a2e' }}>
-          <span className="text-xs" style={{ color: '#2a2a4a' }}>v0.1 beta</span>
-        </div>
-      )}
-
-      {/* Botão colapsar — só desktop */}
-      {!isMobile && (
-        <button onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-14 w-6 h-6 rounded-full flex items-center justify-center border z-10"
-          style={{ background: '#0d0d14', borderColor: '#2a2a3e', color: '#5a5a7a' }}>
-          {collapsed ? <ChevronRight size={11} /> : <ChevronLeft size={11} />}
-        </button>
-      )}
+      <div style={{
+        padding: '6px 6px 10px',
+        borderTop: `1px solid ${S.borderActive}`,
+      }}>
+        <GoalRing collapsed={false} />
+        <div style={{ height: 4 }} />
+        <LogoutButton collapsed={false} />
+      </div>
     </aside>
   )
+}
+
+// ─── Export unificado ──────────────────────────────────────────
+export function Sidebar({ onClose }: { onClose?: () => void }) {
+  if (onClose) return <SidebarMobile onClose={onClose} />
+  return <SidebarDesktop />
 }

@@ -2,319 +2,256 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useBusiness } from '@/hooks/useBusiness'
-import { useTour } from '@/hooks/useTour'
-import { TourTooltip } from "@/components/TourTooltip"
-import { CheckSquare, Plus, Loader2, X, Pencil, Trash2 } from 'lucide-react'
+import { CheckSquare, Plus, X, Edit2, Trash2, Clock, AlertCircle, ArrowRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import { SpotlightCard, ShimmerButton, Skeleton, BackgroundGrid, FloatingOrbs, AcernityFonts } from '@/components/ui/aceternity'
 
 const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.35, delay, ease: [0.25, 0.46, 0.45, 0.94] as const }
+  initial: { opacity: 0, y: 16, filter: 'blur(4px)' },
+  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  transition: { duration: 0.46, delay, ease: [0.16, 1, 0.3, 1] as const },
 })
 
-const statusConfig = {
-  todo: { label: 'A fazer', color: '#6b6b8a', bg: 'rgba(107,107,138,0.1)' },
-  in_progress: { label: 'Em andamento', color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
-  done: { label: 'Concluída', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-}
-
-const TOUR_STEPS = [
-  {
-    target: '[data-tour="tarefas-header"]',
-    title: 'Gerenciador de tarefas',
-    description: 'Organize as atividades do seu negócio. Clique em "Nova tarefa" para adicionar.',
-    position: 'bottom' as const,
-  },
-  {
-    target: '[data-tour="tarefas-filtros"]',
-    title: 'Filtros por status',
-    description: 'Filtre suas tarefas por A fazer, Em andamento ou Concluídas. O número mostra a quantidade em cada status.',
-    position: 'bottom' as const,
-  },
-  {
-    target: '[data-tour="tarefas-lista"]',
-    title: 'Lista de tarefas',
-    description: 'Clique no círculo para avançar o status da tarefa. Tarefas atrasadas aparecem em vermelho.',
-    position: 'top' as const,
-  },
+const COLUMNS = [
+  { key: 'todo',  label: 'A fazer',    color: '#6b6b8a', accent: 'rgba(107,107,138,0.15)' },
+  { key: 'doing', label: 'Em andamento', color: '#fbbf24', accent: 'rgba(251,191,36,0.15)' },
+  { key: 'done',  label: 'Concluído',  color: '#34d399', accent: 'rgba(52,211,153,0.15)' },
 ]
+const PRIORITY = {
+  low:    { label: 'Baixa',  color: '#6b6b8a' },
+  medium: { label: 'Média',  color: '#fbbf24' },
+  high:   { label: 'Alta',   color: '#f87171' },
+}
+const EMPTY_FORM = { title: '', description: '', status: 'todo', priority: 'medium', due_date: '' }
 
 export default function TarefasPage() {
   const supabase = createClient()
-  const { businessId, loading: bizLoading } = useBusiness()
-  const tour = useTour('tarefas', TOUR_STEPS)
-
-  const [tasks, setTasks] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
-  const [showForm, setShowForm] = useState(false)
-  const [editTask, setEditTask] = useState<any>(null)
-  const [saving, setSaving] = useState(false)
-  const [showConfirm, setShowConfirm] = useState<string | null>(null)
-  const [form, setForm] = useState({ title: '', description: '', due_date: '', status: 'todo' })
+  const router   = useRouter()
+  const [loading, setLoading]   = useState(true)
+  const [biz, setBiz]           = useState<any>(null)
+  const [tasks, setTasks]       = useState<any[]>([])
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing]   = useState<any>(null)
+  const [form, setForm]         = useState(EMPTY_FORM)
+  const [saving, setSaving]     = useState(false)
+  const [deleting, setDeleting] = useState<string|null>(null)
 
   async function load() {
-    if (!businessId) return
-    try {
-      const { data } = await supabase.from('tasks').select('*')
-        .eq('business_id', businessId).order('created_at', { ascending: false })
-      setTasks(data || [])
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.replace('/login'); return }
+    const { data: owned } = await supabase.from('businesses').select('*').eq('owner_id', user.id)
+    const business = (owned || [])[0]; if (!business) { setLoading(false); return }
+    setBiz(business)
+    const { data } = await supabase.from('tasks').select('*').eq('business_id', business.id).order('created_at', { ascending: false })
+    setTasks(data || [])
+    setLoading(false)
   }
-
-  useEffect(() => { if (businessId) load() }, [businessId])
-  useEffect(() => { if (!bizLoading && !businessId) setLoading(false) }, [bizLoading, businessId])
-
-  function openCreate() {
-    setEditTask(null)
-    setForm({ title: '', description: '', due_date: '', status: 'todo' })
-    setShowForm(true)
-  }
-
-  function openEdit(task: any) {
-    setEditTask(task)
-    setForm({ title: task.title, description: task.description || '', due_date: task.due_date || '', status: task.status })
-    setShowForm(true)
-  }
+  useEffect(() => { load() }, [])
 
   async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const payload = {
-      title: form.title, description: form.description || null,
-      due_date: form.due_date || null, status: form.status,
-    }
-    if (editTask) {
-      await supabase.from('tasks').update(payload).eq('id', editTask.id)
-    } else {
-      await supabase.from('tasks').insert({ ...payload, business_id: businessId, assigned_to: user?.id })
-    }
-    setShowForm(false); setEditTask(null); setSaving(false); load()
-  }
-
-  async function toggleStatus(task: any) {
-    const next = task.status === 'todo' ? 'in_progress' : task.status === 'in_progress' ? 'done' : 'todo'
-    await supabase.from('tasks').update({ status: next }).eq('id', task.id)
-    load()
+    e.preventDefault(); setSaving(true)
+    const payload = { ...form, due_date: form.due_date || null, business_id: biz.id }
+    if (editing) await supabase.from('tasks').update(payload).eq('id', editing.id)
+    else await supabase.from('tasks').insert(payload)
+    setSaving(false); setShowModal(false); setEditing(null); setForm(EMPTY_FORM); load()
   }
 
   async function handleDelete(id: string) {
-    await supabase.from('tasks').delete().eq('id', id)
-    setShowConfirm(null); load()
+    setDeleting(id); await supabase.from('tasks').delete().eq('id', id); setDeleting(null); load()
   }
 
-  const filtered = tasks.filter(t => filter === 'all' || t.status === filter)
+  async function moveTask(task: any, newStatus: string) {
+    await supabase.from('tasks').update({ status: newStatus }).eq('id', task.id); load()
+  }
+
+  function openEdit(t: any) {
+    setEditing(t); setForm({ title: t.title, description: t.description||'', status: t.status, priority: t.priority||'medium', due_date: t.due_date||'' }); setShowModal(true)
+  }
+
   const today = new Date().toISOString().split('T')[0]
-  const counts = {
-    all: tasks.length,
-    todo: tasks.filter(t => t.status === 'todo').length,
-    in_progress: tasks.filter(t => t.status === 'in_progress').length,
-    done: tasks.filter(t => t.status === 'done').length,
-  }
+  const overdue = tasks.filter(t => t.status !== 'done' && t.due_date && t.due_date < today)
 
-  if (loading || bizLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: '#7c6ef7', borderTopColor: 'transparent' }} />
-    </div>
-  )
+  const cardStyle = { background: 'rgba(13,13,20,0.82)', border: '1px solid rgba(255,255,255,0.065)', backdropFilter: 'blur(14px)', boxShadow: '0 4px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' }
+  const inputStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#e8e8f0', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s ease', fontFamily: 'inherit' }
+  const focus = (e: any) => e.currentTarget.style.borderColor = 'rgba(124,110,247,0.5)'
+  const blur  = (e: any) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+
+  if (loading) return <><AcernityFonts /><BackgroundGrid><FloatingOrbs /><div className="flex flex-col gap-5"><Skeleton className="h-9 w-32 rounded-xl" /><div className="grid grid-cols-3 gap-4">{[0,1,2].map(i=><Skeleton key={i} className="h-96 rounded-2xl"/>)}</div></div></BackgroundGrid></>
 
   return (
-    <div className="flex flex-col gap-6">
-      <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+    <>
+      <AcernityFonts />
+      <BackgroundGrid>
+        <FloatingOrbs />
+        <div className="flex flex-col gap-5">
 
-      <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="tarefas-header">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Tarefas</h1>
-          <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>{tasks.filter(t => t.status !== 'done').length} pendentes</p>
-        </div>
-        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-          style={{ background: '#7c6ef7', color: 'white', boxShadow: '0 0 20px rgba(124,110,247,0.3)' }}>
-          <Plus size={15} /> <span className="hidden sm:inline">Nova tarefa</span><span className="sm:hidden">Novo</span>
-        </motion.button>
-      </motion.div>
-
-      <motion.div {...fadeUp(0.07)} className="flex gap-2 overflow-x-auto pb-1" data-tour="tarefas-filtros">
-        {[
-          { key: 'all', label: 'Todas' },
-          { key: 'todo', label: 'A fazer' },
-          { key: 'in_progress', label: 'Em andamento' },
-          { key: 'done', label: 'Concluídas' },
-        ].map(({ key, label }) => (
-          <motion.button key={key} whileTap={{ scale: 0.95 }} onClick={() => setFilter(key)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all"
-            style={{
-              background: filter === key ? '#7c6ef7' : '#111118',
-              color: filter === key ? 'white' : '#6b6b8a',
-              border: `1px solid ${filter === key ? '#7c6ef7' : '#1e1e2e'}`,
-            }}>
-            {label}
-            <span className="px-1.5 py-0.5 rounded-full text-xs"
-              style={{ background: filter === key ? 'rgba(255,255,255,0.2)' : '#1e1e2e', color: filter === key ? 'white' : '#4a4a6a' }}>
-              {counts[key as keyof typeof counts]}
-            </span>
-          </motion.button>
-        ))}
-      </motion.div>
-
-      {/* Modais */}
-      <AnimatePresence>
-        {showForm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ background: 'rgba(0,0,0,0.8)' }}
-            onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditTask(null) } }}>
-            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-              className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border p-6"
-              style={{ background: '#111118', borderColor: '#1e1e2e' }}>
-              <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: '#2a2a3e' }} />
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>
-                  {editTask ? 'Editar tarefa' : 'Nova tarefa'}
-                </h2>
-                <button onClick={() => { setShowForm(false); setEditTask(null) }} style={{ color: '#4a4a6a' }}><X size={18} /></button>
-              </div>
-              <form onSubmit={handleSave} className="flex flex-col gap-4">
-                <input type="text" placeholder="Título da tarefa *" value={form.title} required
-                  onChange={e => setForm({ ...form, title: e.target.value })}
-                  className="px-3 py-3 rounded-xl border text-sm outline-none"
-                  style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-                <textarea placeholder="Descrição (opcional)" value={form.description}
-                  onChange={e => setForm({ ...form, description: e.target.value })} rows={2}
-                  className="px-3 py-3 rounded-xl border text-sm outline-none resize-none"
-                  style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium" style={{ color: '#6b6b8a' }}>Prazo (opcional)</label>
-                    <input type="date" value={form.due_date}
-                      onChange={e => setForm({ ...form, due_date: e.target.value })}
-                      className="px-3 py-3 rounded-xl border text-sm outline-none"
-                      style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium" style={{ color: '#6b6b8a' }}>Status</label>
-                    <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
-                      className="px-3 py-3 rounded-xl border text-sm outline-none"
-                      style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }}>
-                      <option value="todo">A fazer</option>
-                      <option value="in_progress">Em andamento</option>
-                      <option value="done">Concluída</option>
-                    </select>
-                  </div>
-                </div>
-                <button type="submit" disabled={saving}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm mt-2"
-                  style={{ background: '#7c6ef7', color: 'white' }}>
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : editTask ? 'Salvar alterações' : 'Criar tarefa'}
-                </button>
-              </form>
-            </motion.div>
+          {/* Header */}
+          <motion.div {...fadeUp(0)} className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif' }}>Tarefas</h1>
+              <p className="text-sm mt-0.5" style={{ color: '#4a4a6a' }}>
+                {tasks.length} tarefa{tasks.length !== 1 ? 's' : ''}
+                {overdue.length > 0 && <span style={{ color: '#f87171' }}> · {overdue.length} atrasada{overdue.length > 1 ? 's' : ''}</span>}
+              </p>
+            </div>
+            <ShimmerButton onClick={() => { setEditing(null); setForm(EMPTY_FORM); setShowModal(true) }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: '0 0 28px rgba(124,110,247,0.45), inset 0 1px 0 rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
+              <Plus size={15} /> Nova tarefa
+            </ShimmerButton>
           </motion.div>
-        )}
-      </AnimatePresence>
 
-      <AnimatePresence>
-        {showConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)' }}>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm rounded-2xl border p-6" style={{ background: '#111118', borderColor: '#1e1e2e' }}>
-              <h2 className="font-bold text-lg mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Excluir tarefa?</h2>
-              <p className="text-sm mb-6" style={{ color: '#6b6b8a' }}>Esta ação não pode ser desfeita.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setShowConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: '#0d0d14', border: '1px solid #1e1e2e', color: '#6b6b8a' }}>Cancelar</button>
-                <button onClick={() => handleDelete(showConfirm!)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>Excluir</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {filtered.length === 0 ? (
-        <motion.div {...fadeUp(0.12)} className="flex flex-col items-center justify-center py-24 gap-4">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
-            <CheckSquare size={32} style={{ color: '#7c6ef7' }} />
-          </div>
-          <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Nenhuma tarefa</h2>
-          <p style={{ color: '#4a4a6a' }}>Crie sua primeira tarefa</p>
-        </motion.div>
-      ) : (
-        <div className="flex flex-col gap-3" data-tour="tarefas-lista">
-          <AnimatePresence initial={false}>
-            {filtered.map((task, i) => {
-              const s = statusConfig[task.status as keyof typeof statusConfig]
-              const overdue = task.due_date && task.due_date < today && task.status !== 'done'
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3">
+            {COLUMNS.map(({ key, label, color }, i) => {
+              const count = tasks.filter(t => t.status === key).length
               return (
-                <motion.div key={task.id}
-                  initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
-                  transition={{ duration: 0.25, delay: i * 0.04 }}
-                  layout
-                  className="rounded-2xl p-4 flex items-start gap-3"
-                  style={{ background: '#111118', border: `1px solid ${overdue ? 'rgba(248,113,113,0.3)' : '#1e1e2e'}` }}>
-                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.85 }}
-                    onClick={() => toggleStatus(task)}
-                    className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors"
-                    style={{
-                      borderColor: task.status === 'done' ? '#34d399' : task.status === 'in_progress' ? '#fbbf24' : '#2a2a3e',
-                      background: task.status === 'done' ? '#34d399' : task.status === 'in_progress' ? 'rgba(251,191,36,0.15)' : 'transparent',
-                    }}>
-                    <AnimatePresence>
-                      {task.status === 'done' && (
-                        <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                          className="text-white text-xs">✓</motion.span>
-                      )}
-                      {task.status === 'in_progress' && (
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-                          className="w-2 h-2 rounded-full" style={{ background: '#fbbf24' }} />
-                      )}
-                    </AnimatePresence>
-                  </motion.button>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium" style={{
-                      color: task.status === 'done' ? '#4a4a6a' : '#e8e8f0',
-                      textDecoration: task.status === 'done' ? 'line-through' : 'none',
-                    }}>{task.title}</p>
-                    {task.description && (
-                      <p className="text-xs mt-0.5 truncate" style={{ color: '#4a4a6a' }}>{task.description}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: s.bg, color: s.color }}>{s.label}</span>
-                      {task.due_date && (
-                        <span className="text-xs" style={{ color: overdue ? '#f87171' : '#4a4a6a' }}>
-                          {overdue ? '⚠ ' : ''}{new Date(task.due_date).toLocaleDateString('pt-BR')}
-                        </span>
-                      )}
+                <motion.div key={key} {...fadeUp(0.06 + i * 0.05)}>
+                  <SpotlightCard className="rounded-2xl" spotlightColor={`${color}12`} style={cardStyle}>
+                    <div className="p-4 relative overflow-hidden">
+                      <div className="absolute -bottom-4 -right-4 w-20 h-20 rounded-full pointer-events-none" style={{ background: `${color}18`, filter: 'blur(18px)' }} />
+                      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#4a4a6a', letterSpacing: '0.1em' }}>{label}</p>
+                      <p className="text-3xl font-bold" style={{ fontFamily: 'Syne, sans-serif', color, textShadow: `0 0 20px ${color}55` }}>{count}</p>
                     </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                      onClick={() => openEdit(task)} className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ background: 'rgba(124,110,247,0.1)', color: '#7c6ef7' }}>
-                      <Pencil size={12} />
-                    </motion.button>
-                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                      onClick={() => setShowConfirm(task.id)} className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
-                      <Trash2 size={12} />
-                    </motion.button>
+                  </SpotlightCard>
+                </motion.div>
+              )
+            })}
+          </div>
+
+          {/* Kanban */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {COLUMNS.map(({ key, label, color, accent }, ci) => {
+              const col = tasks.filter(t => t.status === key)
+              return (
+                <motion.div key={key} {...fadeUp(0.18 + ci * 0.06)}>
+                  <div className="rounded-2xl overflow-hidden" style={{ ...cardStyle, minHeight: 200 }}>
+                    {/* Column header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)', background: accent }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+                        <span className="text-sm font-semibold" style={{ color }}>{label}</span>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: `${color}18`, color }}>{col.length}</span>
+                    </div>
+
+                    {/* Tasks */}
+                    <div className="p-3 flex flex-col gap-2">
+                      <AnimatePresence>
+                        {col.length === 0 && (
+                          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                            className="text-xs py-6 text-center" style={{ color: '#3a3a5c' }}>
+                            Nenhuma tarefa
+                          </motion.p>
+                        )}
+                        {col.map((task, ti) => {
+                          const prio = PRIORITY[task.priority as keyof typeof PRIORITY] || PRIORITY.medium
+                          const isOverdue = task.due_date && task.due_date < today
+                          return (
+                            <motion.div key={task.id}
+                              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.2, delay: ti * 0.04 }}
+                              className="rounded-xl p-3 group"
+                              style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${isOverdue ? 'rgba(248,113,113,0.2)' : 'rgba(255,255,255,0.06)'}`, transition: 'border-color 0.15s ease', boxShadow: isOverdue ? '0 0 12px rgba(248,113,113,0.08)' : 'none' }}>
+
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <p className="text-sm font-medium leading-tight flex-1" style={{ color: '#d0d0e0' }}>{task.title}</p>
+                                <span className="text-xs px-1.5 py-0.5 rounded-md shrink-0 font-semibold" style={{ background: `${prio.color}14`, color: prio.color, border: `1px solid ${prio.color}22` }}>
+                                  {prio.label}
+                                </span>
+                              </div>
+
+                              {task.description && <p className="text-xs mb-2 line-clamp-2" style={{ color: '#4a4a6a' }}>{task.description}</p>}
+
+                              {task.due_date && (
+                                <div className="flex items-center gap-1 mb-2">
+                                  {isOverdue ? <AlertCircle size={11} style={{ color: '#f87171' }} /> : <Clock size={11} style={{ color: '#6b6b8a' }} />}
+                                  <span className="text-xs" style={{ color: isOverdue ? '#f87171' : '#6b6b8a' }}>
+                                    {new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                    {isOverdue && ' · Atrasada'}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Actions */}
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t opacity-0 group-hover:opacity-100 transition-opacity" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                                <div className="flex gap-1">
+                                  {COLUMNS.filter(c => c.key !== key).map(nc => (
+                                    <motion.button key={nc.key} whileTap={{ scale: 0.88 }}
+                                      onClick={() => moveTask(task, nc.key)}
+                                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs"
+                                      style={{ background: `${nc.color}12`, color: nc.color, border: `1px solid ${nc.color}20`, cursor: 'pointer' }}>
+                                      <ArrowRight size={9} /> {nc.label.split(' ')[0]}
+                                    </motion.button>
+                                  ))}
+                                </div>
+                                <div className="flex gap-1">
+                                  <motion.button whileTap={{ scale: 0.88 }} onClick={() => openEdit(task)}
+                                    className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff', cursor: 'pointer' }}>
+                                    <Edit2 size={11} />
+                                  </motion.button>
+                                  <motion.button whileTap={{ scale: 0.88 }} onClick={() => handleDelete(task.id)}
+                                    className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', cursor: 'pointer' }}>
+                                    {deleting === task.id ? <div className="w-2.5 h-2.5 rounded-full border border-current border-t-transparent animate-spin" /> : <Trash2 size={11} />}
+                                  </motion.button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )
+                        })}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 </motion.div>
               )
             })}
-          </AnimatePresence>
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* Modal */}
+        <AnimatePresence>
+          {showModal && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
+              onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
+              <motion.div initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
+                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
+                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
+                style={{ background: 'rgba(10,10,18,0.98)', border: '1px solid rgba(124,110,247,0.22)', boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.75)', backdropFilter: 'blur(24px)' }}>
+                <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: '#2a2a3e' }} />
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif', color: '#f0f0f8' }}>{editing ? 'Editar tarefa' : 'Nova tarefa'}</h2>
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowModal(false); setEditing(null) }}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', color: '#6b6b8a', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>
+                    <X size={14} />
+                  </motion.button>
+                </div>
+                <form onSubmit={handleSave} className="flex flex-col gap-3">
+                  <input placeholder="Título da tarefa *" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} style={inputStyle} onFocus={focus} onBlur={blur} />
+                  <textarea placeholder="Descrição (opcional)" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} style={{ ...inputStyle, resize: 'none' }} onFocus={focus} onBlur={blur} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })} style={{ ...inputStyle, background: 'rgba(13,13,20,0.95)' }}>
+                      <option value="low">Prioridade: Baixa</option>
+                      <option value="medium">Prioridade: Média</option>
+                      <option value="high">Prioridade: Alta</option>
+                    </select>
+                    <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} style={{ ...inputStyle, background: 'rgba(13,13,20,0.95)' }}>
+                      {COLUMNS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                    </select>
+                  </div>
+                  <input type="date" placeholder="Prazo (opcional)" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} style={inputStyle} onFocus={focus} onBlur={blur} />
+                  <ShimmerButton type="submit" disabled={saving} className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full mt-1"
+                    style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: saving ? 'none' : '0 0 28px rgba(124,110,247,0.38)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                    {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : editing ? 'Salvar alterações' : 'Criar tarefa'}
+                  </ShimmerButton>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </BackgroundGrid>
+    </>
   )
 }

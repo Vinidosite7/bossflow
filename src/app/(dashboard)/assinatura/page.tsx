@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Lock, Zap, Star, Rocket, Building2, PartyPopper, X } from 'lucide-react'
+import { Check, Lock, Zap, Star, Rocket, Building2, PartyPopper, X, Bot, CalendarClock, Share2, BarChart3, Target, BellDot } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { PLAN_LABELS, PLAN_PRICES, PLAN_CHECKOUT_URLS, type PlanKey } from '@/lib/plans'
 
-/* ─── Hook: plano atual do Supabase ────────────────────────────────────── */
+/* ─── Hook local ──────────────────────────────────────────────── */
 function useSubscription() {
   const [plan, setPlan] = useState<string>('free')
   const [loading, setLoading] = useState(true)
@@ -17,16 +18,14 @@ function useSubscription() {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { setLoading(false); return }
-
         const { data } = await supabase
           .from('subscriptions')
           .select('plan, status')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .single()
-
         if (data?.plan) setPlan(data.plan)
-      } catch { /* sem assinatura = free */ }
+      } catch { /* free */ }
       finally { setLoading(false) }
     }
     load()
@@ -35,7 +34,7 @@ function useSubscription() {
   return { plan, loading }
 }
 
-/* ─── Motion ───────────────────────────────────────────────────────────── */
+/* ─── Motion ──────────────────────────────────────────────────── */
 const vContainer = {
   hidden: { opacity: 1 },
   show: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
@@ -49,9 +48,9 @@ const vCard = {
   show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const } },
 }
 
-/* ─── Types ────────────────────────────────────────────────────────────── */
-type Plan = {
-  key: string
+/* ─── Types ───────────────────────────────────────────────────── */
+type PlanDef = {
+  key: PlanKey
   title: string
   subtitle: string
   priceMonthly: number
@@ -61,29 +60,29 @@ type Plan = {
   tag?: string
   currentPlan?: boolean
   href?: string
-  features: { text: string; available: boolean }[]
+  features: { text: string; available: boolean; badge?: string }[]
   cta: string
 }
 
-/* ─── Compare rows ─────────────────────────────────────────────────────── */
+/* ─── Tabela comparativa ──────────────────────────────────────── */
 const compareRows = [
-  { label: 'Empresas',      cols: ['1', 'Até 3', 'Ilimitadas', 'Ilimitadas'] },
-  { label: 'Contas/Caixas', cols: ['2', '5', 'Ilimitadas', 'Ilimitadas'] },
-  { label: 'Relatórios',    cols: ['—', '—', 'Mensais', 'Auditoria'] },
-  { label: 'Metas do mês',  cols: ['—', '—', '✓', '✓'] },
-  { label: 'Export CSV',    cols: ['—', 'Básico', 'Completo', 'Avançado'] },
-  { label: 'Suporte',       cols: ['Padrão', 'Padrão', 'Prioritário', 'VIP'] },
-  { label: 'Onboarding',    cols: ['—', '—', '—', 'Assistido'] },
+  { label: 'Empresas',              cols: ['1',       'Até 3',    'Ilimitadas', 'Ilimitadas'] },
+  { label: 'Contas/Caixas',         cols: ['2',       '5',        'Ilimitadas', 'Ilimitadas'] },
+  { label: 'Faturamento máx.',      cols: ['R$20k/mês','Ilimitado','Ilimitado',  'Ilimitado' ] },
+  { label: 'Compartilhar empresa',  cols: ['—',       '✓',        '✓',          '✓'         ] },
+  { label: 'Agendamento de contas', cols: ['—',       '✓',        '✓',          '✓'         ] },
+  { label: 'Estagiário de IA',      cols: ['—',       '✓',        '✓',          '✓'         ] },
+  { label: 'Export CSV',            cols: ['—',       'Básico',   'Completo',   'Completo'  ] },
+  { label: 'Relatórios mensais',    cols: ['—',       '—',        '✓',          '✓'         ] },
+  { label: 'Metas do mês',          cols: ['—',       '—',        '✓',          '✓'         ] },
+  { label: 'Notif. inteligentes',   cols: ['—',       '—',        '✓',          '✓'         ] },
+  { label: 'Suporte',               cols: ['Padrão',  'Padrão',   'Prioritário','VIP'        ] },
+  { label: 'Onboarding assistido',  cols: ['—',       '—',        '✓',          '✓'         ] },
+  { label: 'Auditoria completa',    cols: ['—',       '—',        '—',          '✓'         ] },
+  { label: 'Integrações custom',    cols: ['—',       '—',        '—',          '✓'         ] },
 ]
 
-const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito',
-  starter: 'Starter',
-  pro: 'Pro',
-  scale: 'Scale',
-}
-
-/* ─── Page ─────────────────────────────────────────────────────────────── */
+/* ─── Page ────────────────────────────────────────────────────── */
 export default function AssinaturaPage() {
   const searchParams = useSearchParams()
   const sucesso = searchParams.get('sucesso') === 'true'
@@ -93,23 +92,25 @@ export default function AssinaturaPage() {
   const fmt = (v: number) =>
     v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-  const plans: Plan[] = useMemo(() => [
+  const plans: PlanDef[] = useMemo(() => [
     {
       key: 'free',
-      title: 'Gratuito',
+      title: 'Básico',
       subtitle: 'Para quem está começando.',
       priceMonthly: 0,
       icon: <Zap size={15} />,
       currentPlan: currentPlan === 'free',
       features: [
-        { text: '1 empresa', available: true },
-        { text: '2 contas/caixas', available: true },
-        { text: 'Dashboard do mês', available: true },
-        { text: 'Categorias', available: true },
-        { text: 'Fluxo de caixa básico', available: true },
-        { text: 'Relatórios mensais', available: false },
-        { text: 'Metas do mês', available: false },
-        { text: 'Export CSV', available: false },
+        { text: '1 empresa',              available: true  },
+        { text: '2 contas/caixas',        available: true  },
+        { text: 'Dashboard do mês',       available: true  },
+        { text: 'Categorias',             available: true  },
+        { text: 'Fluxo de caixa básico',  available: true  },
+        { text: 'Fatura até R$20k/mês',   available: true, badge: 'limite' },
+        { text: 'Agendamento de contas',  available: false },
+        { text: 'Compartilhar empresa',   available: false },
+        { text: 'Estagiário de IA',       available: false },
+        { text: 'Export CSV',             available: false },
       ],
       cta: 'Plano atual',
     },
@@ -117,19 +118,21 @@ export default function AssinaturaPage() {
       key: 'starter',
       title: 'Starter',
       subtitle: 'Para quem já tem uma operação rodando.',
-      priceMonthly: 39.90,
+      priceMonthly: PLAN_PRICES.starter,
       icon: <Star size={15} />,
       currentPlan: currentPlan === 'starter',
-      href: currentPlan === 'starter' ? undefined : 'https://pay.cakto.com.br/ewnmtb7_790932',
+      href: currentPlan === 'starter' ? undefined : PLAN_CHECKOUT_URLS.starter,
       features: [
-        { text: 'Até 3 empresas', available: true },
-        { text: '5 contas/caixas', available: true },
-        { text: 'Dashboard + Financeiro', available: true },
-        { text: 'Histórico ampliado', available: true },
-        { text: 'Export básico', available: true },
-        { text: 'Relatórios mensais', available: false },
-        { text: 'Metas do mês', available: false },
-        { text: 'Suporte prioritário', available: false },
+        { text: 'Até 3 empresas',         available: true        },
+        { text: '5 contas/caixas',        available: true        },
+        { text: 'Dashboard + Financeiro', available: true        },
+        { text: 'Histórico ampliado',     available: true        },
+        { text: 'Agendamento de contas',  available: true        },
+        { text: 'Compartilhar empresa',   available: true        },
+        { text: 'Estagiário de IA',       available: true, badge: 'novo' },
+        { text: 'Export básico',          available: true        },
+        { text: 'Relatórios mensais',     available: false       },
+        { text: 'Metas do mês',           available: false       },
       ],
       cta: currentPlan === 'starter' ? 'Plano atual' : 'Assinar Starter',
     },
@@ -137,21 +140,23 @@ export default function AssinaturaPage() {
       key: 'pro',
       title: 'Pro',
       subtitle: 'Visão clara e decisão rápida.',
-      priceMonthly: 69.90,
+      priceMonthly: PLAN_PRICES.pro,
       icon: <Rocket size={15} />,
       highlight: true,
       tag: 'Mais vendido',
       currentPlan: currentPlan === 'pro',
-      href: currentPlan === 'pro' ? undefined : 'https://pay.cakto.com.br/roe67up_790935',
+      href: currentPlan === 'pro' ? undefined : PLAN_CHECKOUT_URLS.pro,
       features: [
-        { text: 'Empresas ilimitadas', available: true },
-        { text: 'Contas ilimitadas', available: true },
-        { text: 'Relatórios mensais', available: true },
-        { text: 'Metas do mês', available: true },
-        { text: 'Export CSV completo', available: true },
-        { text: 'Histórico completo', available: true },
-        { text: 'Suporte prioritário', available: true },
-        { text: 'Onboarding assistido', available: false },
+        { text: 'Empresas ilimitadas',       available: true        },
+        { text: 'Contas ilimitadas',          available: true        },
+        { text: 'Relatórios mensais',         available: true        },
+        { text: 'Metas do mês',               available: true        },
+        { text: 'Export CSV completo',        available: true        },
+        { text: 'Histórico completo',         available: true        },
+        { text: 'Estagiário de IA',           available: true        },
+        { text: 'Notificações inteligentes',  available: true, badge: 'novo' },
+        { text: 'Suporte prioritário',        available: true        },
+        { text: 'Onboarding assistido',       available: true        },
       ],
       cta: currentPlan === 'pro' ? 'Plano atual' : 'Ativar BossFlow Pro',
     },
@@ -159,19 +164,19 @@ export default function AssinaturaPage() {
       key: 'scale',
       title: 'Scale',
       subtitle: 'Para quem já é monstro da escala.',
-      priceMonthly: 149,
+      priceMonthly: PLAN_PRICES.scale,
       icon: <Building2 size={15} />,
       locked: true,
       currentPlan: currentPlan === 'scale',
       features: [
-        { text: 'Tudo do Pro', available: true },
-        { text: 'Onboarding assistido', available: true },
-        { text: 'Suporte VIP', available: true },
-        { text: 'Permissões por membro', available: true },
-        { text: 'Auditoria completa', available: true },
-        { text: 'Integrações sob demanda', available: true },
-        { text: 'SLA garantido', available: true },
-        { text: 'Acesso antecipado', available: true },
+        { text: 'Tudo do Pro',              available: true },
+        { text: 'Auditoria completa',       available: true },
+        { text: 'Suporte VIP',              available: true },
+        { text: 'Integrações sob demanda',  available: true },
+        { text: 'SLA garantido',            available: true },
+        { text: 'Acesso antecipado',        available: true },
+        { text: 'Permissões por membro',    available: true },
+        { text: 'Onboarding dedicado',      available: true },
       ],
       cta: 'Em breve',
     },
@@ -180,7 +185,7 @@ export default function AssinaturaPage() {
   return (
     <div className="flex flex-col gap-8 pb-10">
 
-      {/* Banner de sucesso */}
+      {/* Banner sucesso */}
       <AnimatePresence>
         {showBanner && (
           <motion.div
@@ -189,25 +194,17 @@ export default function AssinaturaPage() {
             exit={{ opacity: 0, y: -16, scale: 0.97 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             className="flex items-center gap-3 px-4 py-3.5 rounded-2xl"
-            style={{
-              background: 'rgba(34,197,94,0.08)',
-              border: '1px solid rgba(34,197,94,0.25)',
-            }}
-          >
+            style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)' }}>
             <PartyPopper size={18} style={{ color: 'rgb(34,197,94)', flexShrink: 0 }} />
             <div className="flex-1">
-              <p className="text-sm font-semibold" style={{ color: 'rgb(34,197,94)' }}>
-                Pagamento confirmado! 🎉
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>
-                Seu plano foi ativado. Bem-vindo ao BossFlow {PLAN_LABELS[currentPlan]}!
+              <p className="text-sm font-semibold" style={{ color: 'rgb(34,197,94)' }}>Pagamento confirmado! 🎉</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                Seu plano foi ativado. Bem-vindo ao BossFlow {PLAN_LABELS[currentPlan as PlanKey] ?? 'Básico'}!
               </p>
             </div>
-            <button
-              onClick={() => setShowBanner(false)}
+            <button onClick={() => setShowBanner(false)}
               className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(255,255,255,0.05)', color: '#4a4a6a' }}
-            >
+              style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
               <X size={12} />
             </button>
           </motion.div>
@@ -220,16 +217,12 @@ export default function AssinaturaPage() {
           Assinatura
         </motion.h1>
         <motion.p variants={vFadeUp} className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          {loading ? (
-            <span>Carregando plano...</span>
-          ) : (
+          {loading ? <span>Carregando plano...</span> : (
             <>
               Você está no plano{' '}
-              <span
-                className="font-semibold px-1.5 py-0.5 rounded-md text-xs"
-                style={{ background: 'var(--accent-glow)', color: 'var(--accent-bright)', border: '1px solid var(--accent-border)' }}
-              >
-                {PLAN_LABELS[currentPlan] ?? 'Gratuito'}
+              <span className="font-semibold px-1.5 py-0.5 rounded-md text-xs"
+                style={{ background: 'var(--accent-glow)', color: 'var(--accent-bright)', border: '1px solid var(--accent-border)' }}>
+                {PLAN_LABELS[currentPlan as PlanKey] ?? 'Básico'}
               </span>
               {' '}— faça upgrade a qualquer momento, sem fidelidade.
             </>
@@ -238,51 +231,90 @@ export default function AssinaturaPage() {
       </motion.div>
 
       {/* Cards */}
-      <motion.div
-        variants={vContainer} initial="hidden" animate="show"
-        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
-      >
-        {plans.map((plan) => (
-          <PlanCard key={plan.key} plan={plan} fmt={fmt} />
-        ))}
+      <motion.div variants={vContainer} initial="hidden" animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {plans.map(plan => <PlanCard key={plan.key} plan={plan} fmt={fmt} />)}
+      </motion.div>
+
+      {/* Destaques Starter */}
+      <motion.div variants={vContainer} initial="hidden" whileInView="show"
+        viewport={{ once: true, amount: 0.15 }}
+        className="rounded-2xl border p-5"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <motion.div variants={vFadeUp} className="mb-4">
+          <h2 className="text-base font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>O que você ganha no Starter</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Recursos que desbloqueiam na primeira assinatura</p>
+        </motion.div>
+        <motion.div variants={vFadeUp} className="grid sm:grid-cols-3 gap-3">
+          {[
+            { icon: <Bot size={16} />, title: 'Estagiário de IA', desc: 'Categorização automática e insights do seu caixa.' },
+            { icon: <CalendarClock size={16} />, title: 'Agendamento', desc: 'Programe contas a pagar e a receber com antecedência.' },
+            { icon: <Share2 size={16} />, title: 'Compartilhamento', desc: 'Convide sócios ou colaboradores para a empresa.' },
+          ].map(item => (
+            <div key={item.title} className="flex gap-3 p-3 rounded-xl"
+              style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)' }}>
+              <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff' }}>{item.icon}</span>
+              <div>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{item.title}</p>
+                <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </motion.div>
+      </motion.div>
+
+      {/* Destaques Pro */}
+      <motion.div variants={vContainer} initial="hidden" whileInView="show"
+        viewport={{ once: true, amount: 0.15 }}
+        className="rounded-2xl border p-5"
+        style={{ background: 'linear-gradient(135deg, rgba(124,110,247,0.06), rgba(157,143,255,0.03))', borderColor: 'rgba(124,110,247,0.2)' }}>
+        <motion.div variants={vFadeUp} className="flex items-center gap-2 mb-4">
+          <span className="text-xs font-bold px-2 py-0.5 rounded-md" style={{ background: 'var(--accent)', color: 'white' }}>Pro</span>
+          <h2 className="text-base font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Tudo do Starter +</h2>
+        </motion.div>
+        <motion.div variants={vFadeUp} className="grid sm:grid-cols-3 gap-3">
+          {[
+            { icon: <BarChart3 size={16} />, title: 'Relatórios mensais', desc: 'Acompanhe a evolução do seu negócio mês a mês.' },
+            { icon: <Target size={16} />, title: 'Metas do mês', desc: 'Defina objetivos financeiros e acompanhe em tempo real.' },
+            { icon: <BellDot size={16} />, title: 'Notif. inteligentes', desc: 'Alertas automáticos sobre fluxo de caixa e vencimentos.' },
+          ].map(item => (
+            <div key={item.title} className="flex gap-3 p-3 rounded-xl"
+              style={{ background: 'rgba(124,110,247,0.06)', border: '1px solid rgba(124,110,247,0.15)' }}>
+              <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: 'rgba(124,110,247,0.12)', color: '#9d8fff' }}>{item.icon}</span>
+              <div>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{item.title}</p>
+                <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </motion.div>
       </motion.div>
 
       {/* Tabela comparativa */}
-      <motion.div
-        variants={vContainer} initial="hidden" whileInView="show"
-        viewport={{ once: true, amount: 0.15 }} className="flex flex-col gap-4"
-      >
+      <motion.div variants={vContainer} initial="hidden" whileInView="show"
+        viewport={{ once: true, amount: 0.1 }} className="flex flex-col gap-4">
         <motion.div variants={vFadeUp}>
           <h2 className="text-base font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Comparação completa</h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            O Pro é o sweet spot para a maioria das operações.
-          </p>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>O Pro é o sweet spot para a maioria das operações.</p>
         </motion.div>
-
-        <motion.div
-          variants={vFadeUp}
-          className="rounded-2xl border overflow-hidden"
-          style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}
-        >
+        <motion.div variants={vFadeUp} className="rounded-2xl border overflow-hidden"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   <th className="py-3.5 px-4 text-left font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Recurso</th>
-                  {['Gratuito', 'Starter', 'Pro ✦', 'Scale'].map((h, i) => (
+                  {['Básico', 'Starter', 'Pro ✦', 'Scale'].map((h, i) => (
                     <th key={h} className="py-3.5 px-4 text-left font-semibold text-xs"
-                      style={{ color: i === 2 ? 'var(--accent-bright)' : 'var(--text)' }}>
-                      {h}
-                    </th>
+                      style={{ color: i === 2 ? 'var(--accent-bright)' : 'var(--text)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {compareRows.map((row, i) => (
-                  <tr key={row.label} style={{
-                    borderTop: '1px solid var(--border)',
-                    background: i % 2 !== 0 ? 'var(--bg-hover)' : 'transparent',
-                  }}>
+                  <tr key={row.label} style={{ borderTop: '1px solid var(--border)', background: i % 2 !== 0 ? 'var(--bg-hover)' : 'transparent' }}>
                     <td className="py-3 px-4 text-xs" style={{ color: 'var(--text-muted)' }}>{row.label}</td>
                     {row.cols.map((c, ci) => (
                       <td key={ci} className="py-3 px-4 text-xs font-medium" style={{
@@ -302,15 +334,13 @@ export default function AssinaturaPage() {
       </motion.div>
 
       {/* Trust */}
-      <motion.div
-        variants={vContainer} initial="hidden" whileInView="show"
-        viewport={{ once: true, amount: 0.15 }} className="grid sm:grid-cols-3 gap-3"
-      >
+      <motion.div variants={vContainer} initial="hidden" whileInView="show"
+        viewport={{ once: true, amount: 0.15 }} className="grid sm:grid-cols-3 gap-3">
         {[
           { icon: '🔓', title: 'Sem fidelidade', desc: 'Cancele quando quiser, sem multa.' },
           { icon: '⚡', title: 'Setup em 2 min', desc: 'Crie sua empresa e já use tudo.' },
           { icon: '📦', title: 'Seus dados são seus', desc: 'Exporte tudo em CSV a qualquer hora.' },
-        ].map((item) => (
+        ].map(item => (
           <motion.div key={item.title} variants={vCard} className="rounded-xl border p-4"
             style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
             <div className="text-xl mb-2">{item.icon}</div>
@@ -319,37 +349,28 @@ export default function AssinaturaPage() {
           </motion.div>
         ))}
       </motion.div>
-
     </div>
   )
 }
 
-/* ─── Plan Card ─────────────────────────────────────────────────────────── */
-function PlanCard({ plan, fmt }: { plan: Plan; fmt: (v: number) => string }) {
+/* ─── PlanCard ────────────────────────────────────────────────── */
+function PlanCard({ plan, fmt }: { plan: PlanDef; fmt: (v: number) => string }) {
   const isFree = plan.priceMonthly === 0
-
   return (
-    <motion.div
-      variants={vCard}
+    <motion.div variants={vCard}
       className="relative rounded-2xl border flex flex-col overflow-hidden"
       style={{
         background: plan.highlight ? 'var(--accent-glow)' : 'var(--bg-card)',
         borderColor: plan.currentPlan ? 'rgba(34,197,94,0.4)' : plan.highlight ? 'var(--accent-border)' : 'var(--border)',
         boxShadow: plan.currentPlan ? '0 0 20px rgba(34,197,94,0.1)' : plan.highlight ? '0 0 28px var(--accent-glow)' : 'none',
         opacity: plan.locked ? 0.55 : 1,
-      }}
-    >
-      {/* Tag do topo */}
+      }}>
       {plan.currentPlan ? (
         <div className="w-full py-2 text-center text-xs font-bold tracking-wide"
-          style={{ background: 'rgba(34,197,94,0.15)', color: 'rgb(34,197,94)' }}>
-          ✓ Seu plano atual
-        </div>
+          style={{ background: 'rgba(34,197,94,0.15)', color: 'rgb(34,197,94)' }}>✓ Seu plano atual</div>
       ) : plan.tag ? (
         <div className="w-full py-2 text-center text-xs font-bold tracking-wide"
-          style={{ background: 'var(--accent)', color: 'white' }}>
-          {plan.tag}
-        </div>
+          style={{ background: 'var(--accent)', color: 'white' }}>{plan.tag}</div>
       ) : null}
 
       {plan.locked && (
@@ -370,9 +391,7 @@ function PlanCard({ plan, fmt }: { plan: Plan; fmt: (v: number) => string }) {
             {plan.icon}
           </span>
           <div>
-            <h2 className="font-bold text-base leading-none" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--text)' }}>
-              {plan.title}
-            </h2>
+            <h2 className="font-bold text-base leading-none" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--text)' }}>{plan.title}</h2>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{plan.subtitle}</p>
           </div>
         </div>
@@ -380,10 +399,7 @@ function PlanCard({ plan, fmt }: { plan: Plan; fmt: (v: number) => string }) {
         <div>
           <div className="flex items-end gap-1">
             <span className="text-3xl font-extrabold"
-              style={{
-                fontFamily: 'Syne, sans-serif',
-                color: plan.currentPlan ? 'rgb(34,197,94)' : plan.highlight ? 'var(--accent-bright)' : 'var(--text)',
-              }}>
+              style={{ fontFamily: 'Syne, sans-serif', color: plan.currentPlan ? 'rgb(34,197,94)' : plan.highlight ? 'var(--accent-bright)' : 'var(--text)' }}>
               {isFree ? 'R$ 0' : `R$ ${fmt(plan.priceMonthly)}`}
             </span>
             <span className="text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>/mês</span>
@@ -398,54 +414,51 @@ function PlanCard({ plan, fmt }: { plan: Plan; fmt: (v: number) => string }) {
         <div style={{ borderTop: '1px solid var(--border)' }} />
 
         <div className="flex flex-col gap-2 flex-1">
-          {plan.features.map((f) => (
+          {plan.features.map(f => (
             <div key={f.text} className="flex items-center gap-2">
               <span className="inline-flex items-center justify-center w-4 h-4 rounded-full shrink-0"
                 style={{
-                  background: f.available
-                    ? plan.currentPlan ? 'rgba(34,197,94,0.15)' : plan.highlight ? 'var(--accent)' : 'var(--bg-hover)'
-                    : 'transparent',
-                  color: f.available
-                    ? plan.currentPlan ? 'rgb(34,197,94)' : plan.highlight ? 'white' : 'var(--text-muted)'
-                    : 'var(--text-muted)',
+                  background: f.available ? plan.currentPlan ? 'rgba(34,197,94,0.15)' : plan.highlight ? 'var(--accent)' : 'var(--bg-hover)' : 'transparent',
+                  color: f.available ? plan.currentPlan ? 'rgb(34,197,94)' : plan.highlight ? 'white' : 'var(--text-muted)' : 'var(--text-muted)',
                   border: f.available ? 'none' : '1px solid var(--border)',
                   opacity: f.available ? 1 : 0.4,
                 }}>
                 {f.available ? <Check size={9} strokeWidth={3} /> : <span style={{ fontSize: 9 }}>—</span>}
               </span>
-              <span className="text-xs"
-                style={{ color: f.available ? 'var(--text)' : 'var(--text-muted)', opacity: f.available ? 1 : 0.5 }}>
+              <span className="text-xs flex-1" style={{ color: f.available ? 'var(--text)' : 'var(--text-muted)', opacity: f.available ? 1 : 0.5 }}>
                 {f.text}
               </span>
+              {f.badge && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0"
+                  style={f.badge === 'novo'
+                    ? { background: 'rgba(124,110,247,0.15)', color: '#9d8fff' }
+                    : { background: 'rgba(245,158,11,0.15)', color: 'rgb(245,158,11)' }}>
+                  {f.badge === 'novo' ? 'novo' : 'limite'}
+                </span>
+              )}
             </div>
           ))}
         </div>
 
-        {/* CTA */}
         {plan.href ? (
-          <button
-            onClick={() => { window.location.href = plan.href! }}
+          <button onClick={() => { window.location.href = plan.href! }}
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all mt-1"
             style={{
               background: plan.highlight ? 'var(--accent)' : 'var(--bg-hover)',
               color: plan.highlight ? 'white' : 'var(--text)',
               border: plan.highlight ? 'none' : '1px solid var(--border-light)',
               cursor: 'pointer',
-            }}
-          >
+            }}>
             {plan.cta}
           </button>
         ) : (
-          <button
-            disabled
-            className="w-full py-2.5 rounded-xl text-sm font-semibold mt-1"
+          <button disabled className="w-full py-2.5 rounded-xl text-sm font-semibold mt-1"
             style={{
               background: plan.currentPlan ? 'rgba(34,197,94,0.08)' : 'var(--bg-hover)',
               color: plan.currentPlan ? 'rgb(34,197,94)' : 'var(--text-muted)',
               border: plan.currentPlan ? '1px solid rgba(34,197,94,0.2)' : '1px solid var(--border-light)',
               cursor: 'default',
-            }}
-          >
+            }}>
             {plan.cta}
           </button>
         )}

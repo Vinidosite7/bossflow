@@ -2,633 +2,519 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useTour } from '@/hooks/useTour'
-import { usePlanLimits } from '@/hooks/usePlanLimits'
-import { TourTooltip } from "@/components/TourTooltip"
-import { Building2, Plus, Loader2, X, Pencil, Trash2, Upload, Check, Users, Crown, Shield, Eye, UserMinus, Lock, Copy, Link2 } from 'lucide-react'
+import {
+  Building2, Plus, Users, Crown, Shield, User,
+  Edit2, Check, X, Copy, Mail, Trash2, ExternalLink,
+  MapPin, Globe, Hash, Briefcase, ChevronRight,
+} from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import {
+  SpotlightCard, ShimmerButton, Skeleton,
+  BackgroundGrid, FloatingOrbs, AcernityFonts, GlowCorner,
+} from '@/components/ui/aceternity'
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.35, delay, ease: [0.25, 0.46, 0.45, 0.94] as const }
-})
-
-const ROLE_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  owner:  { label: 'Dono',         color: '#fbbf24', icon: Crown  },
-  admin:  { label: 'Admin',        color: '#7c6ef7', icon: Shield },
-  member: { label: 'Membro',       color: '#34d399', icon: Users  },
-  viewer: { label: 'Visualizador', color: '#6b6b8a', icon: Eye    },
+/* ─── design tokens ─────────────────────────── */
+const T = {
+  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
+  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
+  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
+  green: '#34d399', amber: '#fbbf24', purple: '#7c6ef7',
+  red: '#f87171', cyan: '#22d3ee', violet: '#a78bfa', orange: '#f97316',
+  blur: 'blur(20px)',
 }
+const card   = { background: T.bg, border: `1px solid ${T.border}`, backdropFilter: T.blur, boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)' }
+const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '10px 14px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s', fontFamily: 'DM Sans, sans-serif' }
+const lbl: React.CSSProperties = { fontSize: 11, color: T.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'block', fontFamily: 'Syne, sans-serif' }
+const focusIn  = (e: any) => e.currentTarget.style.borderColor = T.borderP
+const focusOut = (e: any) => e.currentTarget.style.borderColor = T.border
+const fadeUp   = (delay = 0) => ({ initial: { opacity: 0, y: 16, filter: 'blur(4px)' }, animate: { opacity: 1, y: 0, filter: 'blur(0px)' }, transition: { duration: 0.46, delay, ease: [0.16, 1, 0.3, 1] as const } })
 
-const PLAN_LIMITS: Record<string, number> = {
-  free: 1, starter: 3, pro: Infinity, scale: Infinity,
+const ROLE_MAP: Record<string, { label: string; color: string; icon: any }> = {
+  owner:  { label: 'Dono',       color: T.amber,  icon: Crown  },
+  admin:  { label: 'Admin',      color: T.violet, icon: Shield },
+  member: { label: 'Membro',     color: T.cyan,   icon: User   },
+  viewer: { label: 'Visualizar', color: T.sub,    icon: User   },
 }
-
-const TOUR_STEPS = [
-  {
-    target: '[data-tour="empresas-header"]',
-    title: 'Suas empresas',
-    description: 'Gerencie múltiplas empresas no BossFlow. Alterne entre elas pelo botão "Usar esta".',
-    position: 'bottom' as const,
-  },
-  {
-    target: '[data-tour="empresas-lista"]',
-    title: 'Cards de empresa',
-    description: 'A empresa ativa aparece com borda roxa. Clique em 👥 para gerenciar membros e convidar colaboradores.',
-    position: 'top' as const,
-  },
-]
 
 export default function EmpresasPage() {
   const supabase = createClient()
-  const { plan, loading: planLoading } = usePlanLimits()
-  const tour = useTour('empresas', TOUR_STEPS)
+  const router   = useRouter()
 
+  const [loading, setLoading]     = useState(true)
   const [businesses, setBusinesses] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editBiz, setEditBiz] = useState<any>(null)
-  const [saving, setSaving] = useState(false)
-  const [name, setName] = useState('')
-  const [logoFile, setLogoFile] = useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = useState('')
-  const [showConfirm, setShowConfirm] = useState<string | null>(null)
-  const [activeBizId, setActiveBizId] = useState<string>('')
-
-  const [membersModal, setMembersModal] = useState<any | null>(null)
-  const [members, setMembers] = useState<any[]>([])
-  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [members, setMembers]     = useState<any[]>([])
+  const [selectedBiz, setSelectedBiz] = useState<any>(null)
+  const [editMode, setEditMode]   = useState(false)
+  const [saving, setSaving]       = useState(false)
+  const [saved, setSaved]         = useState(false)
+  const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('member')
-  const [sendingInvite, setSendingInvite] = useState(false)
-  const [inviteSuccess, setInviteSuccess] = useState(false)
-  const [inviteUrl, setInviteUrl] = useState('')
-  const [copied, setCopied] = useState(false)
-  const [currentUserId, setCurrentUserId] = useState<string>('')
+  const [inviting, setInviting]   = useState(false)
+  const [copied, setCopied]       = useState(false)
+  const [tab, setTab]             = useState<'info' | 'equipe'>('info')
+  const [userId, setUserId]       = useState<string | null>(null)
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') setActiveBizId(localStorage.getItem('activeBizId') || '')
-  }, [])
+  const [form, setForm] = useState({
+    name: '', segment: '', cnpj: '', address: '', website: '', phone: '', description: '',
+  })
 
   async function load() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      setCurrentUserId(user.id)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.replace('/login'); return }
+    setUserId(user.id)
 
-      // Empresas que é dono
-      const { data: owned } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: false })
+    const { data: owned } = await supabase.from('businesses').select('*').eq('owner_id', user.id)
+    const { data: memberships } = await supabase.from('business_members')
+      .select('business_id, role').eq('user_id', user.id).in('status', ['accepted', 'active'])
+    const memberBizIds = (memberships || []).map((m: any) => m.business_id)
+      .filter((id: string) => !(owned || []).find((o: any) => o.id === id))
+    let memberBizzes: any[] = []
+    if (memberBizIds.length > 0) {
+      const { data: bd } = await supabase.from('businesses').select('*').in('id', memberBizIds)
+      memberBizzes = bd || []
+    }
+    const all = [...(owned || []), ...memberBizzes]
+    setBusinesses(all)
 
-      // Memberships sem join (evita loop RLS)
-      const { data: memberships } = await supabase
-        .from('business_members')
-        .select('business_id, role')
-        .eq('user_id', user.id)
-        .in('status', ['accepted', 'active'])
+    const active = all[0]
+    if (active) {
+      setSelectedBiz(active)
+      fillForm(active)
+      await loadMembers(active.id)
+    }
+    setLoading(false)
+  }
 
-      // IDs das empresas membro que não é dono
-      const memberBizIds = (memberships || [])
-        .map((m: any) => m.business_id)
-        .filter((id: string) => !(owned || []).find((o: any) => o.id === id))
+  async function loadMembers(bizId: string) {
+    const { data } = await supabase.from('business_members')
+      .select('*, profiles(full_name, email)')
+      .eq('business_id', bizId)
+      .order('created_at')
+    setMembers(data || [])
+  }
 
-      let memberBizzes: any[] = []
-      if (memberBizIds.length > 0) {
-        const { data: bizData } = await supabase
-          .from('businesses')
-          .select('*')
-          .in('id', memberBizIds)
-        memberBizzes = (bizData || []).map((b: any) => ({
-          ...b,
-          _memberRole: memberships?.find((m: any) => m.business_id === b.id)?.role,
-        }))
-      }
-
-      const all = [...(owned || []), ...memberBizzes]
-      setBusinesses(all)
-
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') : null
-      if (!saved && all[0]) { localStorage.setItem('activeBizId', all[0].id); setActiveBizId(all[0].id) }
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+  function fillForm(b: any) {
+    setForm({
+      name: b.name || '', segment: b.segment || '', cnpj: b.cnpj || '',
+      address: b.address || '', website: b.website || '', phone: b.phone || '',
+      description: b.description || '',
+    })
   }
 
   useEffect(() => { load() }, [])
 
-  async function loadMembers(biz: any) {
-    setLoadingMembers(true)
-    setMembersModal(biz)
-    setInviteEmail('')
-    setInviteRole('member')
-    setInviteSuccess(false)
-    setInviteUrl('')
-    setCopied(false)
-    try {
-      const { data } = await supabase
-        .from('business_members')
-        .select('*')
-        .eq('business_id', biz.id)
-        .order('created_at', { ascending: true })
-      setMembers(data || [])
-    } catch (err) { console.error(err) }
-    finally { setLoadingMembers(false) }
+  async function handleSave() {
+    if (!selectedBiz) return
+    setSaving(true)
+    await supabase.from('businesses').update(form).eq('id', selectedBiz.id)
+    setSaving(false); setSaved(true); setEditMode(false)
+    setTimeout(() => setSaved(false), 2000)
+    load()
   }
 
-  async function handleInvite() {
-    if (!membersModal || !inviteEmail) return
-    setSendingInvite(true)
-    setInviteSuccess(false)
-    setInviteUrl('')
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/invite/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole, businessId: membersModal.id }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erro ao gerar convite')
-      setInviteUrl(data.inviteUrl)
-      setInviteSuccess(true)
-      setInviteEmail('')
-      // Atualiza membros sem resetar o link
-      const { data: membersData } = await supabase
-        .from('business_members')
-        .select('*')
-        .eq('business_id', membersModal.id)
-        .order('created_at', { ascending: true })
-      setMembers(membersData || [])
-    } catch (err: any) {
-      console.error(err)
-    } finally {
-      setSendingInvite(false)
-    }
-  }
-
-  async function handleCopy() {
-    if (!inviteUrl) return
-    await navigator.clipboard.writeText(inviteUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault(); setInviting(true)
+    await supabase.from('business_members').insert({
+      business_id: selectedBiz.id, email: inviteEmail,
+      role: inviteRole, status: 'pending',
+    })
+    setInviting(false); setShowInvite(false); setInviteEmail('')
+    loadMembers(selectedBiz.id)
   }
 
   async function handleRemoveMember(memberId: string) {
-    if (!confirm('Remover este membro?')) return
-    await supabase.from('business_members').update({ status: 'removed' }).eq('id', memberId)
-    loadMembers(membersModal)
+    await supabase.from('business_members').delete().eq('id', memberId)
+    loadMembers(selectedBiz.id)
   }
 
-  function openCreate() {
-    setEditBiz(null); setName(''); setLogoFile(null); setLogoPreview(''); setShowForm(true)
+  function copyId() {
+    navigator.clipboard.writeText(selectedBiz?.id || '')
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
-  function openEdit(biz: any) {
-    setEditBiz(biz); setName(biz.name); setLogoFile(null); setLogoPreview(biz.logo_url || ''); setShowForm(true)
-  }
-
-  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setLogoFile(file); setLogoPreview(URL.createObjectURL(file))
-  }
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    let logo_url = editBiz?.logo_url || null
-    if (logoFile) {
-      const ext = logoFile.name.split('.').pop()
-      const path = `logos/${user.id}-${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('business-logos').upload(path, logoFile, { upsert: true })
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('business-logos').getPublicUrl(path)
-        logo_url = urlData.publicUrl
-      }
-    }
-    if (editBiz) {
-      await supabase.from('businesses').update({ name, logo_url }).eq('id', editBiz.id)
-    } else {
-      const { data: newBiz } = await supabase.from('businesses').insert({ name, logo_url, owner_id: user.id }).select().single()
-      if (newBiz && !activeBizId) { localStorage.setItem('activeBizId', newBiz.id); setActiveBizId(newBiz.id) }
-    }
-    setShowForm(false); setEditBiz(null); setSaving(false); load()
-  }
-
-  async function handleDelete(id: string) {
-    await supabase.from('businesses').delete().eq('id', id)
-    if (activeBizId === id) { localStorage.removeItem('activeBizId'); setActiveBizId('') }
-    setShowConfirm(null); load()
-  }
-
-  function activateBiz(id: string) {
-    localStorage.setItem('activeBizId', id); setActiveBizId(id); window.location.reload()
-  }
-
-  // Limite conta só empresas que o usuário é dono
-  const ownedCount = businesses.filter((b: any) => !b._memberRole).length
-  const planLimit = PLAN_LIMITS[plan] || 1
-  const atLimit = ownedCount >= planLimit
+  const isOwner = selectedBiz?.owner_id === userId
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: '#7c6ef7', borderTopColor: 'transparent' }} />
-    </div>
+    <><AcernityFonts /><BackgroundGrid><FloatingOrbs />
+      <div className="flex flex-col gap-5">
+        <Skeleton className="h-9 w-40 rounded-xl" />
+        <div className="grid grid-cols-3 gap-3">{[0,1,2].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>
+        <Skeleton className="h-80 rounded-2xl" />
+      </div>
+    </BackgroundGrid></>
   )
 
   return (
-    <div className="flex flex-col gap-6">
-      <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+    <>
+      <AcernityFonts />
+      <BackgroundGrid>
+        <FloatingOrbs />
+        <div className="flex flex-col gap-5">
 
-      <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="empresas-header">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Empresas</h1>
-          <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>
-            {businesses.length} {businesses.length === 1 ? 'empresa cadastrada' : 'empresas cadastradas'}
-            {planLimit !== Infinity && <span style={{ color: '#4a4a6a' }}> · máx {planLimit} no plano atual</span>}
-          </p>
-        </div>
-        <motion.button whileHover={{ scale: atLimit ? 1 : 1.03 }} whileTap={{ scale: atLimit ? 1 : 0.97 }}
-          onClick={atLimit ? undefined : openCreate}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-          style={{
-            background: atLimit ? '#1e1e2e' : '#7c6ef7',
-            color: atLimit ? '#4a4a6a' : 'white',
-            boxShadow: atLimit ? 'none' : '0 0 20px rgba(124,110,247,0.3)',
-            cursor: atLimit ? 'not-allowed' : 'pointer',
-          }}>
-          {atLimit ? <><Lock size={13} /> Limite atingido</> : <><Plus size={15} /><span className="hidden sm:inline">Nova empresa</span><span className="sm:hidden">Nova</span></>}
-        </motion.button>
-      </motion.div>
-
-      {atLimit && (
-        <motion.div {...fadeUp(0.05)} className="rounded-xl p-3.5 flex items-center gap-3"
-          style={{ background: 'rgba(124,110,247,0.06)', border: '1px solid rgba(124,110,247,0.2)' }}>
-          <Lock size={14} style={{ color: '#9d8fff' }} />
-          <p className="text-sm flex-1" style={{ color: '#9d8fff' }}>
-            Você atingiu o limite de {planLimit} empresa{planLimit > 1 ? 's' : ''} do plano {plan}.
-          </p>
-          <a href="/assinatura" className="text-xs font-bold px-2.5 py-1 rounded-lg"
-            style={{ background: 'rgba(124,110,247,0.15)', color: '#9d8fff' }}>
-            Fazer upgrade
-          </a>
-        </motion.div>
-      )}
-
-      {/* Modal form empresa */}
-      <AnimatePresence>
-        {showForm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ background: 'rgba(0,0,0,0.8)' }}
-            onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditBiz(null) } }}>
-            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-              className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border p-6"
-              style={{ background: '#111118', borderColor: '#1e1e2e' }}>
-              <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: '#2a2a3e' }} />
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>{editBiz ? 'Editar empresa' : 'Nova empresa'}</h2>
-                <button onClick={() => { setShowForm(false); setEditBiz(null) }} style={{ color: '#4a4a6a' }}><X size={18} /></button>
-              </div>
-              <form onSubmit={handleSave} className="flex flex-col gap-5">
-                <div className="flex flex-col items-center gap-3">
-                  <motion.div whileHover={{ scale: 1.04 }}
-                    className="w-24 h-24 rounded-2xl flex items-center justify-center overflow-hidden"
-                    style={{ background: '#0d0d14', border: '2px dashed #2a2a3e' }}>
-                    {logoPreview ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" /> : <Building2 size={36} style={{ color: '#3a3a5c' }} />}
-                  </motion.div>
-                  <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
-                    style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff', border: '1px solid rgba(124,110,247,0.2)' }}>
-                    <Upload size={12} /> {logoPreview ? 'Trocar logo' : 'Enviar logo'}
-                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
-                  </label>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium" style={{ color: '#6b6b8a' }}>Nome da empresa</label>
-                  <input type="text" placeholder="Ex: Minha Loja" value={name}
-                    onChange={e => setName(e.target.value)} required
-                    className="px-3 py-3 rounded-xl border text-sm outline-none"
-                    style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-                </div>
-                <button type="submit" disabled={saving}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm"
-                  style={{ background: '#7c6ef7', color: 'white' }}>
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : editBiz ? 'Salvar alterações' : 'Criar empresa'}
-                </button>
-              </form>
-            </motion.div>
+          {/* Header */}
+          <motion.div {...fadeUp(0)} className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>
+                Empresas
+              </h1>
+              <p className="text-sm mt-0.5" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>
+                {businesses.length} empresa{businesses.length !== 1 ? 's' : ''} vinculada{businesses.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <AnimatePresence>
+              {saved && (
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold"
+                  style={{ background: `${T.green}12`, color: T.green, border: `1px solid ${T.green}28` }}>
+                  <Check size={14} /> Salvo!
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Modal membros */}
-      <AnimatePresence>
-        {membersModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ background: 'rgba(0,0,0,0.85)' }}
-            onClick={e => { if (e.target === e.currentTarget) setMembersModal(null) }}>
-            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-              className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl border flex flex-col"
-              style={{ background: '#111118', borderColor: '#1e1e2e', maxHeight: '90vh' }}>
-
-              <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: '#1a1a2a' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden"
-                    style={{ background: '#0d0d14', border: '1px solid #1e1e2e' }}>
-                    {membersModal.logo_url
-                      ? <img src={membersModal.logo_url} alt="" className="w-full h-full object-cover" />
-                      : <Building2 size={16} style={{ color: '#3a3a5c' }} />}
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-base leading-none" style={{ fontFamily: 'Syne, sans-serif' }}>{membersModal.name}</h2>
-                    <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>
-                      {members.filter(m => m.status === 'accepted' || m.status === 'active').length} membros ativos
+          {/* Stat cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Empresas',  value: businesses.length, color: T.violet },
+              { label: 'Membros',   value: members.length,    color: T.cyan   },
+              { label: 'Segmento',  value: selectedBiz?.segment || '—', color: T.amber, isText: true },
+              { label: 'Status',    value: 'Ativo', color: T.green, isText: true },
+            ].map(({ label, value, color, isText }, i) => (
+              <motion.div key={label} {...fadeUp(0.06 + i * 0.05)}>
+                <SpotlightCard className="rounded-2xl" spotlightColor={`${color}18`} style={card}>
+                  <div className="p-4 relative overflow-hidden">
+                    <GlowCorner color={`${color}20`} position="bottom-right" />
+                    <p className="text-xs font-semibold uppercase tracking-widest mb-2"
+                      style={{ color: T.muted, fontFamily: 'Syne, sans-serif', letterSpacing: '0.1em' }}>{label}</p>
+                    <p className={isText ? 'text-base font-bold truncate' : 'text-2xl font-bold'}
+                      style={{ fontFamily: 'Syne, sans-serif', color, textShadow: `0 0 20px ${color}55` }}>
+                      {value}
                     </p>
                   </div>
-                </div>
-                <button onClick={() => setMembersModal(null)} style={{ color: '#4a4a6a' }}><X size={18} /></button>
-              </div>
-
-              <div className="overflow-y-auto flex-1 p-5 flex flex-col gap-5">
-
-                {/* Convidar */}
-                <div className="rounded-2xl p-4" style={{ background: '#0d0d14', border: '1px solid #1a1a2a' }}>
-                  <h3 className="text-sm font-bold mb-3" style={{ color: '#e8eaf0' }}>Convidar membro</h3>
-                  <div className="flex flex-col gap-3">
-                    <input type="email" placeholder="email@exemplo.com" value={inviteEmail}
-                      onChange={e => { setInviteEmail(e.target.value); setInviteSuccess(false); setInviteUrl('') }}
-                      className="px-3 py-2.5 rounded-xl border text-sm outline-none w-full"
-                      style={{ background: '#111118', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-
-                    <div className="flex gap-2">
-                      <div className="flex gap-1.5 flex-1 flex-wrap">
-                        {(['admin', 'member', 'viewer'] as const).map(r => {
-                          const cfg = ROLE_CONFIG[r]
-                          const Icon = cfg.icon
-                          return (
-                            <button key={r} type="button" onClick={() => setInviteRole(r)}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                              style={{
-                                background: inviteRole === r ? `${cfg.color}18` : 'transparent',
-                                color: inviteRole === r ? cfg.color : '#4a4a6a',
-                                border: `1px solid ${inviteRole === r ? `${cfg.color}40` : '#1e1e2e'}`,
-                              }}>
-                              <Icon size={11} /> {cfg.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      <button type="button" onClick={handleInvite} disabled={sendingInvite || !inviteEmail}
-                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold shrink-0"
-                        style={{
-                          background: '#7c6ef7', color: 'white',
-                          opacity: !inviteEmail ? 0.5 : 1,
-                          cursor: !inviteEmail ? 'not-allowed' : 'pointer',
-                        }}>
-                        {sendingInvite
-                          ? <Loader2 size={12} className="animate-spin" />
-                          : <><Link2 size={12} /> Gerar link</>}
-                      </button>
-                    </div>
-
-                    <AnimatePresence>
-                      {inviteSuccess && inviteUrl && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          className="flex flex-col gap-2 p-3 rounded-xl"
-                          style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                          <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: '#34d399' }}>
-                            <Check size={12} /> Link gerado! Válido por 48h
-                          </p>
-                          <p className="text-xs font-mono break-all" style={{ color: '#7c6ef7' }}>{inviteUrl}</p>
-                          <button type="button" onClick={handleCopy}
-                            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg w-fit"
-                            style={{
-                              background: copied ? 'rgba(52,211,153,0.15)' : 'rgba(124,110,247,0.15)',
-                              color: copied ? '#34d399' : '#9d8fff',
-                            }}>
-                            {copied ? <><Check size={11} /> Copiado!</> : <><Copy size={11} /> Copiar link</>}
-                          </button>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-
-                {/* Lista membros */}
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a' }}>Membros</h3>
-                  {loadingMembers ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 size={20} className="animate-spin" style={{ color: '#7c6ef7' }} />
-                    </div>
-                  ) : members.length === 0 ? (
-                    <p className="text-sm py-4 text-center" style={{ color: '#4a4a6a' }}>Nenhum membro ainda.</p>
-                  ) : members.map((m, i) => {
-                    const cfg = ROLE_CONFIG[m.role] ?? ROLE_CONFIG.member
-                    const Icon = cfg.icon
-                    const isMe = m.user_id === currentUserId
-                    return (
-                      <motion.div key={m.id}
-                        initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.04 }}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                        style={{ background: '#0d0d14', border: '1px solid #1a1a2a' }}>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
-                          style={{ background: `${cfg.color}18`, color: cfg.color }}>
-                          {(m.email?.[0] ?? '?').toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: '#d0d0e0' }}>
-                            {m.email} {isMe && <span style={{ color: '#4a4a6a' }}>(você)</span>}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="flex items-center gap-1 text-xs" style={{ color: cfg.color }}>
-                              <Icon size={10} /> {cfg.label}
-                            </span>
-                            <span className="text-xs px-1.5 py-0.5 rounded-md"
-                              style={{
-                                background: (m.status === 'accepted' || m.status === 'active')
-                                  ? 'rgba(52,211,153,0.08)'
-                                  : m.status === 'pending'
-                                  ? 'rgba(251,191,36,0.08)'
-                                  : 'rgba(248,113,113,0.08)',
-                                color: (m.status === 'accepted' || m.status === 'active') ? '#34d399' : m.status === 'pending' ? '#fbbf24' : '#f87171',
-                              }}>
-                              {(m.status === 'accepted' || m.status === 'active') ? 'Ativo' : m.status === 'pending' ? 'Pendente' : 'Removido'}
-                            </span>
-                          </div>
-                        </div>
-                        {!isMe && m.role !== 'owner' && m.status !== 'removed' && (
-                          <div className="flex gap-1.5 shrink-0">
-                            <select
-                              value={m.role}
-                              onChange={async (e) => {
-                                await supabase.from('business_members').update({ role: e.target.value }).eq('id', m.id)
-                                loadMembers(membersModal)
-                              }}
-                              className="text-xs px-2 py-1 rounded-lg outline-none cursor-pointer"
-                              style={{ background: '#1a1a2a', color: '#9d8fff', border: '1px solid #2a2a3e' }}>
-                              <option value="admin">Admin</option>
-                              <option value="member">Membro</option>
-                              <option value="viewer">Visualizador</option>
-                            </select>
-                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                              onClick={() => handleRemoveMember(m.id)}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                              style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
-                              <UserMinus size={12} />
-                            </motion.button>
-                          </div>
-                        )}
-                      </motion.div>
-                    )
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Confirm delete */}
-      <AnimatePresence>
-        {showConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.8)' }}>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm rounded-2xl border p-6"
-              style={{ background: '#111118', borderColor: '#1e1e2e' }}>
-              <h2 className="font-bold text-lg mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Excluir empresa?</h2>
-              <p className="text-sm mb-6" style={{ color: '#6b6b8a' }}>Todos os dados serão excluídos permanentemente.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setShowConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: '#0d0d14', border: '1px solid #1e1e2e', color: '#6b6b8a' }}>Cancelar</button>
-                <button onClick={() => handleDelete(showConfirm!)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>Excluir</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {businesses.length === 0 ? (
-        <motion.div {...fadeUp(0.1)} className="flex flex-col items-center justify-center py-24 gap-4">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
-            <Building2 size={32} style={{ color: '#7c6ef7' }} />
-          </div>
-          <h2 className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Nenhuma empresa ainda</h2>
-          <p style={{ color: '#4a4a6a' }}>Crie sua primeira empresa para começar</p>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            onClick={openCreate} className="px-6 py-2.5 rounded-xl font-semibold text-sm"
-            style={{ background: '#7c6ef7', color: 'white' }}>
-            Criar empresa
-          </motion.button>
-        </motion.div>
-      ) : (
-        <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}
-          data-tour="empresas-lista">
-          <AnimatePresence initial={false}>
-            {businesses.map((biz, i) => (
-              <motion.div key={biz.id}
-                initial={{ opacity: 0, y: 16, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3, delay: i * 0.06 }}
-                layout
-                className="rounded-2xl p-5 flex flex-col gap-4"
-                style={{
-                  background: '#111118',
-                  border: `1px solid ${activeBizId === biz.id ? 'rgba(124,110,247,0.4)' : '#1e1e2e'}`,
-                  boxShadow: activeBizId === biz.id ? '0 0 20px rgba(124,110,247,0.1)' : 'none',
-                }}>
-                <div className="flex items-center gap-3">
-                  <motion.div whileHover={{ scale: 1.08 }}
-                    className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-                    style={{ background: '#0d0d14', border: '1px solid #1e1e2e' }}>
-                    {biz.logo_url
-                      ? <img src={biz.logo_url} alt={biz.name} className="w-full h-full object-cover" />
-                      : <Building2 size={22} style={{ color: '#3a3a5c' }} />}
-                  </motion.div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold truncate" style={{ color: '#e8e8f0' }}>{biz.name}</p>
-                      <AnimatePresence>
-                        {activeBizId === biz.id && (
-                          <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
-                            className="text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                            style={{ background: 'rgba(124,110,247,0.15)', color: '#9d8fff', border: '1px solid rgba(124,110,247,0.3)' }}>
-                            Ativa
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                      {biz._memberRole && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                          style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
-                          {ROLE_CONFIG[biz._memberRole]?.label ?? biz._memberRole}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>
-                      {new Date(biz.created_at).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {activeBizId !== biz.id ? (
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                      onClick={() => activateBiz(biz.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold"
-                      style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff', border: '1px solid rgba(124,110,247,0.2)' }}>
-                      <Check size={12} /> Usar esta
-                    </motion.button>
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold"
-                      style={{ background: 'rgba(52,211,153,0.08)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
-                      <Check size={12} /> Em uso
-                    </div>
-                  )}
-                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                    onClick={() => loadMembers(biz)}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>
-                    <Users size={13} />
-                  </motion.button>
-                  {!biz._memberRole && (
-                    <>
-                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                        onClick={() => openEdit(biz)}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center"
-                        style={{ background: 'rgba(124,110,247,0.1)', color: '#7c6ef7' }}>
-                        <Pencil size={13} />
-                      </motion.button>
-                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                        onClick={() => setShowConfirm(biz.id)}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center"
-                        style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
-                        <Trash2 size={13} />
-                      </motion.button>
-                    </>
-                  )}
-                </div>
+                </SpotlightCard>
               </motion.div>
             ))}
-          </AnimatePresence>
-        </motion.div>
-      )}
-    </div>
+          </div>
+
+          {/* Business selector (se tiver mais de uma) */}
+          {businesses.length > 1 && (
+            <motion.div {...fadeUp(0.18)} className="flex gap-2 flex-wrap">
+              {businesses.map(biz => (
+                <button key={biz.id} onClick={() => { setSelectedBiz(biz); fillForm(biz); loadMembers(biz.id); setEditMode(false) }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold"
+                  style={{
+                    background: selectedBiz?.id === biz.id ? `${T.purple}18` : 'rgba(255,255,255,0.03)',
+                    color: selectedBiz?.id === biz.id ? T.violet : T.muted,
+                    border: `1px solid ${selectedBiz?.id === biz.id ? `${T.purple}30` : T.border}`,
+                    cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'DM Sans, sans-serif',
+                  }}>
+                  <Building2 size={13} />
+                  {biz.name}
+                </button>
+              ))}
+            </motion.div>
+          )}
+
+          {selectedBiz && (
+            <motion.div {...fadeUp(0.22)}>
+              <SpotlightCard className="rounded-2xl overflow-hidden" style={card}>
+
+                {/* Card header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: T.border }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: `${T.amber}14`, border: `1px solid ${T.amber}28`, boxShadow: `0 0 14px ${T.amber}22` }}>
+                      <Building2 size={16} style={{ color: T.amber }} strokeWidth={1.8} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm" style={{ color: T.text, fontFamily: 'Syne, sans-serif' }}>{selectedBiz.name}</p>
+                      <p className="text-xs" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>{selectedBiz.segment || 'Sem segmento'}</p>
+                    </div>
+                  </div>
+
+                  {/* Tabs */}
+                  <div className="flex gap-1">
+                    {(['info', 'equipe'] as const).map(t => (
+                      <button key={t} onClick={() => setTab(t)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{ background: tab === t ? `${T.purple}18` : 'rgba(255,255,255,0.03)', color: tab === t ? T.violet : T.muted, border: `1px solid ${tab === t ? `${T.purple}30` : T.border}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'DM Sans, sans-serif' }}>
+                        {t === 'info' ? 'Informações' : 'Equipe'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {tab === 'info' && (
+                    <motion.div key="info" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}
+                      className="p-6">
+
+                      {/* ID copy */}
+                      <div className="flex items-center gap-2 mb-6 px-3 py-2.5 rounded-xl"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}` }}>
+                        <Hash size={12} style={{ color: T.muted }} />
+                        <span className="text-xs font-mono flex-1 truncate" style={{ color: T.muted }}>{selectedBiz.id}</span>
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={copyId}
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg"
+                          style={{ background: copied ? `${T.green}12` : `${T.purple}12`, color: copied ? T.green : T.violet, cursor: 'pointer', transition: 'all 0.2s' }}>
+                          {copied ? <Check size={11} /> : <Copy size={11} />}
+                          {copied ? 'Copiado' : 'Copiar ID'}
+                        </motion.button>
+                      </div>
+
+                      {editMode ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="sm:col-span-2">
+                            <label style={lbl}>Nome da empresa</label>
+                            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inp} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <div>
+                            <label style={lbl}>Segmento</label>
+                            <input value={form.segment} onChange={e => setForm({ ...form, segment: e.target.value })} placeholder="Ex: Confeitaria" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <div>
+                            <label style={lbl}>CNPJ</label>
+                            <input value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0001-00" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <div>
+                            <label style={lbl}>Telefone</label>
+                            <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="(00) 00000-0000" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <div>
+                            <label style={lbl}>Website</label>
+                            <input value={form.website} onChange={e => setForm({ ...form, website: e.target.value })} placeholder="https://..." style={inp} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label style={lbl}>Endereço</label>
+                            <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Rua, número, cidade" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label style={lbl}>Descrição</label>
+                            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3}
+                              style={{ ...inp, resize: 'none' }} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <div className="sm:col-span-2 flex gap-2">
+                            <ShimmerButton onClick={handleSave} disabled={saving}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                              style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: '0 0 24px rgba(124,110,247,0.38)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                              {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <Check size={14} />}
+                              Salvar
+                            </ShimmerButton>
+                            <button onClick={() => { setEditMode(false); fillForm(selectedBiz) }}
+                              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+                              style={{ background: 'rgba(255,255,255,0.04)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                              <X size={14} /> Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                            {[
+                              { icon: Briefcase, label: 'Segmento',  value: selectedBiz.segment,     color: T.amber  },
+                              { icon: Hash,      label: 'CNPJ',      value: selectedBiz.cnpj,         color: T.violet },
+                              { icon: MapPin,    label: 'Endereço',  value: selectedBiz.address,      color: T.cyan   },
+                              { icon: Globe,     label: 'Website',   value: selectedBiz.website,      color: T.green  },
+                            ].map(({ icon: Icon, label, value, color }) => (
+                              <div key={label} className="flex items-start gap-3 p-3.5 rounded-xl"
+                                style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }}>
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                                  style={{ background: `${color}12`, border: `1px solid ${color}22` }}>
+                                  <Icon size={13} style={{ color }} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs mb-0.5" style={{ color: T.muted, fontFamily: 'Syne, sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: 10 }}>{label}</p>
+                                  {value ? (
+                                    label === 'Website' ? (
+                                      <a href={value} target="_blank" rel="noopener noreferrer"
+                                        className="text-sm font-medium flex items-center gap-1 truncate"
+                                        style={{ color: T.green, fontFamily: 'DM Sans, sans-serif' }}>
+                                        {value} <ExternalLink size={10} />
+                                      </a>
+                                    ) : (
+                                      <p className="text-sm font-medium truncate" style={{ color: T.text, fontFamily: 'DM Sans, sans-serif' }}>{value}</p>
+                                    )
+                                  ) : (
+                                    <p className="text-sm" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>Não informado</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {selectedBiz.description && (
+                            <div className="mb-6 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }}>
+                              <p className="text-xs mb-1" style={{ color: T.muted, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 10 }}>Descrição</p>
+                              <p className="text-sm" style={{ color: T.sub, fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6 }}>{selectedBiz.description}</p>
+                            </div>
+                          )}
+
+                          {isOwner && (
+                            <button onClick={() => setEditMode(true)}
+                              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+                              style={{ background: `${T.purple}12`, color: T.violet, border: `1px solid ${T.purple}25`, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                              <Edit2 size={13} /> Editar informações
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {tab === 'equipe' && (
+                    <motion.div key="equipe" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+
+                      {/* Owner row */}
+                      <div className="px-5 py-4 flex items-center gap-3 border-b" style={{ borderColor: T.border }}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm"
+                          style={{ background: `${T.amber}14`, border: `1px solid ${T.amber}28`, color: T.amber, fontFamily: 'Syne, sans-serif' }}>
+                          {selectedBiz.owner_email?.charAt(0)?.toUpperCase() || 'O'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium" style={{ color: T.text, fontFamily: 'DM Sans, sans-serif' }}>
+                            {selectedBiz.owner_email || 'Proprietário'}
+                            {selectedBiz.owner_id === userId && <span className="ml-1.5 text-xs" style={{ color: T.muted }}>(você)</span>}
+                          </p>
+                          <p className="text-xs" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>Proprietário da empresa</p>
+                        </div>
+                        <span className="text-xs px-2 py-0.5 rounded-lg font-semibold shrink-0"
+                          style={{ background: `${T.amber}14`, color: T.amber, border: `1px solid ${T.amber}28`, fontFamily: 'DM Sans, sans-serif' }}>
+                          <Crown size={10} className="inline mr-1" />Dono
+                        </span>
+                      </div>
+
+                      {/* Members */}
+                      {members.map((m, i) => {
+                        const roleInfo = ROLE_MAP[m.role] || ROLE_MAP.member
+                        const RoleIcon = roleInfo.icon
+                        const isPending = m.status === 'pending'
+                        return (
+                          <motion.div key={m.id}
+                            initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.2, delay: i * 0.04 }}
+                            className="px-5 py-3.5 flex items-center gap-3 group"
+                            style={{ borderBottom: i < members.length - 1 ? `1px solid rgba(255,255,255,0.04)` : 'none', transition: 'background 0.12s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm"
+                              style={{ background: `${roleInfo.color}12`, border: `1px solid ${roleInfo.color}25`, color: roleInfo.color, fontFamily: 'Syne, sans-serif', opacity: isPending ? 0.6 : 1 }}>
+                              {(m.profiles?.full_name || m.email || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate" style={{ color: T.text, fontFamily: 'DM Sans, sans-serif' }}>
+                                {m.profiles?.full_name || m.email || 'Convidado'}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>{m.email}</span>
+                                {isPending && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded"
+                                    style={{ background: `${T.amber}12`, color: T.amber, border: `1px solid ${T.amber}22`, fontFamily: 'DM Sans, sans-serif' }}>
+                                    Pendente
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-xs px-2 py-0.5 rounded-lg font-semibold shrink-0"
+                              style={{ background: `${roleInfo.color}12`, color: roleInfo.color, border: `1px solid ${roleInfo.color}25`, fontFamily: 'DM Sans, sans-serif' }}>
+                              <RoleIcon size={10} className="inline mr-1" />{roleInfo.label}
+                            </span>
+                            {isOwner && (
+                              <motion.button whileTap={{ scale: 0.88 }} onClick={() => handleRemoveMember(m.id)}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                style={{ background: `${T.red}12`, color: T.red, cursor: 'pointer' }}>
+                                <Trash2 size={12} />
+                              </motion.button>
+                            )}
+                          </motion.div>
+                        )
+                      })}
+
+                      {members.length === 0 && (
+                        <div className="py-12 text-center">
+                          <Users size={28} className="mx-auto mb-3" style={{ color: T.muted }} />
+                          <p className="text-sm" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>Nenhum membro adicionado</p>
+                        </div>
+                      )}
+
+                      {/* Invite button */}
+                      {isOwner && (
+                        <div className="px-5 py-4 border-t" style={{ borderColor: T.border }}>
+                          <ShimmerButton onClick={() => setShowInvite(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+                            style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: '0 0 24px rgba(124,110,247,0.35)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
+                            <Plus size={14} /> Convidar membro
+                          </ShimmerButton>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </SpotlightCard>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Invite modal */}
+        <AnimatePresence>
+          {showInvite && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
+              onClick={e => { if (e.target === e.currentTarget) setShowInvite(false) }}>
+              <motion.div initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
+                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
+                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
+                style={{ background: T.bgDeep, border: `1px solid ${T.borderP}`, backdropFilter: 'blur(28px)', boxShadow: `0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.8)` }}>
+                <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Convidar membro</h2>
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowInvite(false)}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: T.sub, border: `1px solid ${T.border}`, cursor: 'pointer' }}>
+                    <X size={14} />
+                  </motion.button>
+                </div>
+                <form onSubmit={handleInvite} className="flex flex-col gap-4">
+                  <div>
+                    <label style={lbl}>Email do convidado</label>
+                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}` }}>
+                      <Mail size={13} style={{ color: T.muted }} />
+                      <input type="email" required value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                        placeholder="email@exemplo.com" className="flex-1 bg-transparent text-sm outline-none"
+                        style={{ color: T.text, fontFamily: 'DM Sans, sans-serif' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={lbl}>Permissão</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['member', 'admin', 'viewer'] as const).map(r => {
+                        const info = ROLE_MAP[r]; const RI = info.icon
+                        return (
+                          <button key={r} type="button" onClick={() => setInviteRole(r)}
+                            className="flex flex-col items-center gap-1.5 py-3 rounded-xl text-xs font-semibold"
+                            style={{ background: inviteRole === r ? `${info.color}15` : 'rgba(255,255,255,0.03)', color: inviteRole === r ? info.color : T.muted, border: `1px solid ${inviteRole === r ? `${info.color}35` : T.border}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'DM Sans, sans-serif' }}>
+                            <RI size={14} />
+                            {info.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <ShimmerButton type="submit" disabled={inviting}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full mt-1"
+                    style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: inviting ? 'none' : '0 0 28px rgba(124,110,247,0.4)', border: '1px solid rgba(255,255,255,0.1)', cursor: inviting ? 'not-allowed' : 'pointer', opacity: inviting ? 0.7 : 1 }}>
+                    {inviting ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <>Enviar convite</>}
+                  </ShimmerButton>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </BackgroundGrid>
+    </>
   )
 }

@@ -1,524 +1,508 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useTour } from '@/hooks/useTour'
-import { usePlanLimits } from '@/hooks/usePlanLimits'
-import { TourTooltip } from "@/components/TourTooltip"
-import { PlanGate } from '@/components/PlanGate'
-import { TrendingUp, TrendingDown, DollarSign, Plus, X, Loader2, Pencil, Trash2 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import {
+  TrendingUp, TrendingDown, Plus, Search, Filter, X,
+  ArrowRight, ChevronLeft, ChevronRight, Download,
+  DollarSign, Calendar, Tag, Check, Trash2, Edit2,
+} from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence, animate } from 'framer-motion'
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid, BarChart, Bar,
+} from 'recharts'
+import { SpotlightCard, ShimmerButton, Skeleton, BackgroundGrid, FloatingOrbs, AcernityFonts } from '@/components/ui/aceternity'
 
-type Tab = 'visao' | 'categorias' | 'bancos'
-
+// ─── Helpers ─────────────────────────────────────────────────
 const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.35, delay, ease: [0.25, 0.46, 0.45, 0.94] as const }
+  initial: { opacity: 0, y: 16, filter: 'blur(4px)' },
+  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  transition: { duration: 0.46, delay, ease: [0.16, 1, 0.3, 1] as const },
 })
 
-const scaleIn = (delay = 0) => ({
-  initial: { opacity: 0, scale: 0.95 },
-  animate: { opacity: 1, scale: 1 },
-  transition: { duration: 0.35, delay, ease: [0.25, 0.46, 0.45, 0.94] as const }
-})
+function AnimatedNumber({ value, format }: { value: number; format: (v: number) => string }) {
+  const [display, setDisplay] = useState(format(0))
+  const prev = useRef(0)
+  useEffect(() => {
+    const from = prev.current; prev.current = value
+    const c = animate(from, value, { duration: 0.85, ease: 'easeOut', onUpdate: v => setDisplay(format(v)) })
+    return c.stop
+  }, [value])
+  return <span>{display}</span>
+}
 
-const TOUR_STEPS = [
-  {
-    target: '[data-tour="fin-header"]',
-    title: 'Painel financeiro',
-    description: 'Registre entradas e saídas do seu negócio. Clique em "Novo lançamento" para começar.',
-    position: 'bottom' as const,
-  },
-  {
-    target: '[data-tour="fin-tabs"]',
-    title: 'Visões do financeiro',
-    description: 'Alterne entre Visão geral, Categorias e Bancos para diferentes perspectivas das suas finanças.',
-    position: 'bottom' as const,
-  },
-  {
-    target: '[data-tour="fin-kpis"]',
-    title: 'Resumo do período',
-    description: 'Receitas, despesas e lucro do período selecionado. Use os filtros de 7, 30 ou 90 dias.',
-    position: 'bottom' as const,
-  },
-  {
-    target: '[data-tour="fin-grafico"]',
-    title: 'Gráfico de fluxo',
-    description: 'Visualize entradas (verde) e saídas (vermelho) dia a dia. Passe o mouse para ver os valores.',
-    position: 'top' as const,
-  },
-]
+function ChartTip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return (
+    <div style={{
+      background: 'rgba(10,10,18,0.97)', border: '1px solid rgba(124,110,247,0.25)',
+      borderRadius: 12, padding: '10px 14px', fontSize: 12,
+      boxShadow: '0 12px 40px rgba(0,0,0,0.75)',
+    }}>
+      <p style={{ color: '#6b6b8a', marginBottom: 8, fontWeight: 600 }}>
+        {new Date(label + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+      </p>
+      {payload.map((p: any) => (
+        <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: p.color, display: 'inline-block', boxShadow: `0 0 6px ${p.color}` }} />
+          <span style={{ color: '#6b6b8a' }}>{p.name === 'income' ? 'Entradas' : 'Saídas'}:</span>
+          <span style={{ color: p.color, fontWeight: 600 }}>{fmt(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
 export default function FinanceiroPage() {
-  const supabase = createClient()
-  const { plan } = usePlanLimits()
-  const tour = useTour('financeiro', TOUR_STEPS)
-
-  const [tab, setTab] = useState<Tab>('visao')
-  const [loading, setLoading] = useState(true)
-  const [businessId, setBusinessId] = useState('')
-  const [transactions, setTransactions] = useState<any[]>([])
+  const supabase  = createClient()
+  const router    = useRouter()
+  const [loading, setLoading]     = useState(true)
+  const [biz, setBiz]             = useState<any>(null)
+  const [txs, setTxs]             = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
-  const [period, setPeriod] = useState('30')
-
-  const [showTxForm, setShowTxForm] = useState(false)
-  const [showCatForm, setShowCatForm] = useState(false)
-  const [editCat, setEditCat] = useState<any>(null)
-  const [savingTx, setSavingTx] = useState(false)
-  const [savingCat, setSavingCat] = useState(false)
-
-  const [txForm, setTxForm] = useState({
-    title: '', amount: '', date: new Date().toISOString().split('T')[0],
-    type: 'expense', category_id: '', description: '', paid: true,
+  const [chartData, setChartData]   = useState<any[]>([])
+  const [search, setSearch]         = useState('')
+  const [filterType, setFilterType] = useState<'all'|'income'|'expense'>('all')
+  const [filterMonth, setFilterMonth] = useState(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
   })
-  const [catForm, setCatForm] = useState({ name: '', type: 'expense', color: '#f87171' })
+  const [filterCat, setFilterCat]   = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage]             = useState(1)
+  const PER_PAGE = 15
+
+  // Modal
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing]     = useState<any>(null)
+  const [form, setForm] = useState({ title: '', amount: '', type: 'expense', date: new Date().toISOString().split('T')[0], paid: true, category_id: '', notes: '' })
+  const [saving, setSaving]       = useState(false)
+  const [deleting, setDeleting]   = useState<string|null>(null)
 
   async function load() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      const savedBizId = typeof window !== 'undefined' ? localStorage.getItem('activeBizId') || '' : ''
-      const { data: owned } = await supabase.from('businesses').select('id').eq('owner_id', user.id)
-const { data: memberships } = await supabase
-  .from('business_members').select('business_id')
-  .eq('user_id', user.id).in('status', ['accepted', 'active'])
-const memberBizIds = (memberships || [])
-  .map((m: any) => m.business_id)
-  .filter((id: string) => !(owned || []).find((o: any) => o.id === id))
-let memberBizzes: any[] = []
-if (memberBizIds.length > 0) {
-  const { data: bizData } = await supabase.from('businesses').select('id').in('id', memberBizIds)
-  memberBizzes = bizData || []
-}
-const bizList = [...(owned || []), ...memberBizzes]
-if (!bizList.length) { setLoading(false); return }
-const biz = bizList.find(b => b.id === savedBizId) || bizList[0]
-      setBusinessId(biz.id)
-      const daysNum = parseInt(period)
-      const from = new Date()
-      from.setDate(from.getDate() - daysNum)
-      const fromStr = from.toISOString().split('T')[0]
-      const [{ data: txs }, { data: cats }] = await Promise.all([
-        supabase.from('transactions').select('*, categories(name, color)').eq('business_id', biz.id).gte('date', fromStr).order('date', { ascending: false }),
-        supabase.from('categories').select('*').eq('business_id', biz.id).order('name'),
-      ])
-      setTransactions(txs || [])
-      setCategories(cats || [])
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }
-
-  useEffect(() => { load() }, [period])
-
-  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-  const income = transactions.filter(t => t.type === 'income').reduce((a, t) => a + Number(t.amount), 0)
-  const expense = transactions.filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
-  const lucro = income - expense
-
-  async function handleCreateTx(e: React.FormEvent) {
-    e.preventDefault()
-    setSavingTx(true)
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('transactions').insert({
-      title: txForm.title, amount: parseFloat(txForm.amount),
-      date: txForm.date, type: txForm.type,
-      category_id: txForm.category_id || null,
-      description: txForm.description || null,
-      paid: txForm.paid, paid_at: txForm.paid ? new Date().toISOString() : null,
-      business_id: businessId, created_by: user?.id,
-    })
-    setTxForm({ title: '', amount: '', date: new Date().toISOString().split('T')[0], type: 'expense', category_id: '', description: '', paid: true })
-    setShowTxForm(false); setSavingTx(false); load()
-  }
+    if (!user) { router.replace('/login'); return }
+    const savedBizId = localStorage.getItem('activeBizId') || ''
+    const { data: owned } = await supabase.from('businesses').select('*').eq('owner_id', user.id)
+    const bizList = owned || []
+    if (!bizList.length) { setLoading(false); return }
+    const business = bizList.find(b => b.id === savedBizId) || bizList[0]
+    setBiz(business)
 
-  async function handleSaveCat(e: React.FormEvent) {
-    e.preventDefault()
-    setSavingCat(true)
-    if (editCat) {
-      await supabase.from('categories').update({ name: catForm.name, type: catForm.type, color: catForm.color }).eq('id', editCat.id)
-    } else {
-      await supabase.from('categories').insert({ ...catForm, business_id: businessId })
+    const [{ data: transactions }, { data: cats }] = await Promise.all([
+      supabase.from('transactions').select('*, categories(id,name,color)').eq('business_id', business.id).order('date', { ascending: false }),
+      supabase.from('categories').select('*').eq('business_id', business.id),
+    ])
+    setTxs(transactions || [])
+    setCategories(cats || [])
+
+    // Chart — últimos 6 meses
+    const now = new Date()
+    const months: any[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+      months.push({ key, label: MONTHS[d.getMonth()], income: 0, expense: 0 })
     }
-    setCatForm({ name: '', type: 'expense', color: '#f87171' }); setEditCat(null); setShowCatForm(false); setSavingCat(false); load()
+    ;(transactions || []).forEach(t => {
+      const m = months.find(mo => t.date?.startsWith(mo.key))
+      if (m) m[t.type === 'income' ? 'income' : 'expense'] += Number(t.amount)
+    })
+    setChartData(months)
+    setLoading(false)
   }
 
-  async function handleDeleteCat(id: string) {
-    if (!confirm('Excluir esta categoria?')) return
-    await supabase.from('categories').delete().eq('id', id)
+  useEffect(() => { load() }, [])
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault(); setSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    const payload = {
+      title: form.title, amount: parseFloat(form.amount), type: form.type,
+      date: form.date, paid: form.paid,
+      category_id: form.category_id || null,
+      notes: form.notes || null,
+      business_id: biz.id, created_by: user?.id,
+    }
+    if (editing) {
+      await supabase.from('transactions').update(payload).eq('id', editing.id)
+    } else {
+      await supabase.from('transactions').insert(payload)
+    }
+    setShowModal(false); setSaving(false); setEditing(null)
+    setForm({ title: '', amount: '', type: 'expense', date: new Date().toISOString().split('T')[0], paid: true, category_id: '', notes: '' })
     load()
   }
 
-  const colors = ['#f87171', '#34d399', '#fbbf24', '#22d3ee', '#a78bfa', '#7c6ef7', '#fb923c', '#6b6b8a']
+  async function handleDelete(id: string) {
+    setDeleting(id)
+    await supabase.from('transactions').delete().eq('id', id)
+    setDeleting(null); load()
+  }
 
-  const byDay = transactions.reduce((acc: any, t) => {
-    if (!acc[t.date]) acc[t.date] = { income: 0, expense: 0 }
-    acc[t.date][t.type === 'income' ? 'income' : 'expense'] += Number(t.amount)
-    return acc
-  }, {})
-  const chartDays = Object.entries(byDay).slice(-14)
-  const maxVal = Math.max(...chartDays.map((d: any) => Math.max(d[1].income, d[1].expense)), 1)
+  async function togglePaid(tx: any) {
+    await supabase.from('transactions').update({ paid: !tx.paid }).eq('id', tx.id)
+    load()
+  }
 
-  const expenseByCategory = transactions.filter(t => t.type === 'expense').reduce((acc: any, t) => {
-    const cat = t.categories?.name || 'Sem categoria'
-    acc[cat] = (acc[cat] || 0) + Number(t.amount)
-    return acc
-  }, {})
-  const catEntries = Object.entries(expenseByCategory).sort((a: any, b: any) => b[1] - a[1])
+  function openEdit(tx: any) {
+    setEditing(tx)
+    setForm({ title: tx.title, amount: String(tx.amount), type: tx.type, date: tx.date, paid: tx.paid, category_id: tx.category_id || '', notes: tx.notes || '' })
+    setShowModal(true)
+  }
+
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const fmtS = (v: number) => v >= 1e6 ? `R$ ${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `R$ ${(v/1e3).toFixed(1)}k` : fmt(v)
+
+  const filtered = txs.filter(t => {
+    const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase())
+    const matchType   = filterType === 'all' || t.type === filterType
+    const matchMonth  = !filterMonth || t.date?.startsWith(filterMonth)
+    const matchCat    = !filterCat || t.category_id === filterCat
+    return matchSearch && matchType && matchMonth && matchCat
+  })
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE)
+  const paginated  = filtered.slice((page-1)*PER_PAGE, page*PER_PAGE)
+
+  const income  = filtered.filter(t => t.type === 'income').reduce((a,t) => a + Number(t.amount), 0)
+  const expense = filtered.filter(t => t.type === 'expense').reduce((a,t) => a + Number(t.amount), 0)
+  const profit  = income - expense
+  const pending = filtered.filter(t => !t.paid)
+
+  const cardStyle = { background: 'rgba(13,13,20,0.82)', border: '1px solid rgba(255,255,255,0.065)', backdropFilter: 'blur(14px)', boxShadow: '0 4px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' }
+  const inputStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#e8e8f0', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s ease', fontFamily: 'inherit' }
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: '#7c6ef7', borderTopColor: 'transparent' }} />
-    </div>
+    <>
+      <AcernityFonts />
+      <BackgroundGrid><FloatingOrbs />
+        <div className="flex flex-col gap-5">
+          <div className="flex justify-between"><Skeleton className="h-9 w-44 rounded-xl" /><Skeleton className="h-10 w-40 rounded-xl" /></div>
+          <div className="grid grid-cols-3 gap-3">{[0,1,2].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div>
+          <Skeleton className="h-52 rounded-2xl" />
+          <Skeleton className="h-96 rounded-2xl" />
+        </div>
+      </BackgroundGrid>
+    </>
   )
 
   return (
-    <div className="flex flex-col gap-6">
-      <TourTooltip active={tour.active} step={tour.step} current={tour.current} total={tour.total} onNext={tour.next} onPrev={tour.prev} onFinish={tour.finish} />
+    <>
+      <AcernityFonts />
+      <BackgroundGrid>
+        <FloatingOrbs />
+        <div className="flex flex-col gap-5">
 
-      <motion.div {...fadeUp(0)} className="flex items-center justify-between" data-tour="fin-header">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Financeiro</h1>
-          <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>Gerencie suas finanças</p>
-        </div>
-        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={() => setShowTxForm(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-          style={{ background: '#7c6ef7', color: 'white', boxShadow: '0 0 20px rgba(124,110,247,0.3)' }}>
-          <Plus size={15} />
-          <span className="hidden sm:inline">Novo lançamento</span>
-          <span className="sm:hidden">Novo</span>
-        </motion.button>
-      </motion.div>
-
-      {/* Tabs */}
-      <motion.div {...fadeUp(0.06)} className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: '#111118', border: '1px solid #1e1e2e' }} data-tour="fin-tabs">
-        {([['visao', 'Visão geral'], ['categorias', 'Categorias'], ['bancos', 'Bancos']] as const).map(([key, label]) => (
-          <motion.button key={key} whileTap={{ scale: 0.95 }} onClick={() => setTab(key)}
-            className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all"
-            style={{ background: tab === key ? '#1e1e2e' : 'transparent', color: tab === key ? '#e8e8f0' : '#4a4a6a' }}>
-            {label}
-          </motion.button>
-        ))}
-      </motion.div>
-
-      <AnimatePresence mode="wait">
-        {tab === 'visao' && (
-          <motion.div key="visao" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-6">
-            <motion.div {...fadeUp(0.1)} className="flex gap-2">
-              {[['7', '7 dias'], ['30', '30 dias'], ['90', '90 dias']].map(([v, l]) => (
-                <motion.button key={v} whileTap={{ scale: 0.95 }} onClick={() => setPeriod(v)}
-                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all"
-                  style={{
-                    background: period === v ? 'rgba(124,110,247,0.15)' : '#111118',
-                    color: period === v ? '#9d8fff' : '#4a4a6a',
-                    border: `1px solid ${period === v ? 'rgba(124,110,247,0.3)' : '#1e1e2e'}`,
-                  }}>
-                  {l}
-                </motion.button>
-              ))}
-            </motion.div>
-
-            <div className="grid grid-cols-3 gap-3" data-tour="fin-kpis">
-              {[
-                { label: 'Receitas', value: fmt(income), color: '#34d399', icon: TrendingUp },
-                { label: 'Despesas', value: fmt(expense), color: '#f87171', icon: TrendingDown },
-                { label: 'Lucro', value: fmt(lucro), color: lucro >= 0 ? '#34d399' : '#f87171', icon: DollarSign },
-              ].map(({ label, value, color, icon: Icon }, i) => (
-                <motion.div key={label} {...fadeUp(0.12 + i * 0.07)}
-                  className="rounded-2xl p-3 sm:p-5" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs uppercase tracking-widest font-semibold hidden sm:block" style={{ color: '#4a4a6a' }}>{label}</span>
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
-                      <Icon size={14} style={{ color }} />
-                    </div>
-                  </div>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-1 sm:hidden" style={{ color: '#4a4a6a' }}>{label}</p>
-                  <p className="text-base sm:text-2xl font-bold leading-tight" style={{ fontFamily: 'Syne, sans-serif', color }}>{value}</p>
-                </motion.div>
-              ))}
+          {/* Header */}
+          <motion.div {...fadeUp(0)} className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif' }}>Financeiro</h1>
+              <p className="text-sm mt-0.5" style={{ color: '#4a4a6a' }}>
+                {new Date(filterMonth+'-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+              </p>
             </div>
+            <div className="flex items-center gap-2">
+              <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: '#6b6b8a', cursor: 'pointer' }}
+                onClick={() => { /* export CSV */ }}>
+                <Download size={14} /> <span className="hidden sm:inline">Exportar</span>
+              </motion.button>
+              <ShimmerButton
+                onClick={() => { setEditing(null); setForm({ title: '', amount: '', type: 'expense', date: new Date().toISOString().split('T')[0], paid: true, category_id: '', notes: '' }); setShowModal(true) }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: '0 0 28px rgba(124,110,247,0.45), inset 0 1px 0 rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
+                <Plus size={15} /> Novo lançamento
+              </ShimmerButton>
+            </div>
+          </motion.div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-tour="fin-grafico">
-              <motion.div {...scaleIn(0.28)} className="sm:col-span-2 rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-                <h2 className="font-bold mb-4 text-sm sm:text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Entradas × Saídas</h2>
-                {chartDays.length === 0 ? (
-                  <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#4a4a6a' }}>Sem dados no período</div>
-                ) : (
-                  <div className="flex items-end gap-1 h-40">
-                    {chartDays.map(([day, vals]: any, i) => (
-                      <div key={day} className="flex-1 flex flex-col items-center gap-0.5">
-                        <div className="w-full flex gap-0.5 items-end" style={{ height: '120px' }}>
-                          <motion.div className="flex-1 rounded-t-sm"
-                            initial={{ height: 0 }} animate={{ height: `${(vals.income / maxVal) * 100}%` }}
-                            transition={{ duration: 0.5, delay: 0.3 + i * 0.03 }}
-                            style={{ background: '#34d399', opacity: 0.8, minHeight: vals.income > 0 ? '4px' : '0' }} />
-                          <motion.div className="flex-1 rounded-t-sm"
-                            initial={{ height: 0 }} animate={{ height: `${(vals.expense / maxVal) * 100}%` }}
-                            transition={{ duration: 0.5, delay: 0.35 + i * 0.03 }}
-                            style={{ background: '#f87171', opacity: 0.8, minHeight: vals.expense > 0 ? '4px' : '0' }} />
-                        </div>
-                        <span style={{ color: '#3a3a5c', fontSize: '9px' }}>{new Date(day).getDate()}</span>
+          {/* KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Entradas',  value: income,  color: '#34d399', glow: 'rgba(52,211,153,0.18)',  icon: TrendingUp },
+              { label: 'Saídas',    value: expense, color: '#f87171', glow: 'rgba(248,113,113,0.18)', icon: TrendingDown },
+              { label: 'Saldo',     value: profit,  color: profit >= 0 ? '#34d399' : '#f87171', glow: profit >= 0 ? 'rgba(52,211,153,0.18)' : 'rgba(248,113,113,0.18)', icon: profit >= 0 ? TrendingUp : TrendingDown },
+              { label: 'Pendentes', value: pending.length, color: '#fbbf24', glow: 'rgba(251,191,36,0.16)', icon: Calendar, isCount: true },
+            ].map(({ label, value, color, glow, icon: Icon, isCount }, i) => (
+              <motion.div key={label} {...fadeUp(0.08 + i * 0.06)}>
+                <SpotlightCard className="rounded-2xl" spotlightColor={`${color}14`} style={cardStyle}>
+                  <div className="p-4 relative overflow-hidden">
+                    <div className="absolute -bottom-4 -right-4 w-20 h-20 rounded-full pointer-events-none"
+                      style={{ background: glow, filter: 'blur(18px)', zIndex: 0 }} />
+                    <div className="flex items-center justify-between mb-3" style={{ position: 'relative', zIndex: 1 }}>
+                      <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a4a6a', letterSpacing: '0.1em' }}>{label}</span>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}14`, border: `1px solid ${color}22`, boxShadow: `0 0 12px ${color}20` }}>
+                        <Icon size={13} style={{ color }} strokeWidth={2} />
                       </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-4 mt-3">
-                  <div className="flex items-center gap-1.5 text-xs" style={{ color: '#4a4a6a' }}>
-                    <div className="w-2.5 h-2.5 rounded-sm" style={{ background: '#34d399' }} /> Entradas
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs" style={{ color: '#4a4a6a' }}>
-                    <div className="w-2.5 h-2.5 rounded-sm" style={{ background: '#f87171' }} /> Saídas
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div {...scaleIn(0.34)} className="rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-                <h2 className="font-bold mb-4 text-sm sm:text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Por categoria</h2>
-                {catEntries.length === 0 ? (
-                  <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#4a4a6a' }}>Sem despesas</div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {catEntries.slice(0, 6).map(([cat, val]: any, i) => (
-                      <motion.div key={cat} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.05 }}>
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="truncate mr-2" style={{ color: '#6b6b8a' }}>{cat}</span>
-                          <span className="shrink-0" style={{ color: '#e8e8f0' }}>{fmt(val)}</span>
-                        </div>
-                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#1e1e2e' }}>
-                          <motion.div className="h-full rounded-full"
-                            initial={{ width: 0 }} animate={{ width: `${(val / expense) * 100}%` }}
-                            transition={{ duration: 0.6, delay: 0.45 + i * 0.05 }}
-                            style={{ background: '#7c6ef7' }} />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            </div>
-
-            <motion.div {...fadeUp(0.4)} className="rounded-2xl overflow-hidden" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-              <div className="px-5 py-4 border-b" style={{ borderColor: '#1a1a2a' }}>
-                <h2 className="font-bold text-sm sm:text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Transações recentes</h2>
-              </div>
-              {transactions.length === 0 ? (
-                <p className="text-sm px-5 py-6" style={{ color: '#4a4a6a' }}>Nenhuma transação no período.</p>
-              ) : transactions.slice(0, 8).map((tx, i) => (
-                <motion.div key={tx.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25, delay: 0.45 + i * 0.04 }}
-                  className="flex items-center gap-3 px-4 py-3.5"
-                  style={{ borderBottom: i < Math.min(transactions.length, 8) - 1 ? '1px solid #1a1a2a' : 'none' }}>
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: tx.type === 'income' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)' }}>
-                    {tx.type === 'income' ? <TrendingUp size={13} style={{ color: '#34d399' }} /> : <TrendingDown size={13} style={{ color: '#f87171' }} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: '#d0d0e0' }}>{tx.title}</p>
-                    <p className="text-xs mt-0.5 truncate" style={{ color: '#4a4a6a' }}>
-                      {tx.categories?.name || 'Sem categoria'} · {new Date(tx.date).toLocaleDateString('pt-BR')}
+                    </div>
+                    <p className="text-xl font-bold tabular-nums" style={{ fontFamily: 'Syne, sans-serif', color, textShadow: `0 0 22px ${color}55`, position: 'relative', zIndex: 1 }}>
+                      {isCount ? value : <AnimatedNumber value={value as number} format={fmtS} />}
                     </p>
                   </div>
-                  <span className="text-sm font-semibold shrink-0" style={{ color: tx.type === 'income' ? '#34d399' : '#f87171' }}>
-                    {tx.type === 'income' ? '+' : '-'}{fmt(Number(tx.amount))}
-                  </span>
-                </motion.div>
-              ))}
-            </motion.div>
-          </motion.div>
-        )}
-
-        {tab === 'categorias' && (
-          <motion.div key="categorias" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-4">
-            <div className="flex justify-end">
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                onClick={() => { setEditCat(null); setCatForm({ name: '', type: 'expense', color: '#f87171' }); setShowCatForm(true) }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-                style={{ background: '#7c6ef7', color: 'white' }}>
-                <Plus size={15} /> Nova categoria
-              </motion.button>
-            </div>
-            {['income', 'expense'].map((type, ti) => (
-              <motion.div key={type} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: ti * 0.08 }}
-                className="rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-                <h2 className="font-bold mb-4" style={{ fontFamily: 'Syne, sans-serif', color: type === 'income' ? '#34d399' : '#f87171' }}>
-                  {type === 'income' ? '↑ Receitas' : '↓ Despesas'}
-                </h2>
-                <div className="flex flex-col gap-2">
-                  {categories.filter(c => c.type === type).length === 0 ? (
-                    <p className="text-sm" style={{ color: '#4a4a6a' }}>Nenhuma categoria ainda.</p>
-                  ) : categories.filter(c => c.type === type).map((cat, i) => (
-                    <motion.div key={cat.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                      className="flex items-center justify-between py-2.5 px-3 rounded-xl"
-                      style={{ background: '#0d0d14', border: '1px solid #1a1a2e' }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 rounded-full shrink-0" style={{ background: cat.color }} />
-                        <span className="text-sm font-medium truncate" style={{ color: '#d0d0e0' }}>{cat.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                          onClick={() => { setEditCat(cat); setCatForm({ name: cat.name, type: cat.type, color: cat.color }); setShowCatForm(true) }}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center"
-                          style={{ background: 'rgba(124,110,247,0.1)', color: '#7c6ef7' }}>
-                          <Pencil size={12} />
-                        </motion.button>
-                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                          onClick={() => handleDeleteCat(cat.id)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center"
-                          style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
-                          <Trash2 size={12} />
-                        </motion.button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                </SpotlightCard>
               </motion.div>
             ))}
-          </motion.div>
-        )}
+          </div>
 
-        {tab === 'bancos' && (
-          <motion.div key="bancos" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <PlanGate currentPlan={plan} requiredPlan="pro" feature="Integração com Bancos"
-              description="Conecte Nubank, Itaú, Bradesco e mais para sincronizar transações automaticamente." mode="hide">
-              <div className="rounded-2xl p-8 flex flex-col items-center justify-center gap-4"
-                style={{ background: '#111118', border: '1px solid #1e1e2e' }}>
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.2)' }}>
-                  <DollarSign size={28} style={{ color: '#7c6ef7' }} />
-                </div>
-                <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>Bancos em breve</h2>
-                <p className="text-sm text-center" style={{ color: '#4a4a6a' }}>
-                  Integração com Nubank, Itaú, Bradesco e mais.<br />Disponível na próxima versão.
-                </p>
-                <span className="text-xs px-3 py-1.5 rounded-full font-medium"
-                  style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff' }}>Em desenvolvimento</span>
-              </div>
-            </PlanGate>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Modal: Novo lançamento */}
-      <AnimatePresence>
-        {showTxForm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ background: 'rgba(0,0,0,0.8)' }}
-            onClick={e => { if (e.target === e.currentTarget) setShowTxForm(false) }}>
-            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-              className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border p-6"
-              style={{ background: '#111118', borderColor: '#1e1e2e' }}>
-              <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: '#2a2a3e' }} />
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>Novo lançamento</h2>
-                <button onClick={() => setShowTxForm(false)} style={{ color: '#4a4a6a' }}><X size={18} /></button>
-              </div>
-              <form onSubmit={handleCreateTx} className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-2">
-                  {['expense', 'income'].map(t => (
-                    <button key={t} type="button" onClick={() => setTxForm({ ...txForm, type: t })}
-                      className="py-2.5 rounded-xl text-sm font-semibold transition-all"
-                      style={{
-                        background: txForm.type === t ? (t === 'income' ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)') : '#0d0d14',
-                        color: txForm.type === t ? (t === 'income' ? '#34d399' : '#f87171') : '#4a4a6a',
-                        border: `1px solid ${txForm.type === t ? (t === 'income' ? '#34d399' : '#f87171') : '#1e1e2e'}`,
-                      }}>
-                      {t === 'income' ? '↑ Entrada' : '↓ Saída'}
-                    </button>
-                  ))}
-                </div>
-                <input type="text" placeholder="Título" value={txForm.title} required
-                  onChange={e => setTxForm({ ...txForm, title: e.target.value })}
-                  className="px-3 py-3 rounded-xl border text-sm outline-none"
-                  style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" step="0.01" placeholder="Valor" value={txForm.amount} required
-                    onChange={e => setTxForm({ ...txForm, amount: e.target.value })}
-                    className="px-3 py-3 rounded-xl border text-sm outline-none"
-                    style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-                  <input type="date" value={txForm.date} required
-                    onChange={e => setTxForm({ ...txForm, date: e.target.value })}
-                    className="px-3 py-3 rounded-xl border text-sm outline-none"
-                    style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-                </div>
-                <select value={txForm.category_id} onChange={e => setTxForm({ ...txForm, category_id: e.target.value })}
-                  className="px-3 py-3 rounded-xl border text-sm outline-none"
-                  style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }}>
-                  <option value="">Sem categoria</option>
-                  {categories.filter(c => c.type === txForm.type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={txForm.paid} onChange={e => setTxForm({ ...txForm, paid: e.target.checked })} />
-                  <span className="text-sm" style={{ color: '#6b6b8a' }}>Já foi pago/recebido</span>
-                </label>
-                <button type="submit" disabled={savingTx}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm"
-                  style={{ background: '#7c6ef7', color: 'white' }}>
-                  {savingTx ? <Loader2 size={16} className="animate-spin" /> : 'Salvar lançamento'}
-                </button>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Modal: Categoria */}
-      <AnimatePresence>
-        {showCatForm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ background: 'rgba(0,0,0,0.8)' }}
-            onClick={e => { if (e.target === e.currentTarget) { setShowCatForm(false); setEditCat(null) } }}>
-            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-              className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl border p-6"
-              style={{ background: '#111118', borderColor: '#1e1e2e' }}>
-              <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: '#2a2a3e' }} />
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>{editCat ? 'Editar categoria' : 'Nova categoria'}</h2>
-                <button onClick={() => { setShowCatForm(false); setEditCat(null) }} style={{ color: '#4a4a6a' }}><X size={18} /></button>
-              </div>
-              <form onSubmit={handleSaveCat} className="flex flex-col gap-4">
-                <input type="text" placeholder="Nome da categoria" value={catForm.name} required
-                  onChange={e => setCatForm({ ...catForm, name: e.target.value })}
-                  className="px-3 py-3 rounded-xl border text-sm outline-none"
-                  style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-                <div className="grid grid-cols-2 gap-2">
-                  {['income', 'expense'].map(t => (
-                    <button key={t} type="button" onClick={() => setCatForm({ ...catForm, type: t })}
-                      className="py-2 rounded-xl text-sm font-semibold transition-all"
-                      style={{
-                        background: catForm.type === t ? (t === 'income' ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)') : '#0d0d14',
-                        color: catForm.type === t ? (t === 'income' ? '#34d399' : '#f87171') : '#4a4a6a',
-                        border: `1px solid ${catForm.type === t ? (t === 'income' ? '#34d399' : '#f87171') : '#1e1e2e'}`,
-                      }}>
-                      {t === 'income' ? '↑ Receita' : '↓ Despesa'}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium" style={{ color: '#6b6b8a' }}>Cor</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {colors.map(c => (
-                      <motion.button key={c} type="button" whileTap={{ scale: 0.85 }}
-                        onClick={() => setCatForm({ ...catForm, color: c })}
-                        className="w-7 h-7 rounded-full transition-all"
-                        animate={{ scale: catForm.color === c ? 1.2 : 1 }}
-                        style={{ background: c, outline: catForm.color === c ? `2px solid ${c}` : 'none', outlineOffset: '2px' }} />
+          {/* Chart */}
+          <motion.div {...fadeUp(0.22)}>
+            <SpotlightCard className="rounded-2xl" style={cardStyle}>
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: '#e8e8f0' }}>Evolução mensal</h2>
+                    <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>Últimos 6 meses</p>
+                  </div>
+                  <div className="flex gap-4">
+                    {[{ color: '#34d399', label: 'Entradas' }, { color: '#f87171', label: 'Saídas' }].map(l => (
+                      <div key={l.label} className="flex items-center gap-1.5 text-xs" style={{ color: '#4a4a6a' }}>
+                        <div className="w-2 h-2 rounded-full" style={{ background: l.color, boxShadow: `0 0 5px ${l.color}` }} /> {l.label}
+                      </div>
                     ))}
                   </div>
                 </div>
-                <button type="submit" disabled={savingCat}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm mt-2"
-                  style={{ background: '#7c6ef7', color: 'white' }}>
-                  {savingCat ? <Loader2 size={16} className="animate-spin" /> : editCat ? 'Salvar alterações' : 'Criar categoria'}
-                </button>
-              </form>
-            </motion.div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }} barCategoryGap="30%">
+                    <defs>
+                      <linearGradient id="barIncome" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
+                        <stop offset="100%" stopColor="#34d399" stopOpacity={0.5} />
+                      </linearGradient>
+                      <linearGradient id="barExpense" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f87171" stopOpacity={0.9} />
+                        <stop offset="100%" stopColor="#f87171" stopOpacity={0.5} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#3a3a5c' }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} tick={{ fontSize: 10, fill: '#3a3a5c' }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<ChartTip />} cursor={{ fill: 'rgba(124,110,247,0.05)' }} />
+                    <Bar dataKey="income" fill="url(#barIncome)" radius={[4,4,0,0]} maxBarSize={32} />
+                    <Bar dataKey="expense" fill="url(#barExpense)" radius={[4,4,0,0]} maxBarSize={32} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </SpotlightCard>
           </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+
+          {/* Filters + Table */}
+          <motion.div {...fadeUp(0.3)}>
+            <SpotlightCard className="rounded-2xl overflow-hidden" style={cardStyle}>
+              {/* Search & Filters */}
+              <div className="p-4 border-b flex flex-wrap items-center gap-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                {/* Search */}
+                <div className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <Search size={13} style={{ color: '#4a4a6a', flexShrink: 0 }} />
+                  <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+                    placeholder="Buscar transação..." className="text-sm outline-none flex-1 bg-transparent"
+                    style={{ color: '#d0d0e0', minWidth: 0 }} />
+                  {search && <motion.button whileTap={{ scale: 0.9 }} onClick={() => setSearch('')}><X size={13} style={{ color: '#4a4a6a' }} /></motion.button>}
+                </div>
+
+                {/* Type filter */}
+                <div className="flex gap-1">
+                  {(['all','income','expense'] as const).map(t => (
+                    <button key={t} onClick={() => { setFilterType(t); setPage(1) }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                      style={{
+                        background: filterType === t ? (t === 'income' ? 'rgba(52,211,153,0.15)' : t === 'expense' ? 'rgba(248,113,113,0.15)' : 'rgba(124,110,247,0.15)') : 'rgba(255,255,255,0.03)',
+                        color: filterType === t ? (t === 'income' ? '#34d399' : t === 'expense' ? '#f87171' : '#9d8fff') : '#6b6b8a',
+                        border: `1px solid ${filterType === t ? (t === 'income' ? 'rgba(52,211,153,0.3)' : t === 'expense' ? 'rgba(248,113,113,0.3)' : 'rgba(124,110,247,0.3)') : 'rgba(255,255,255,0.06)'}`,
+                        cursor: 'pointer', transition: 'all 0.15s ease',
+                      }}>
+                      {t === 'all' ? 'Todos' : t === 'income' ? '↑ Entradas' : '↓ Saídas'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Month */}
+                <input type="month" value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setPage(1) }}
+                  className="px-3 py-1.5 rounded-xl text-xs outline-none"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#d0d0e0', cursor: 'pointer' }} />
+
+                {/* Category filter */}
+                {categories.length > 0 && (
+                  <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(1) }}
+                    className="px-3 py-1.5 rounded-xl text-xs outline-none"
+                    style={{ background: 'rgba(13,13,20,0.95)', border: '1px solid rgba(255,255,255,0.07)', color: filterCat ? '#d0d0e0' : '#6b6b8a', cursor: 'pointer' }}>
+                    <option value="">Categoria</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                )}
+
+                <span className="text-xs ml-auto" style={{ color: '#4a4a6a' }}>{filtered.length} registro{filtered.length !== 1 ? 's' : ''}</span>
+              </div>
+
+              {/* Table */}
+              {paginated.length === 0 ? (
+                <div className="py-16 text-center">
+                  <DollarSign size={32} className="mx-auto mb-3" style={{ color: '#2a2a3e' }} />
+                  <p className="text-sm" style={{ color: '#4a4a6a' }}>Nenhuma transação encontrada</p>
+                </div>
+              ) : paginated.map((tx, i) => (
+                <motion.div key={tx.id}
+                  initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.22, delay: i * 0.03 }}
+                  className="flex items-center gap-3 px-5 py-3 group"
+                  style={{ borderBottom: i < paginated.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', transition: 'background 0.12s ease' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+
+                  {/* Icon */}
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: tx.type === 'income' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)', border: `1px solid ${tx.type === 'income' ? 'rgba(52,211,153,0.18)' : 'rgba(248,113,113,0.18)'}`, boxShadow: tx.type === 'income' ? '0 0 10px rgba(52,211,153,0.12)' : '0 0 10px rgba(248,113,113,0.12)' }}>
+                    {tx.type === 'income' ? <TrendingUp size={14} style={{ color: '#34d399' }} strokeWidth={2} /> : <TrendingDown size={14} style={{ color: '#f87171' }} strokeWidth={2} />}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: '#d0d0e0' }}>{tx.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs" style={{ color: '#4a4a6a' }}>
+                        {new Date(tx.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                      {tx.categories?.name && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-md"
+                          style={{ background: `${tx.categories.color || '#6b6b8a'}18`, color: tx.categories.color || '#6b6b8a', border: `1px solid ${tx.categories.color || '#6b6b8a'}25` }}>
+                          {tx.categories.name}
+                        </span>
+                      )}
+                      {tx.notes && <span className="text-xs truncate max-w-24" style={{ color: '#3a3a5c' }}>{tx.notes}</span>}
+                    </div>
+                  </div>
+
+                  {/* Paid toggle */}
+                  <motion.button whileTap={{ scale: 0.88 }} onClick={() => togglePaid(tx)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold"
+                    style={{
+                      background: tx.paid ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.1)',
+                      color: tx.paid ? '#34d399' : '#fbbf24',
+                      border: `1px solid ${tx.paid ? 'rgba(52,211,153,0.22)' : 'rgba(251,191,36,0.22)'}`,
+                      cursor: 'pointer', transition: 'all 0.15s ease',
+                    }}>
+                    {tx.paid ? <Check size={11} /> : null}
+                    {tx.paid ? 'Pago' : 'Pendente'}
+                  </motion.button>
+
+                  {/* Amount */}
+                  <span className="text-sm font-bold tabular-nums shrink-0 w-24 text-right"
+                    style={{ color: tx.type === 'income' ? '#34d399' : '#f87171', textShadow: tx.type === 'income' ? '0 0 12px rgba(52,211,153,0.35)' : '0 0 12px rgba(248,113,113,0.35)' }}>
+                    {tx.type === 'income' ? '+' : '−'}{fmt(Number(tx.amount))}
+                  </span>
+
+                  {/* Actions — visible on hover */}
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <motion.button whileTap={{ scale: 0.88 }} onClick={() => openEdit(tx)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff', cursor: 'pointer' }}>
+                      <Edit2 size={12} />
+                    </motion.button>
+                    <motion.button whileTap={{ scale: 0.88 }} onClick={() => handleDelete(tx.id)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', cursor: 'pointer' }}>
+                      {deleting === tx.id
+                        ? <div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                        : <Trash2 size={12} />}
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ))}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-5 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                  <span className="text-xs" style={{ color: '#4a4a6a' }}>
+                    Página {page} de {totalPages}
+                  </span>
+                  <div className="flex gap-2">
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                      disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ background: 'rgba(255,255,255,0.04)', color: page <= 1 ? '#3a3a5c' : '#9a9ab0', cursor: page <= 1 ? 'default' : 'pointer' }}>
+                      <ChevronLeft size={14} />
+                    </motion.button>
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                      disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ background: 'rgba(255,255,255,0.04)', color: page >= totalPages ? '#3a3a5c' : '#9a9ab0', cursor: page >= totalPages ? 'default' : 'pointer' }}>
+                      <ChevronRight size={14} />
+                    </motion.button>
+                  </div>
+                </div>
+              )}
+            </SpotlightCard>
+          </motion.div>
+        </div>
+
+        {/* Modal */}
+        <AnimatePresence>
+          {showModal && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+              style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
+              onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
+              <motion.div
+                initial={{ y: 60, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0 }}
+                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
+                className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6"
+                style={{ background: 'rgba(10,10,18,0.98)', border: '1px solid rgba(124,110,247,0.22)', boxShadow: '0 0 0 1px rgba(124,110,247,0.08), 0 -8px 48px rgba(0,0,0,0.75)', backdropFilter: 'blur(24px)' }}>
+                <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: '#2a2a3e' }} />
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="font-bold text-lg" style={{ fontFamily: 'Syne, sans-serif', color: '#f0f0f8' }}>
+                    {editing ? 'Editar lançamento' : 'Novo lançamento'}
+                  </h2>
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowModal(false); setEditing(null) }}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: '#6b6b8a', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>
+                    <X size={14} />
+                  </motion.button>
+                </div>
+
+                <form onSubmit={handleSave} className="flex flex-col gap-3.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    {['expense', 'income'].map(t => (
+                      <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
+                        className="py-2.5 rounded-xl text-sm font-semibold"
+                        style={{ background: form.type === t ? (t === 'income' ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.12)') : 'rgba(255,255,255,0.02)', color: form.type === t ? (t === 'income' ? '#34d399' : '#f87171') : '#4a4a6a', border: `1px solid ${form.type === t ? (t === 'income' ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)') : 'rgba(255,255,255,0.07)'}`, boxShadow: form.type === t ? `0 0 14px ${t === 'income' ? 'rgba(52,211,153,0.14)' : 'rgba(248,113,113,0.14)'}` : 'none', transition: 'all 0.15s', cursor: 'pointer' }}>
+                        {t === 'income' ? '↑ Entrada' : '↓ Saída'}
+                      </button>
+                    ))}
+                  </div>
+                  <input type="text" placeholder="Título *" value={form.title} required onChange={e => setForm({ ...form, title: e.target.value })} style={inputStyle} onFocus={e => e.currentTarget.style.borderColor = 'rgba(124,110,247,0.5)'} onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="number" step="0.01" placeholder="Valor *" value={form.amount} required onChange={e => setForm({ ...form, amount: e.target.value })} style={inputStyle} onFocus={e => e.currentTarget.style.borderColor = 'rgba(124,110,247,0.5)'} onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'} />
+                    <input type="date" value={form.date} required onChange={e => setForm({ ...form, date: e.target.value })} style={inputStyle} onFocus={e => e.currentTarget.style.borderColor = 'rgba(124,110,247,0.5)'} onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'} />
+                  </div>
+                  {categories.length > 0 && (
+                    <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}
+                      style={{ ...inputStyle, background: 'rgba(13,13,20,0.95)' }}>
+                      <option value="">Categoria (opcional)</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  )}
+                  <input type="text" placeholder="Observações (opcional)" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} style={inputStyle} onFocus={e => e.currentTarget.style.borderColor = 'rgba(124,110,247,0.5)'} onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'} />
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={form.paid} onChange={e => setForm({ ...form, paid: e.target.checked })} style={{ accentColor: '#7c6ef7' }} />
+                    <span className="text-sm" style={{ color: '#6b6b8a' }}>Já foi pago / recebido</span>
+                  </label>
+                  <ShimmerButton type="submit" disabled={saving}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm w-full mt-1"
+                    style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: saving ? 'none' : '0 0 28px rgba(124,110,247,0.38)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                    {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : editing ? 'Salvar alterações' : 'Salvar lançamento'}
+                  </ShimmerButton>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </BackgroundGrid>
+    </>
   )
 }

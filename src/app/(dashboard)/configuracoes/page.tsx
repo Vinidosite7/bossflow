@@ -2,551 +2,401 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useTour } from '@/hooks/useTour'
-import { usePushNotification } from '@/hooks/usePushNotification'
-import { TourTooltip } from "@/components/TourTooltip"
-import { Settings, User, Bell, Shield, Loader2, Camera, Upload, Check, X, BellOff, BellRing, Key, LogOut, Trash2, ChevronRight, Smartphone } from 'lucide-react'
+import {
+  User, Building2, Bell, Shield, LogOut,
+  Save, ChevronRight, Key, Check, X, Moon,
+  Smartphone, Eye, EyeOff,
+} from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import {
+  SpotlightCard, ShimmerButton, Skeleton,
+  BackgroundGrid, FloatingOrbs, AcernityFonts, GlowCorner,
+} from '@/components/ui/aceternity'
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.35, delay, ease: [0.25, 0.46, 0.45, 0.94] as const }
-})
+/* ─── tokens ─── */
+const T = {
+  bg: 'rgba(8,8,14,0.92)', bgDeep: 'rgba(6,6,10,0.97)',
+  border: 'rgba(255,255,255,0.055)', borderP: 'rgba(124,110,247,0.22)',
+  text: '#dcdcf0', sub: '#8a8aaa', muted: '#4a4a6a',
+  green: '#34d399', amber: '#fbbf24', purple: '#7c6ef7',
+  red: '#f87171', cyan: '#22d3ee', violet: '#a78bfa', blur: 'blur(20px)',
+}
+const card = { background: T.bg, border: `1px solid ${T.border}`, backdropFilter: T.blur, boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)' }
+const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, color: T.text, borderRadius: 12, padding: '10px 14px', fontSize: 13, outline: 'none', width: '100%', transition: 'border-color 0.15s', fontFamily: 'DM Sans, sans-serif' }
+const lbl: React.CSSProperties = { fontSize: 11, color: T.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'block', fontFamily: 'Syne, sans-serif' }
+const focusIn  = (e: any) => e.currentTarget.style.borderColor = T.borderP
+const focusOut = (e: any) => e.currentTarget.style.borderColor = T.border
+const fadeUp   = (delay = 0) => ({ initial: { opacity: 0, y: 16, filter: 'blur(4px)' }, animate: { opacity: 1, y: 0, filter: 'blur(0px)' }, transition: { duration: 0.46, delay, ease: [0.16, 1, 0.3, 1] as const } })
 
-const DEFAULT_AVATARS = ['👤', '😎', '🧑‍💼', '👩‍💼', '🧑‍💻', '👩‍💻', '🦸', '🧙', '🤴', '👸', '🧑‍🎨', '🥷']
-
-type NotifKey = 'tasks' | 'payments' | 'weekly' | 'events'
-
-const NOTIF_OPTIONS: { key: NotifKey; label: string; desc: string }[] = [
-  { key: 'tasks',    label: 'Tarefas com prazo próximo', desc: 'Alerta 1 dia antes do prazo' },
-  { key: 'payments', label: 'Contas a pagar',            desc: 'Lembrete de transações pendentes' },
-  { key: 'events',   label: 'Eventos do dia',            desc: 'Aviso 30 min antes do evento' },
-  { key: 'weekly',   label: 'Relatório semanal',         desc: 'Resumo financeiro toda segunda-feira' },
+const TABS = [
+  { key: 'perfil',    label: 'Perfil',        icon: User     },
+  { key: 'negocio',   label: 'Negócio',       icon: Building2 },
+  { key: 'notif',     label: 'Notificações',  icon: Bell     },
+  { key: 'seguranca', label: 'Segurança',     icon: Shield   },
 ]
 
-const TOUR_STEPS = [
-  {
-    target: '[data-tour="config-perfil"]',
-    title: 'Seu perfil',
-    description: 'Atualize seu nome e foto de perfil aqui.',
-    position: 'bottom' as const,
-  },
-  {
-    target: '[data-tour="config-notificacoes"]',
-    title: 'Notificações push',
-    description: 'Ative para receber alertas mesmo com o app fechado.',
-    position: 'bottom' as const,
-  },
-  {
-    target: '[data-tour="config-seguranca"]',
-    title: 'Segurança',
-    description: 'Altere sua senha ou encerre sua sessão por aqui.',
-    position: 'top' as const,
-  },
-]
-
-/* ─── Toggle ── */
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+/* ─── Toggle component ─── */
+function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
   return (
-    <motion.button
-      type="button"
-      onClick={() => onChange(!on)}
-      animate={{ background: on ? '#7c6ef7' : '#1e1e2e' }}
-      transition={{ duration: 0.2 }}
-      className="w-11 h-6 rounded-full relative shrink-0"
-      style={{ border: `1px solid ${on ? '#7c6ef7' : '#2a2a3e'}` }}>
-      <motion.div
-        animate={{ x: on ? 18 : 2 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-        className="w-4 h-4 rounded-full bg-white absolute top-0.5"
-      />
+    <motion.button whileTap={{ scale: 0.9 }} onClick={onChange}
+      className="relative w-11 h-6 rounded-full shrink-0"
+      style={{ background: on ? 'linear-gradient(135deg, #7c6ef7, #a06ef7)' : 'rgba(255,255,255,0.08)', boxShadow: on ? '0 0 14px rgba(124,110,247,0.45)' : 'none', border: `1px solid ${on ? 'rgba(124,110,247,0.3)' : T.border}`, cursor: 'pointer', transition: 'background 0.2s, box-shadow 0.2s' }}>
+      <motion.div animate={{ x: on ? 20 : 2 }} transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+        className="absolute top-0.5 w-4 h-4 rounded-full"
+        style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }} />
     </motion.button>
   )
 }
 
-/* ─── Modal senha ── */
-function PasswordModal({ onClose }: { onClose: () => void }) {
-  const supabase = createClient()
-  const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
-  const [email, setEmail] = useState('')
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ''))
-  }, [])
-
-  async function handleReset() {
-    if (!email) return
-    setLoading(true)
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-    setSent(true)
-    setLoading(false)
-  }
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.85)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="w-full max-w-sm rounded-2xl border p-6 flex flex-col gap-4"
-        style={{ background: '#111118', borderColor: '#1e1e2e' }}>
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Alterar senha</h2>
-          <button onClick={onClose} style={{ color: '#4a4a6a' }}><X size={16} /></button>
-        </div>
-
-        {sent ? (
-          <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)' }}>
-              <Check size={22} style={{ color: '#34d399' }} />
-            </div>
-            <p className="font-semibold" style={{ color: '#e8eaf0' }}>Email enviado!</p>
-            <p className="text-sm" style={{ color: '#4a4a6a' }}>
-              Enviamos um link de redefinição para <strong style={{ color: '#9d8fff' }}>{email}</strong>.
-              Verifique sua caixa de entrada.
-            </p>
-            <button onClick={onClose}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold mt-2"
-              style={{ background: '#7c6ef7', color: 'white' }}>
-              Fechar
-            </button>
-          </div>
-        ) : (
-          <>
-            <p className="text-sm" style={{ color: '#6b6b8a' }}>
-              Vamos enviar um link de redefinição para <strong style={{ color: '#9d8fff' }}>{email}</strong>.
-            </p>
-            <button onClick={handleReset} disabled={loading}
-              className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
-              style={{ background: '#7c6ef7', color: 'white' }}>
-              {loading ? <Loader2 size={15} className="animate-spin" /> : <><Key size={14} /> Enviar link</>}
-            </button>
-          </>
-        )}
-      </motion.div>
-    </motion.div>
-  )
-}
-
-/* ─── Page ── */
 export default function ConfiguracoesPage() {
   const supabase = createClient()
-  const tour = useTour('configuracoes', TOUR_STEPS)
-  const { permission: pushPermissionHook, loading: pushLoadingHook, requestPermission: subscribePush } = usePushNotification()
+  const router   = useRouter()
 
-  const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [name, setName] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [avatarUrl, setAvatarUrl] = useState('')
-  const [selectedEmoji, setSelectedEmoji] = useState('')
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [avatarMode, setAvatarMode] = useState<'photo' | 'emoji'>('photo')
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [tab, setTab]         = useState('perfil')
+  const [userAuth, setUserAuth] = useState<any>(null)
+  const [biz, setBiz]         = useState<any>(null)
+  const [saved, setSaved]     = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [showPass, setShowPass] = useState({ new: false, confirm: false })
 
-  const [pushPermission, setPushPermission] = useState<NotificationPermission>('default')
-  const [requestingPush, setRequestingPush] = useState(false)
-  const [notifs, setNotifs] = useState<Record<NotifKey, boolean>>({
-    tasks: true, payments: true, events: true, weekly: false,
-  })
+  const [profileForm, setProfileForm] = useState({ full_name: '', email: '', phone: '' })
+  const [bizForm, setBizForm]         = useState({ name: '', segment: '', cnpj: '', address: '', website: '' })
+  const [passForm, setPassForm]       = useState({ new: '', confirm: '' })
+  const [notifForm, setNotifForm]     = useState({ email_reports: true, task_reminders: true, payment_alerts: true, marketing: false })
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const savedNotifs = localStorage.getItem('bf_notif_prefs')
-    if (savedNotifs) setNotifs(JSON.parse(savedNotifs))
-
-    if ('Notification' in window) setPushPermission(Notification.permission)
-
-    async function load() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { setLoading(false); return }
-        setUser(user)
-        setName(user?.user_metadata?.full_name || '')
-        const url = user?.user_metadata?.avatar_url || ''
-        setAvatarUrl(url)
-        if (url && url.length <= 4) {
-          setSelectedEmoji(url)
-          setAvatarMode('emoji')
-        } else {
-          setAvatarMode('photo')
-        }
-      } catch (err) { console.error(err) }
-      finally { setLoading(false) }
+  async function load() {
+    const { data: { user: u } } = await supabase.auth.getUser()
+    if (!u) { router.replace('/login'); return }
+    setUserAuth(u)
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', u.id).single()
+    setProfileForm({ full_name: profile?.full_name || '', email: u.email || '', phone: profile?.phone || '' })
+    const { data: owned } = await supabase.from('businesses').select('*').eq('owner_id', u.id)
+    const business = (owned || [])[0]
+    if (business) {
+      setBiz(business)
+      setBizForm({ name: business.name || '', segment: business.segment || '', cnpj: business.cnpj || '', address: business.address || '', website: business.website || '' })
     }
-    load()
-  }, [])
-
-  // Sincroniza permissão com o hook
-  useEffect(() => {
-    if (pushPermissionHook) setPushPermission(pushPermissionHook)
-  }, [pushPermissionHook])
-
-  function saveNotifPrefs(next: Record<NotifKey, boolean>) {
-    setNotifs(next)
-    localStorage.setItem('bf_notif_prefs', JSON.stringify(next))
+    setLoading(false)
   }
+  useEffect(() => { load() }, [])
 
-  async function handleRequestPush() {
-    if (!('Notification' in window)) return
-    setRequestingPush(true)
-    try {
-      await subscribePush() // pede permissão + salva subscription no Supabase
-      if ('Notification' in window) setPushPermission(Notification.permission)
-    } catch (err) { console.error(err) }
-    finally { setRequestingPush(false) }
-  }
-
-  function handleToggleNotif(key: NotifKey, val: boolean) {
-    if (pushPermission !== 'granted' && val) {
-      handleRequestPush()
-      return
-    }
-    saveNotifPrefs({ ...notifs, [key]: val })
-  }
-
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !user) return
-    setUploadingAvatar(true)
-    const ext = file.name.split('.').pop()
-    const path = `avatars/${user.id}.${ext}`
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-    if (!error) {
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      await supabase.auth.updateUser({ data: { avatar_url: data.publicUrl } })
-      setAvatarUrl(data.publicUrl)
-      setSelectedEmoji('')
-      setAvatarMode('photo')
-    }
-    setUploadingAvatar(false)
-  }
-
-  async function handleSelectEmoji(emoji: string) {
-    setSelectedEmoji(emoji)
-    setAvatarMode('emoji')
-    setAvatarUrl(emoji)
-    await supabase.auth.updateUser({ data: { avatar_url: emoji } })
-  }
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
+  async function saveProfile() {
     setSaving(true)
-    await supabase.auth.updateUser({ data: { full_name: name } })
-    if (user) {
-      await supabase.from('profiles').update({ full_name: name, email: user.email }).eq('id', user.id)
-    }
+    await supabase.from('profiles').upsert({ id: userAuth.id, full_name: profileForm.full_name, phone: profileForm.phone })
+    flash(); setSaving(false)
+  }
+  async function saveBiz() {
+    if (!biz) return; setSaving(true)
+    await supabase.from('businesses').update(bizForm).eq('id', biz.id)
+    flash(); setSaving(false)
+  }
+  async function savePassword() {
+    if (passForm.new !== passForm.confirm) return alert('As senhas não coincidem')
+    if (passForm.new.length < 6) return alert('Mínimo 6 caracteres')
+    setSaving(true)
+    const { error } = await supabase.auth.updateUser({ password: passForm.new })
+    if (error) alert(error.message)
+    else { flash(); setPassForm({ new: '', confirm: '' }) }
     setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
   }
-
-  async function handleSignOut() {
-    await supabase.auth.signOut()
-    window.location.href = '/login'
-  }
-
-  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
-  const initials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
-  const isEmoji = avatarUrl && avatarUrl.length <= 4
-  const isPhoto = avatarUrl && avatarUrl.length > 4
-  const pushBlocked = pushPermission === 'denied'
-  const pushGranted = pushPermission === 'granted'
+  function flash() { setSaved(true); setTimeout(() => setSaved(false), 2200) }
+  async function handleLogout() { await supabase.auth.signOut(); router.replace('/login') }
 
   if (loading) return (
-    <div className="flex justify-center py-12">
-      <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: '#7c6ef7', borderTopColor: 'transparent' }} />
-    </div>
+    <><AcernityFonts /><BackgroundGrid><FloatingOrbs />
+      <div className="flex flex-col gap-5">
+        <Skeleton className="h-9 w-44 rounded-xl" />
+        <div className="flex gap-4">
+          <Skeleton className="h-64 w-48 rounded-2xl shrink-0 hidden sm:block" />
+          <Skeleton className="h-64 flex-1 rounded-2xl" />
+        </div>
+      </div>
+    </BackgroundGrid></>
   )
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
+    <>
+      <AcernityFonts />
+      <BackgroundGrid>
+        <FloatingOrbs />
+        <div className="flex flex-col gap-5">
 
-      <TourTooltip
-        active={tour.active}
-        step={tour.step}
-        current={tour.current}
-        total={tour.total}
-        onNext={tour.next}
-        onPrev={tour.prev}
-        onFinish={tour.finish}
-      />
-
-      <motion.div {...fadeUp(0)}>
-        <h1 className="text-2xl font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Configurações</h1>
-        <p className="text-sm mt-1" style={{ color: '#4a4a6a' }}>Gerencie sua conta e preferências</p>
-      </motion.div>
-
-      {/* ── Perfil ── */}
-      <motion.div {...fadeUp(0.08)} className="rounded-2xl border p-6"
-        style={{ background: '#111118', borderColor: '#1e1e2e' }}
-        >
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.3)' }}>
-            <User size={16} style={{ color: '#9d8fff' }} />
-          </div>
-          <h2 className="font-bold" data-tour="config-perfil" style={{ fontFamily: 'Syne, sans-serif' }}>Perfil</h2>
-        </div>
-
-        <div className="flex flex-col items-center gap-4 mb-6 pb-6 border-b" style={{ borderColor: '#1e1e2e' }}>
-          <div className="relative group">
-            <motion.div whileHover={{ scale: 1.05 }}
-              className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center text-3xl font-bold"
-              style={{
-                background: isPhoto ? 'transparent' : isEmoji ? '#1a1a2e' : 'linear-gradient(135deg, #7c6ef7, #9d8fff)',
-                color: 'white', border: '2px solid #2a2a3e',
-              }}>
-              {isPhoto
-                ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                : isEmoji ? <span>{avatarUrl}</span>
-                : <span className="text-2xl">{initials}</span>}
-            </motion.div>
-            <label className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer"
-              style={{ background: '#7c6ef7', boxShadow: '0 0 12px rgba(124,110,247,0.4)' }}>
-              {uploadingAvatar ? <Loader2 size={13} className="animate-spin text-white" /> : <Camera size={13} className="text-white" />}
-              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-            </label>
-          </div>
-
-          <div className="flex gap-1 p-1 rounded-xl" style={{ background: '#0d0d14', border: '1px solid #1e1e2e' }}>
-            {[['photo', '📷 Foto'], ['emoji', '😎 Avatar']].map(([mode, label]) => (
-              <motion.button key={mode} type="button" whileTap={{ scale: 0.95 }}
-                onClick={() => setAvatarMode(mode as 'photo' | 'emoji')}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={{ background: avatarMode === mode ? '#1e1e2e' : 'transparent', color: avatarMode === mode ? '#e8e8f0' : '#4a4a6a' }}>
-                {label}
-              </motion.button>
-            ))}
-          </div>
-
-          <AnimatePresence mode="wait">
-            {avatarMode === 'photo' && (
-              <motion.label key="photo"
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer"
-                style={{ background: 'rgba(124,110,247,0.1)', color: '#9d8fff', border: '1px solid rgba(124,110,247,0.2)' }}>
-                <Upload size={14} />
-                {uploadingAvatar ? 'Enviando...' : isPhoto ? 'Trocar foto' : 'Enviar foto'}
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-              </motion.label>
-            )}
-            {avatarMode === 'emoji' && (
-              <motion.div key="emoji" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="w-full">
-                <p className="text-xs font-medium mb-3 text-center" style={{ color: '#4a4a6a' }}>Escolha um avatar</p>
-                <div className="grid grid-cols-6 gap-2">
-                  {DEFAULT_AVATARS.map((emoji, i) => (
-                    <motion.button key={emoji} type="button"
-                      initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.03 }} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
-                      onClick={() => handleSelectEmoji(emoji)}
-                      className="w-full aspect-square rounded-xl flex items-center justify-center text-2xl"
-                      style={{
-                        background: selectedEmoji === emoji ? 'rgba(124,110,247,0.2)' : '#0d0d14',
-                        border: `1px solid ${selectedEmoji === emoji ? '#7c6ef7' : '#1e1e2e'}`,
-                      }}>
-                      {emoji}
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <form onSubmit={handleSave} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" style={{ color: '#6b6b8a' }}>Nome completo</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome"
-              className="px-3 py-2.5 rounded-xl border text-sm outline-none"
-              style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" style={{ color: '#6b6b8a' }}>Email</label>
-            <input type="email" value={user?.email || ''} disabled
-              className="px-3 py-2.5 rounded-xl border text-sm outline-none opacity-40"
-              style={{ background: '#0d0d14', borderColor: '#1e1e2e', color: '#e8e8f0' }} />
-          </div>
-          <div className="flex items-center gap-3">
-            <motion.button type="submit" disabled={saving}
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm"
-              style={{ background: '#7c6ef7', color: 'white' }}>
-              {saving ? <Loader2 size={16} className="animate-spin" /> : 'Salvar alterações'}
-            </motion.button>
+          {/* Header */}
+          <motion.div {...fadeUp(0)} className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Configurações</h1>
+              <p className="text-sm mt-0.5" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>Gerencie sua conta e preferências</p>
+            </div>
             <AnimatePresence>
               {saved && (
-                <motion.span initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                  className="text-sm flex items-center gap-1" style={{ color: '#34d399' }}>
-                  <Check size={13} /> Salvo!
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </div>
-        </form>
-      </motion.div>
-
-      {/* ── Notificações ── */}
-      <motion.div {...fadeUp(0.16)} className="rounded-2xl border p-6"
-        style={{ background: '#111118', borderColor: '#1e1e2e' }}
-        >
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.3)' }}>
-            <Bell size={16} style={{ color: '#9d8fff' }} />
-          </div>
-          <h2 className="font-bold" data-tour="config-notificacoes" style={{ fontFamily: 'Syne, sans-serif' }}>Notificações</h2>
-        </div>
-
-        <div className="rounded-xl p-3 mb-5 flex items-center gap-3"
-          style={{
-            background: pushGranted ? 'rgba(52,211,153,0.06)' : pushBlocked ? 'rgba(248,113,113,0.06)' : 'rgba(251,191,36,0.06)',
-            border: `1px solid ${pushGranted ? 'rgba(52,211,153,0.2)' : pushBlocked ? 'rgba(248,113,113,0.2)' : 'rgba(251,191,36,0.2)'}`,
-          }}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: pushGranted ? 'rgba(52,211,153,0.1)' : pushBlocked ? 'rgba(248,113,113,0.1)' : 'rgba(251,191,36,0.1)' }}>
-            {pushGranted ? <BellRing size={15} style={{ color: '#34d399' }} />
-              : pushBlocked ? <BellOff size={15} style={{ color: '#f87171' }} />
-              : <Smartphone size={15} style={{ color: '#fbbf24' }} />}
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-semibold"
-              style={{ color: pushGranted ? '#34d399' : pushBlocked ? '#f87171' : '#fbbf24' }}>
-              {pushGranted ? 'Notificações ativadas'
-                : pushBlocked ? 'Notificações bloqueadas'
-                : 'Notificações não ativadas'}
-            </p>
-            <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>
-              {pushGranted ? 'Você receberá alertas deste dispositivo'
-                : pushBlocked ? 'Desbloqueie nas configurações do navegador'
-                : 'Ative para receber alertas em tempo real'}
-            </p>
-          </div>
-          {!pushGranted && !pushBlocked && (
-            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              onClick={handleRequestPush} disabled={requestingPush || pushLoadingHook}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0"
-              style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>
-              {requestingPush || pushLoadingHook ? <Loader2 size={11} className="animate-spin" /> : 'Ativar'}
-            </motion.button>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4">
-          {NOTIF_OPTIONS.map(({ key, label, desc }, i) => (
-            <motion.div key={key}
-              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 + i * 0.06 }}
-              className="flex items-center justify-between"
-              style={{ opacity: pushBlocked ? 0.4 : 1 }}>
-              <div>
-                <p className="text-sm font-medium" style={{ color: '#d0d0e0' }}>{label}</p>
-                <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>{desc}</p>
-              </div>
-              <Toggle on={notifs[key] && pushGranted} onChange={v => handleToggleNotif(key, v)} />
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* ── Segurança ── */}
-      <motion.div {...fadeUp(0.24)} className="rounded-2xl border p-6"
-        style={{ background: '#111118', borderColor: '#1e1e2e' }}
-        >
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(124,110,247,0.1)', border: '1px solid rgba(124,110,247,0.3)' }}>
-            <Shield size={16} style={{ color: '#9d8fff' }} />
-          </div>
-          <h2 className="font-bold" data-tour="config-seguranca" style={{ fontFamily: 'Syne, sans-serif' }}>Segurança</h2>
-        </div>
-
-        <div className="flex flex-col divide-y" style={{ ['--tw-divide-opacity' as any]: 1 }}>
-          <motion.button whileHover={{ x: 2 }} onClick={() => setShowPasswordModal(true)}
-            className="flex items-center justify-between py-3.5 w-full text-left">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: '#0d0d14', border: '1px solid #1e1e2e' }}>
-                <Key size={14} style={{ color: '#6b6b8a' }} />
-              </div>
-              <div>
-                <p className="text-sm font-medium" style={{ color: '#d0d0e0' }}>Alterar senha</p>
-                <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>Enviar link de redefinição por email</p>
-              </div>
-            </div>
-            <ChevronRight size={15} style={{ color: '#4a4a6a' }} />
-          </motion.button>
-
-          <motion.button whileHover={{ x: 2 }} onClick={handleSignOut}
-            className="flex items-center justify-between py-3.5 w-full text-left">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)' }}>
-                <LogOut size={14} style={{ color: '#f87171' }} />
-              </div>
-              <div>
-                <p className="text-sm font-medium" style={{ color: '#f87171' }}>Sair da conta</p>
-                <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>Encerrar sessão atual</p>
-              </div>
-            </div>
-            <ChevronRight size={15} style={{ color: '#4a4a6a' }} />
-          </motion.button>
-
-          <div className="pt-3.5">
-            <AnimatePresence>
-              {!showDeleteConfirm ? (
-                <motion.button exit={{ opacity: 0 }} whileHover={{ x: 2 }}
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="flex items-center gap-3 w-full text-left">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.1)' }}>
-                    <Trash2 size={14} style={{ color: '#f87171', opacity: 0.6 }} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: '#f87171', opacity: 0.6 }}>Excluir conta</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#4a4a6a' }}>Ação irreversível</p>
-                  </div>
-                </motion.button>
-              ) : (
-                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                  className="rounded-xl p-3"
-                  style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)' }}>
-                  <p className="text-sm font-semibold mb-1" style={{ color: '#f87171' }}>Confirmar exclusão?</p>
-                  <p className="text-xs mb-3" style={{ color: '#4a4a6a' }}>
-                    Todos os seus dados serão apagados permanentemente. Esta ação não pode ser desfeita.
-                  </p>
-                  <div className="flex gap-2">
-                    <button onClick={() => setShowDeleteConfirm(false)}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold"
-                      style={{ background: '#1a1a2a', color: '#6b6b8a' }}>
-                      Cancelar
-                    </button>
-                    <button onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login' }}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold"
-                      style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>
-                      Excluir conta
-                    </button>
-                  </div>
+                <motion.div initial={{ opacity: 0, scale: 0.9, x: 10 }} animate={{ opacity: 1, scale: 1, x: 0 }} exit={{ opacity: 0, scale: 0.9 }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold"
+                  style={{ background: `${T.green}12`, color: T.green, border: `1px solid ${T.green}28`, fontFamily: 'DM Sans, sans-serif' }}>
+                  <Check size={14} /> Salvo!
                 </motion.div>
               )}
             </AnimatePresence>
+          </motion.div>
+
+          <div className="flex gap-4 items-start">
+
+            {/* Desktop sidebar */}
+            <motion.div {...fadeUp(0.08)} className="w-52 shrink-0 hidden sm:block">
+              <SpotlightCard className="rounded-2xl overflow-hidden" style={card}>
+                <div className="p-2 flex flex-col gap-0.5">
+                  {TABS.map(({ key, label, icon: Icon }) => {
+                    const active = tab === key
+                    return (
+                      <motion.button key={key} whileHover={{ x: 2 }} whileTap={{ scale: 0.97 }}
+                        onClick={() => setTab(key)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm w-full text-left"
+                        style={{ background: active ? `${T.purple}14` : 'transparent', color: active ? T.violet : T.muted, border: `1px solid ${active ? `${T.purple}25` : 'transparent'}`, boxShadow: active ? `0 0 14px ${T.purple}12` : 'none', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'DM Sans, sans-serif' }}>
+                        <Icon size={14} />
+                        <span className="font-medium">{label}</span>
+                        {active && <ChevronRight size={12} className="ml-auto" />}
+                      </motion.button>
+                    )
+                  })}
+                  <div className="my-1.5 mx-2" style={{ borderTop: `1px solid ${T.border}` }} />
+                  <motion.button whileHover={{ x: 2 }} whileTap={{ scale: 0.97 }} onClick={handleLogout}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm w-full text-left"
+                    style={{ color: T.red, cursor: 'pointer', transition: 'background 0.15s', background: 'transparent', fontFamily: 'DM Sans, sans-serif' }}
+                    onMouseEnter={e => e.currentTarget.style.background = `${T.red}0a`}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <LogOut size={14} />
+                    <span className="font-medium">Sair</span>
+                  </motion.button>
+                </div>
+              </SpotlightCard>
+            </motion.div>
+
+            {/* Mobile tab bar */}
+            <div className="sm:hidden flex gap-1 overflow-x-auto pb-1 w-full shrink-0">
+              {TABS.map(({ key, label, icon: Icon }) => (
+                <button key={key} onClick={() => setTab(key)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shrink-0"
+                  style={{ background: tab === key ? `${T.purple}14` : 'rgba(255,255,255,0.03)', color: tab === key ? T.violet : T.muted, border: `1px solid ${tab === key ? `${T.purple}25` : T.border}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'DM Sans, sans-serif' }}>
+                  <Icon size={12} />{label}
+                </button>
+              ))}
+            </div>
+
+            {/* Content panel */}
+            <AnimatePresence mode="wait">
+              <motion.div key={tab} initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.28 }} className="flex-1 min-w-0">
+                <SpotlightCard className="rounded-2xl" style={card}>
+
+                  {/* ── PERFIL ── */}
+                  {tab === 'perfil' && (
+                    <div className="p-6">
+                      <h2 className="font-bold text-base mb-5" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Dados pessoais</h2>
+
+                      {/* Avatar */}
+                      <div className="flex items-center gap-4 mb-6 pb-6" style={{ borderBottom: `1px solid ${T.border}` }}>
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold relative overflow-hidden"
+                          style={{ background: `linear-gradient(135deg, ${T.purple}28, #a06ef7 28)`, border: `1px solid ${T.purple}35`, color: T.violet, boxShadow: `0 0 28px ${T.purple}22`, fontFamily: 'Syne, sans-serif' }}>
+                          <GlowCorner color={`${T.violet}25`} position="bottom-right" />
+                          {profileForm.full_name?.charAt(0)?.toUpperCase() || userAuth?.email?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: T.text, fontFamily: 'DM Sans, sans-serif' }}>{profileForm.full_name || 'Seu nome'}</p>
+                          <p className="text-xs mt-0.5" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>{userAuth?.email}</p>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: T.green, boxShadow: `0 0 6px ${T.green}` }} />
+                            <span className="text-xs" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>Conta ativa</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-4">
+                        <div>
+                          <label style={lbl}>Nome completo</label>
+                          <input value={profileForm.full_name} onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })} placeholder="Seu nome completo" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                        </div>
+                        <div>
+                          <label style={lbl}>Email</label>
+                          <input value={profileForm.email} disabled style={{ ...inp, opacity: 0.45, cursor: 'not-allowed' }} />
+                          <p className="text-xs mt-1.5" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>O email não pode ser alterado por aqui</p>
+                        </div>
+                        <div>
+                          <label style={lbl}>Telefone</label>
+                          <input value={profileForm.phone} onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="(00) 00000-0000" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                        </div>
+                        <ShimmerButton onClick={saveProfile} disabled={saving}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold self-start"
+                          style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: '0 0 24px rgba(124,110,247,0.38)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                          {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <Save size={14} />}
+                          Salvar perfil
+                        </ShimmerButton>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── NEGÓCIO ── */}
+                  {tab === 'negocio' && (
+                    <div className="p-6">
+                      <h2 className="font-bold text-base mb-5" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Dados do negócio</h2>
+                      {!biz ? (
+                        <div className="py-10 text-center">
+                          <Building2 size={32} className="mx-auto mb-3" style={{ color: T.muted }} />
+                          <p className="text-sm" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>Nenhum negócio encontrado</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          <div>
+                            <label style={lbl}>Nome do negócio</label>
+                            <input value={bizForm.name} onChange={e => setBizForm({ ...bizForm, name: e.target.value })} placeholder="Nome da empresa" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label style={lbl}>Segmento</label>
+                              <input value={bizForm.segment} onChange={e => setBizForm({ ...bizForm, segment: e.target.value })} placeholder="Ex: Confeitaria" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                            </div>
+                            <div>
+                              <label style={lbl}>CNPJ</label>
+                              <input value={bizForm.cnpj} onChange={e => setBizForm({ ...bizForm, cnpj: e.target.value })} placeholder="00.000.000/0001-00" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                            </div>
+                          </div>
+                          <div>
+                            <label style={lbl}>Endereço</label>
+                            <input value={bizForm.address} onChange={e => setBizForm({ ...bizForm, address: e.target.value })} placeholder="Rua, número, cidade" style={inp} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <div>
+                            <label style={lbl}>Website</label>
+                            <input value={bizForm.website} onChange={e => setBizForm({ ...bizForm, website: e.target.value })} placeholder="https://..." style={inp} onFocus={focusIn} onBlur={focusOut} />
+                          </div>
+                          <ShimmerButton onClick={saveBiz} disabled={saving}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold self-start"
+                            style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: '0 0 24px rgba(124,110,247,0.38)', border: '1px solid rgba(255,255,255,0.1)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                            {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <Save size={14} />}
+                            Salvar negócio
+                          </ShimmerButton>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── NOTIFICAÇÕES ── */}
+                  {tab === 'notif' && (
+                    <div className="p-6">
+                      <h2 className="font-bold text-base mb-5" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Notificações</h2>
+                      <div className="flex flex-col gap-3">
+                        {[
+                          { key: 'email_reports',  label: 'Relatórios semanais',     desc: 'Resumo semanal do seu negócio por email',         color: T.violet },
+                          { key: 'task_reminders', label: 'Lembretes de tarefas',    desc: 'Alertas de tarefas com prazo próximo',             color: T.amber  },
+                          { key: 'payment_alerts', label: 'Alertas de pagamentos',   desc: 'Notificações de transações pendentes',             color: T.green  },
+                          { key: 'marketing',      label: 'Novidades do BossFlow',   desc: 'Atualizações e dicas de funcionalidades novas',    color: T.cyan   },
+                        ].map(({ key, label, desc, color }) => (
+                          <motion.div key={key} whileHover={{ x: 2 }}
+                            className="flex items-center justify-between p-4 rounded-xl"
+                            style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${T.border}` }}>
+                            <div className="flex items-start gap-3">
+                              <div className="w-1.5 h-1.5 rounded-full mt-2 shrink-0" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+                              <div>
+                                <p className="text-sm font-medium" style={{ color: T.text, fontFamily: 'DM Sans, sans-serif' }}>{label}</p>
+                                <p className="text-xs mt-0.5" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>{desc}</p>
+                              </div>
+                            </div>
+                            <Toggle on={notifForm[key as keyof typeof notifForm]} onChange={() => setNotifForm({ ...notifForm, [key]: !notifForm[key as keyof typeof notifForm] })} />
+                          </motion.div>
+                        ))}
+                        <ShimmerButton onClick={flash}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold self-start mt-1"
+                          style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: '0 0 24px rgba(124,110,247,0.38)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
+                          <Save size={14} /> Salvar preferências
+                        </ShimmerButton>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── SEGURANÇA ── */}
+                  {tab === 'seguranca' && (
+                    <div className="p-6 flex flex-col gap-5">
+                      <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif', color: T.text }}>Segurança</h2>
+
+                      {/* Alterar senha */}
+                      <SpotlightCard className="rounded-xl" spotlightColor={`${T.purple}12`}
+                        style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${T.border}`, backdropFilter: 'blur(8px)' }}>
+                        <div className="p-5">
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                              style={{ background: `${T.purple}14`, border: `1px solid ${T.purple}25` }}>
+                              <Key size={13} style={{ color: T.violet }} />
+                            </div>
+                            <p className="text-sm font-semibold" style={{ color: T.text, fontFamily: 'DM Sans, sans-serif' }}>Alterar senha</p>
+                          </div>
+                          <div className="flex flex-col gap-3">
+                            {(['new', 'confirm'] as const).map((f) => (
+                              <div key={f}>
+                                <label style={lbl}>{f === 'new' ? 'Nova senha' : 'Confirmar senha'}</label>
+                                <div className="flex items-center gap-2 rounded-xl"
+                                  style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`, transition: 'border-color 0.15s', padding: '0 12px' }}
+                                  onFocus={() => {}} >
+                                  <input type={showPass[f] ? 'text' : 'password'} value={passForm[f]}
+                                    onChange={e => setPassForm({ ...passForm, [f]: e.target.value })}
+                                    placeholder={f === 'new' ? 'Mínimo 6 caracteres' : 'Repita a senha'}
+                                    className="flex-1 bg-transparent py-2.5 text-sm outline-none"
+                                    style={{ color: T.text, fontFamily: 'DM Sans, sans-serif' }}
+                                    onFocus={e => (e.currentTarget.parentElement!.style.borderColor = T.borderP)}
+                                    onBlur={e => (e.currentTarget.parentElement!.style.borderColor = T.border)} />
+                                  <motion.button whileTap={{ scale: 0.9 }} type="button"
+                                    onClick={() => setShowPass(p => ({ ...p, [f]: !p[f] }))}
+                                    style={{ color: T.muted, cursor: 'pointer', background: 'none', border: 'none' }}>
+                                    {showPass[f] ? <EyeOff size={14} /> : <Eye size={14} />}
+                                  </motion.button>
+                                </div>
+                              </div>
+                            ))}
+                            <ShimmerButton onClick={savePassword} disabled={saving || !passForm.new}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold self-start"
+                              style={{ background: 'linear-gradient(135deg, #7c6ef7, #a06ef7)', color: 'white', boxShadow: '0 0 24px rgba(124,110,247,0.38)', border: '1px solid rgba(255,255,255,0.1)', cursor: (saving || !passForm.new) ? 'not-allowed' : 'pointer', opacity: (saving || !passForm.new) ? 0.5 : 1 }}>
+                              {saving ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <Key size={14} />}
+                              Atualizar senha
+                            </ShimmerButton>
+                          </div>
+                        </div>
+                      </SpotlightCard>
+
+                      {/* Session info */}
+                      <div className="flex items-center gap-3 p-4 rounded-xl"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: `${T.cyan}12`, border: `1px solid ${T.cyan}22` }}>
+                          <Smartphone size={14} style={{ color: T.cyan }} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium" style={{ color: T.text, fontFamily: 'DM Sans, sans-serif' }}>Sessão atual</p>
+                          <p className="text-xs mt-0.5" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>
+                            {userAuth?.email} · Última atividade agora
+                          </p>
+                        </div>
+                        <div className="ml-auto flex items-center gap-1.5">
+                          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: T.green }} />
+                          <span className="text-xs" style={{ color: T.green, fontFamily: 'DM Sans, sans-serif' }}>Ativo</span>
+                        </div>
+                      </div>
+
+                      {/* Danger zone */}
+                      <div className="p-4 rounded-xl" style={{ background: `${T.red}06`, border: `1px solid ${T.red}18` }}>
+                        <p className="text-sm font-semibold mb-1" style={{ color: T.red, fontFamily: 'Syne, sans-serif' }}>Zona de perigo</p>
+                        <p className="text-xs mb-4" style={{ color: T.muted, fontFamily: 'DM Sans, sans-serif' }}>Ações irreversíveis. Proceda com cuidado.</p>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={handleLogout}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
+                          style={{ background: `${T.red}12`, color: T.red, border: `1px solid ${T.red}25`, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                          <LogOut size={14} /> Sair da conta
+                        </motion.button>
+                      </div>
+                    </div>
+                  )}
+
+                </SpotlightCard>
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
-      </motion.div>
-
-      <AnimatePresence>
-        {showPasswordModal && <PasswordModal onClose={() => setShowPasswordModal(false)} />}
-      </AnimatePresence>
-
-    </div>
+      </BackgroundGrid>
+    </>
   )
 }

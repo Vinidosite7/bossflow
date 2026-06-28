@@ -1,134 +1,129 @@
 'use client'
 
-import { Sidebar } from '@/components/layout/Sidebar'
+import { SidebarDesktop, SidebarMobile, SidebarProvider, useSidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal'
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { T, BossFlowFonts, GrainFilter, PageBackground } from '@/components/ui/bossflow-ui'
+import * as Tooltip from '@radix-ui/react-tooltip'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+// ─── Inner layout (tem acesso ao SidebarContext) ─────────────
+function DashboardInner({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
+  const { collapsed } = useSidebar()
 
   const checkAuth = useCallback(async () => {
     try {
       const supabase = createClient()
-
-      // Tenta refresh da sessão antes de verificar
-      const { error: refreshError } = await supabase.auth.refreshSession()
-      
+      await supabase.auth.refreshSession()
       const { data: { user } } = await supabase.auth.getUser()
-
-      // Sem usuário válido → manda pro login
-      if (!user) {
-        router.replace('/login')
-        return
-      }
-
-      // Verifica onboarding
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('onboarding_done')
-        .eq('id', user.id)
-        .single()
-
-      if (!profile || !profile.onboarding_done) {
-        setShowOnboarding(true)
-      }
-
+      if (!user) { router.replace('/login'); return }
+      const { data: profile } = await supabase.from('profiles').select('onboarding_done').eq('id', user.id).single()
+      if (!profile || !profile.onboarding_done) setShowOnboarding(true)
       setAuthChecked(true)
-    } catch (err) {
-      console.error('Auth check failed:', err)
-      router.replace('/login')
-    }
+    } catch { router.replace('/login') }
   }, [router])
 
   useEffect(() => {
     checkAuth()
-
-    // Escuta mudanças de sessão em tempo real
     const supabase = createClient()
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
-        router.replace('/login')
-      }
+      if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) router.replace('/login')
     })
-
     return () => subscription.unsubscribe()
   }, [checkAuth])
 
-  function handleOnboardingComplete() {
-  setShowOnboarding(false)
-  router.refresh() // remonta a página e o tour dispara de novo
-}
+  function handleOnboardingComplete() { setShowOnboarding(false); router.refresh() }
 
-  // Enquanto não confirmou auth, não renderiza nada (evita flash de conteúdo)
   if (!authChecked) {
     return (
-      <div
-        className="flex h-screen items-center justify-center"
-        style={{ background: '#0a0a0f' }}
-      >
-        <div
-          className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
-          style={{ borderColor: '#7c6ef7', borderTopColor: 'transparent' }}
-        />
+      <div className="flex h-screen items-center justify-center" style={{ background: T.base }}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+            style={{ borderColor: `${T.emerald}25`, borderTopColor: T.emerald }} />
+          <p style={{ fontSize: 12, color: T.textMuted, fontFamily: 'DM Sans, sans-serif' }}>Carregando...</p>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#0a0a0f' }}>
-      {/* Sidebar - só desktop */}
-      <div className="hidden md:flex">
-        <Sidebar />
+    <div className="flex h-screen overflow-hidden" style={{ background: T.base }}>
+
+      {/* ── Sidebar desktop ────────────────────────────────── */}
+      <div className="hidden md:flex shrink-0">
+        <SidebarDesktop />
       </div>
 
-      {/* Drawer mobile */}
+      {/* ── Mobile drawer ──────────────────────────────────── */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className="fixed inset-0 z-40 md:hidden"
-              style={{ background: 'rgba(0,0,0,0.75)' }}
+              style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
               onClick={() => setMobileMenuOpen(false)}
             />
             <motion.div
-              initial={{ x: -280 }}
-              animate={{ x: 0 }}
-              exit={{ x: -280 }}
-              transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+              initial={{ x: -260 }} animate={{ x: 0 }} exit={{ x: -260 }}
+              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
               className="fixed left-0 top-0 bottom-0 z-50 md:hidden"
-            >
-              <Sidebar onClose={() => setMobileMenuOpen(false)} />
+              style={{ boxShadow: '8px 0 40px rgba(0,0,0,0.5)' }}>
+              <SidebarMobile onClose={() => setMobileMenuOpen(false)} />
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
+      {/* ── Conteúdo — ocupa TODO o espaço restante ────────── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header onMenuClick={() => setMobileMenuOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6" style={{ background: '#0a0a0f' }}>
-          <div className="max-w-7xl mx-auto">
+
+        {/*
+          O main usa flex-1 e overflow-y-auto.
+          O conteúdo dentro usa max-w centralizado.
+          Quando a sidebar anima de 56px→224px o flex-1
+          se ajusta automaticamente junto com a animação.
+        */}
+        <main
+          className="flex-1 overflow-y-auto"
+          style={{ background: T.base, padding: '24px' }}>
+          <div style={{
+            maxWidth: 1200,
+            margin: '0 auto',
+            width: '100%',
+          }}>
             {children}
           </div>
         </main>
       </div>
 
-      {/* Onboarding */}
+      {/* ── Onboarding ────────────────────────────────────── */}
       <AnimatePresence>
-        {showOnboarding && (
-          <OnboardingModal onComplete={handleOnboardingComplete} />
-        )}
+        {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
       </AnimatePresence>
     </div>
+  )
+}
+
+// ─── Layout wrapper com providers ─────────────────────────────
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <SidebarProvider>
+      <Tooltip.Provider>
+        <BossFlowFonts />
+        <GrainFilter />
+        <PageBackground />
+        <DashboardInner>{children}</DashboardInner>
+      </Tooltip.Provider>
+    </SidebarProvider>
   )
 }
